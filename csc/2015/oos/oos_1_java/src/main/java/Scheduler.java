@@ -7,13 +7,11 @@ import java.util.concurrent.Callable;
  */
 public class Scheduler {
 
-    private final int threadCount;
     private final WorkerThread[] threads;
     private final List<TaskFuture<Long>> futures = new ArrayList<>();
     private final Map<Long, TaskFuture<Long>> allFutures = new HashMap<>();
 
     public Scheduler(int threadCount) {
-        this.threadCount = threadCount;
         threads = new WorkerThread[threadCount];
 
         for (WorkerThread thread : threads) {

@@ -1,5 +1,4 @@
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 
 /**
@@ -35,18 +34,9 @@ public class CommandFactory {
     }
 
     public static class AddCommand implements Command {
-//        private final Runnable runnable;
         private final Callable<Optional> callable;
 
         public AddCommand(long duration) {
-//            runnable = () -> {
-//                try {
-//                    Thread.sleep(duration);
-//                } catch (InterruptedException e) {
-////                    LogWrapper.i("");
-//                }
-//            };
-//
             callable = () -> {
                 Thread.sleep(duration);
                 return Optional.empty();
@@ -56,10 +46,6 @@ public class CommandFactory {
         public Callable<Optional> getCallable() {
             return callable;
         }
-
-        //        public Runnable getRunnable() {
-//            return runnable;
-//        }
 
         @Override
         public CommandType getType() {
@@ -122,7 +108,7 @@ public class CommandFactory {
                 return new InterruptCommand(Long.parseLong(args[1]));
             default: {
                 return null;
-                //                FIXME: replace null with Optional
+                // FIXME: replace null with Optional
             }
         }
     }

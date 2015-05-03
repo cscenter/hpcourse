@@ -1,11 +1,11 @@
-import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by olgaoskina
  * 03 May 2015
  */
-public class TaskFuture<Type> implements Future<Type> {
+public class TaskFuture<Type> {
 
     public enum Status {
         WAITING("WAITING"), RUNNING("RUNNING"), INTERRUPTED("INTERRUPTED"), COMPLETED("COMPLETED");
@@ -56,28 +56,11 @@ public class TaskFuture<Type> implements Future<Type> {
         status = Status.INTERRUPTED;
     }
 
-    @Override
-    public boolean cancel(boolean mayInterruptIfRunning) {
-        return false;
-    }
-
-    @Override
-    public boolean isCancelled() {
-        return false;
-    }
-
-    @Override
-    public boolean isDone() {
-        return false;
-    }
-
-    @Override
-    public Type get() throws InterruptedException, ExecutionException {
+    public Type get() throws Exception {
         return null;
     }
 
-    @Override
-    public Type get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+    public Type get(long timeout, TimeUnit unit) throws Exception {
         return null;
     }
 }
