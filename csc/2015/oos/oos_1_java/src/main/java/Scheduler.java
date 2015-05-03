@@ -1,7 +1,4 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.Future;
+import java.util.*;
 
 /**
  * Created by olgaoskina
@@ -12,6 +9,7 @@ public class Scheduler {
     private final int threadCount;
     private final WorkerThread[] threads;
     private final List<TaskFuture<UUID>> futures = new ArrayList<>();
+    private final Map<UUID, TaskFuture<UUID>> allFutures = new HashMap<>();
 
     public Scheduler(int threadCount) {
         this.threadCount = threadCount;
@@ -26,11 +24,17 @@ public class Scheduler {
     public TaskFuture<UUID> submit(Runnable task) {
         TaskFuture<UUID> taskFuture = new TaskFuture<>();
         taskFuture.setTask(task);
+        taskFuture.setStatus(TaskFuture.Status.WAITING);
+        allFutures.put(taskFuture.getId(), taskFuture);
         synchronized (futures) {
             futures.add(taskFuture);
             futures.notify();
         }
         return taskFuture;
+    }
+
+    public Optional<TaskFuture<UUID>> getFutureById(UUID id) {
+        return Optional.ofNullable(allFutures.get(id));
     }
 
     public class WorkerThread extends Thread {
@@ -49,9 +53,10 @@ public class Scheduler {
                     future = futures.remove(0);
                 }
                 future.setThread(this);
-                // TODO: change status
+                future.setStatus(TaskFuture.Status.RUNNING);
                 try {
                     future.getTask().run();
+                    future.setStatus(TaskFuture.Status.COMPLETED);
                 } catch (RuntimeException e) {
                     // If we don't catch RuntimeException,
                     // the pool could leak threads

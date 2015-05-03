@@ -10,9 +10,25 @@ import java.util.concurrent.TimeoutException;
  */
 public class TaskFuture<Type> implements Future<Type> {
 
+    public enum Status {
+        WAITING("WAITING"), RUNNING("RUNNING"), INTERRUPTED("INTERRUPTED"), COMPLETED("COMPLETED");
+
+        private final String nameStatus;
+
+        private Status(String nameStatus) {
+            this.nameStatus = nameStatus;
+        }
+
+        @Override
+        public String toString() {
+            return nameStatus;
+        }
+    }
+
     private Runnable task;
     private Scheduler.WorkerThread thread;
     private final UUID id = UUID.randomUUID();
+    private Status status;
 
     public void setTask(Runnable task) {
         this.task = task;
@@ -22,16 +38,20 @@ public class TaskFuture<Type> implements Future<Type> {
         return task;
     }
 
-    public Scheduler.WorkerThread getThread() {
-        return thread;
-    }
-
     public void setThread(Scheduler.WorkerThread thread) {
         this.thread = thread;
     }
 
     public UUID getId() {
         return id;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
     @Override

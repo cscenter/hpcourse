@@ -5,7 +5,9 @@ import org.apache.log4j.PropertyConfigurator;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.FutureTask;
 
 /**
  * Created by olgaoskina
@@ -51,12 +53,17 @@ public class RunScheduler {
                         CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
                         TaskFuture<UUID> future = scheduler.submit(addCommand.getRunnable());
 //                        LogWrapper.i("Added task: " + scheduler.addTask(addCommand.getDuration()));
-                        LogWrapper.i("Added task: " + future.getId());
+                        LogWrapper.i("ADDED TASK: " + future.getId());
                         break;
                     }
                     case STATUS: {
                         CommandFactory.StatusCommand statusCommand = (CommandFactory.StatusCommand) command;
-//                        scheduler.getStatus(statusCommand.getId());
+                        Optional<TaskFuture<UUID>> future = scheduler.getFutureById(statusCommand.getId());
+                        if(future.isPresent()) {
+                            LogWrapper.i("TASK: " + future.get().getId() + " STATUS: " + future.get().getStatus());
+                        } else {
+                            LogWrapper.w("There is no task with id: " + statusCommand.getId());
+                        }
                         break;
                     }
                     case INTERRUPT: {
