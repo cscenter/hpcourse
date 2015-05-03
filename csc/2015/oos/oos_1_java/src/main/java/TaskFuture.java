@@ -1,8 +1,5 @@
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
 /**
  * Created by olgaoskina
@@ -25,16 +22,16 @@ public class TaskFuture<Type> implements Future<Type> {
         }
     }
 
-    private Runnable task;
+    private Callable task;
     private Scheduler.WorkerThread thread;
     private final UUID id = UUID.randomUUID();
     private Status status;
 
-    public void setTask(Runnable task) {
+    public void setTask(Callable task) {
         this.task = task;
     }
 
-    public Runnable getTask() {
+    public Callable getTask() {
         return task;
     }
 

@@ -1,4 +1,6 @@
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 /**
  * Created by olgaoskina
@@ -33,21 +35,31 @@ public class CommandFactory {
     }
 
     public static class AddCommand implements Command {
-        private final Runnable runnable;
+//        private final Runnable runnable;
+        private final Callable<Optional> callable;
 
         public AddCommand(long duration) {
-            runnable = () -> {
-                try {
-                    Thread.sleep(duration);
-                } catch (InterruptedException e) {
-//                    LogWrapper.i("");
-                }
+//            runnable = () -> {
+//                try {
+//                    Thread.sleep(duration);
+//                } catch (InterruptedException e) {
+////                    LogWrapper.i("");
+//                }
+//            };
+//
+            callable = () -> {
+                Thread.sleep(duration);
+                return Optional.empty();
             };
         }
 
-        public Runnable getRunnable() {
-            return runnable;
+        public Callable<Optional> getCallable() {
+            return callable;
         }
+
+        //        public Runnable getRunnable() {
+//            return runnable;
+//        }
 
         @Override
         public CommandType getType() {

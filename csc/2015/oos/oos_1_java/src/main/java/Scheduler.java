@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.Callable;
 
 /**
  * Created by olgaoskina
@@ -21,7 +22,7 @@ public class Scheduler {
         }
     }
 
-    public TaskFuture<UUID> submit(Runnable task) {
+    public TaskFuture<UUID> submit(Callable task) {
         TaskFuture<UUID> taskFuture = new TaskFuture<>();
         taskFuture.setTask(task);
         taskFuture.setStatus(TaskFuture.Status.WAITING);
@@ -76,8 +77,12 @@ public class Scheduler {
                 future.setThread(this);
                 future.setStatus(TaskFuture.Status.RUNNING);
                 try {
-                    future.getTask().run();
-                    future.setStatus(TaskFuture.Status.COMPLETED);
+                    try {
+                        future.getTask().call();
+                        future.setStatus(TaskFuture.Status.COMPLETED);
+                    } catch (Exception e) {
+                        future.setStatus(TaskFuture.Status.INTERRUPTED);
+                    }
                 } catch (RuntimeException e) {
                     // If we don't catch RuntimeException,
                     // the pool could leak threads
