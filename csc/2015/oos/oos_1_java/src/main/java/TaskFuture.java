@@ -54,6 +54,11 @@ public class TaskFuture<Type> implements Future<Type> {
         this.status = status;
     }
 
+    public void interrupt() {
+        thread.interrupt();
+        status = Status.INTERRUPTED;
+    }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         return false;

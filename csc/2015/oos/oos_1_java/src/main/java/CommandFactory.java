@@ -40,7 +40,7 @@ public class CommandFactory {
                 try {
                     Thread.sleep(duration);
                 } catch (InterruptedException e) {
-                    LogWrapper.e(e);
+//                    LogWrapper.i("");
                 }
             };
         }

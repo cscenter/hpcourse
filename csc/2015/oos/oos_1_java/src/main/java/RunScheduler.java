@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.FutureTask;
 
 /**
  * Created by olgaoskina
@@ -52,15 +51,14 @@ public class RunScheduler {
                     case ADD: {
                         CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
                         TaskFuture<UUID> future = scheduler.submit(addCommand.getRunnable());
-//                        LogWrapper.i("Added task: " + scheduler.addTask(addCommand.getDuration()));
                         LogWrapper.i("ADDED TASK: " + future.getId());
                         break;
                     }
                     case STATUS: {
                         CommandFactory.StatusCommand statusCommand = (CommandFactory.StatusCommand) command;
-                        Optional<TaskFuture<UUID>> future = scheduler.getFutureById(statusCommand.getId());
-                        if(future.isPresent()) {
-                            LogWrapper.i("TASK: " + future.get().getId() + " STATUS: " + future.get().getStatus());
+                        Optional<TaskFuture.Status> status = scheduler.getStatus(statusCommand.getId());
+                        if (status.isPresent()) {
+                            LogWrapper.i("TASK: " + statusCommand.getId() + " STATUS: " + status.get());
                         } else {
                             LogWrapper.w("There is no task with id: " + statusCommand.getId());
                         }
@@ -68,11 +66,15 @@ public class RunScheduler {
                     }
                     case INTERRUPT: {
                         CommandFactory.InterruptCommand interruptCommand = (CommandFactory.InterruptCommand) command;
-//                        scheduler.interrupt(interruptCommand.getId());
+                        if (scheduler.interrupt(interruptCommand.getId())) {
+                            LogWrapper.i("TASK: " + interruptCommand.getId() + " INTERRUPTED");
+                        } else {
+                            LogWrapper.w("There is no task with id: " + interruptCommand.getId());
+                        }
                         break;
                     }
                     case EXIT: {
-//                        scheduler.interruptAll();
+                        //                        scheduler.interruptAll();
                         break;
                     }
                 }

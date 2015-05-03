@@ -37,6 +37,27 @@ public class Scheduler {
         return Optional.ofNullable(allFutures.get(id));
     }
 
+    public Optional<TaskFuture.Status> getStatus(UUID id) {
+        Optional<TaskFuture<UUID>> future = getFutureById(id);
+        if (future.isPresent()) {
+            return Optional.of(future.get().getStatus());
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    public boolean interrupt(UUID id) {
+        Optional<TaskFuture<UUID>> mayBeFuture = getFutureById(id);
+        if (mayBeFuture.isPresent()) {
+//            TODO: COMPLETED?
+            TaskFuture<UUID> future = mayBeFuture.get();
+            future.interrupt();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public class WorkerThread extends Thread {
         @Override
         public void run() {
