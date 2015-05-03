@@ -24,7 +24,7 @@ public class TaskFuture<Type> implements Future<Type> {
 
     private Callable task;
     private Scheduler.WorkerThread thread;
-    private final UUID id = UUID.randomUUID();
+    private final long id = UniqueID.createID();
     private Status status;
 
     public void setTask(Callable task) {
@@ -39,7 +39,7 @@ public class TaskFuture<Type> implements Future<Type> {
         this.thread = thread;
     }
 
-    public UUID getId() {
+    public long getId() {
         return id;
     }
 

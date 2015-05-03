@@ -9,8 +9,8 @@ public class Scheduler {
 
     private final int threadCount;
     private final WorkerThread[] threads;
-    private final List<TaskFuture<UUID>> futures = new ArrayList<>();
-    private final Map<UUID, TaskFuture<UUID>> allFutures = new HashMap<>();
+    private final List<TaskFuture<Long>> futures = new ArrayList<>();
+    private final Map<Long, TaskFuture<Long>> allFutures = new HashMap<>();
 
     public Scheduler(int threadCount) {
         this.threadCount = threadCount;
@@ -22,8 +22,8 @@ public class Scheduler {
         }
     }
 
-    public TaskFuture<UUID> submit(Callable task) {
-        TaskFuture<UUID> taskFuture = new TaskFuture<>();
+    public TaskFuture<Long> submit(Callable task) {
+        TaskFuture<Long> taskFuture = new TaskFuture<>();
         taskFuture.setTask(task);
         taskFuture.setStatus(TaskFuture.Status.WAITING);
         allFutures.put(taskFuture.getId(), taskFuture);
@@ -34,12 +34,12 @@ public class Scheduler {
         return taskFuture;
     }
 
-    public Optional<TaskFuture<UUID>> getFutureById(UUID id) {
+    public Optional<TaskFuture<Long>> getFutureById(long id) {
         return Optional.ofNullable(allFutures.get(id));
     }
 
-    public Optional<TaskFuture.Status> getStatus(UUID id) {
-        Optional<TaskFuture<UUID>> future = getFutureById(id);
+    public Optional<TaskFuture.Status> getStatus(long id) {
+        Optional<TaskFuture<Long>> future = getFutureById(id);
         if (future.isPresent()) {
             return Optional.of(future.get().getStatus());
         } else {
@@ -47,11 +47,11 @@ public class Scheduler {
         }
     }
 
-    public boolean interrupt(UUID id) {
-        Optional<TaskFuture<UUID>> mayBeFuture = getFutureById(id);
+    public boolean interrupt(long id) {
+        Optional<TaskFuture<Long>> mayBeFuture = getFutureById(id);
         if (mayBeFuture.isPresent()) {
 //            TODO: COMPLETED?
-            TaskFuture<UUID> future = mayBeFuture.get();
+            TaskFuture<Long> future = mayBeFuture.get();
             future.interrupt();
             return true;
         } else {
@@ -63,7 +63,7 @@ public class Scheduler {
         @Override
         public void run() {
             while (true) {
-                TaskFuture<UUID> future;
+                TaskFuture<Long> future;
                 synchronized (futures) {
                     while (futures.isEmpty()) {
                         try {

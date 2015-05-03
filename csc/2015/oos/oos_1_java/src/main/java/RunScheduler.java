@@ -50,7 +50,7 @@ public class RunScheduler {
                 switch (command.getType()) {
                     case ADD: {
                         CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
-                        TaskFuture<UUID> future = scheduler.submit(addCommand.getCallable());
+                        TaskFuture<Long> future = scheduler.submit(addCommand.getCallable());
                         LogWrapper.i("ADDED TASK: " + future.getId());
                         break;
                     }

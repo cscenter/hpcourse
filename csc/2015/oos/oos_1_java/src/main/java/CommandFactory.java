@@ -68,13 +68,13 @@ public class CommandFactory {
     }
 
     public static class StatusCommand implements Command {
-        private final UUID id;
+        private final long id;
 
-        public StatusCommand(UUID id) {
+        public StatusCommand(long id) {
             this.id = id;
         }
 
-        public UUID getId() {
+        public long getId() {
             return id;
         }
 
@@ -85,13 +85,13 @@ public class CommandFactory {
     }
 
     public static class InterruptCommand implements Command {
-        private final UUID id;
+        private final long id;
 
-        public InterruptCommand(UUID id) {
+        public InterruptCommand(long id) {
             this.id = id;
         }
 
-        public UUID getId() {
+        public long getId() {
             return id;
         }
 
@@ -117,9 +117,9 @@ public class CommandFactory {
             case EXIT:
                 return new ExitCommand();
             case STATUS:
-                return new StatusCommand(UUID.fromString(args[1]));
+                return new StatusCommand(Long.parseLong(args[1]));
             case INTERRUPT:
-                return new InterruptCommand(UUID.fromString(args[1]));
+                return new InterruptCommand(Long.parseLong(args[1]));
             default: {
                 return null;
                 //                FIXME: replace null with Optional
