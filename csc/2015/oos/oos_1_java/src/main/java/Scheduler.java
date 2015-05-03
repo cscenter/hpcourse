@@ -50,7 +50,7 @@ public class Scheduler {
     public boolean interrupt(long id) {
         Optional<TaskFuture<Long>> mayBeFuture = getFutureById(id);
         if (mayBeFuture.isPresent()) {
-//            TODO: COMPLETED?
+            //            TODO: COMPLETED?
             TaskFuture<Long> future = mayBeFuture.get();
             future.interrupt();
             return true;
@@ -59,10 +59,22 @@ public class Scheduler {
         }
     }
 
+    public void exit() {
+        synchronized (futures) {
+            futures.clear();
+        }
+        for (WorkerThread thread : threads) {
+            thread.setKill(true);
+            thread.interrupt();
+        }
+    }
+
     public class WorkerThread extends Thread {
+        private boolean isKill = false;
+
         @Override
         public void run() {
-            while (true) {
+            while (!isKill) {
                 TaskFuture<Long> future;
                 synchronized (futures) {
                     while (futures.isEmpty()) {
@@ -88,6 +100,10 @@ public class Scheduler {
                     // the pool could leak threads
                 }
             }
+        }
+
+        public void setKill(boolean isKill) {
+            this.isKill = isKill;
         }
     }
 }

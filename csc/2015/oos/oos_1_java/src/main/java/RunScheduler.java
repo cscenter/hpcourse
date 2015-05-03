@@ -6,7 +6,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Created by olgaoskina
@@ -41,10 +40,9 @@ public class RunScheduler {
     public void work() {
         Scheduler scheduler = new Scheduler(threadCount);
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        boolean exit = false;
 
-
-        // FIXME: replace true
-        while (true) {
+        while (!exit) {
             try {
                 CommandFactory.Command command = CommandFactory.parseCommand(reader.readLine());
                 switch (command.getType()) {
@@ -74,7 +72,8 @@ public class RunScheduler {
                         break;
                     }
                     case EXIT: {
-                        //                        scheduler.interruptAll();
+                        scheduler.exit();
+                        exit = true;
                         break;
                     }
                 }
