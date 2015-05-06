@@ -19,6 +19,7 @@ public class Main {
 
             pw.println("possible commands:");
             pw.println("add N, where N - integer amount of seconds of task");
+            pw.println("rec N, where N - integer amount of seconds of task");
             pw.println("cancell ID, where ID is integer number of task");
             pw.println("status ID, where ID is integer number of task");
             pw.println("exit, to ShutDown Scheduler");
@@ -45,7 +46,18 @@ public class Main {
                     pw.println("adding task with ID " + Integer.toString(taskNumber));
 
                     try {
-                        tasks.put(taskNumber, scheduler.addTask(new Task(n, Integer.toString(taskNumber)), taskNumber));
+                        tasks.put(taskNumber, scheduler.addTask(new Task(n * 1000, Integer.toString(taskNumber)), taskNumber));
+                    }
+                    catch (Exception e) {
+                        pw.println(e.getMessage());
+                    }
+                }
+                else if (command.contains("rec")) {
+                    int n = Integer.decode(command.replace("rec ", ""));
+                    int taskNumber = ++tasksCount;
+                    pw.println("rec task with ID " + Integer.toString(taskNumber));
+                    try {
+                        tasks.put(taskNumber, scheduler.addTask(new RecursiveTask(n * 1000, Integer.toString(taskNumber), scheduler), taskNumber));
                     }
                     catch (Exception e) {
                         pw.println(e.getMessage());

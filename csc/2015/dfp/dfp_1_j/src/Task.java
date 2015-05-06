@@ -4,13 +4,13 @@ import java.util.concurrent.ForkJoinPool;
  * Created by philipp on 01.05.15.
  */
 public class Task implements Runnable {
-    private static int sleepTime = 200;
+    protected static int sleepTime = 200;
 
-    private int miliSeconds;
-    private String name;
+    public int miliSeconds;
+    public String name;
 
-    public Task(int seconds, String name) {
-        miliSeconds = seconds * 1000;
+    public Task(int miliSeconds, String name) {
+        this.miliSeconds = miliSeconds;
         this.name = name;
     }
 
