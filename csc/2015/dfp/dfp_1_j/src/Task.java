@@ -1,3 +1,4 @@
+import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 
 /**
@@ -17,6 +18,8 @@ public class Task implements Runnable {
     @Override
     public void run() {
 //        System.out.println(name);
+//        List a = null; // для теста на исключение
+//        a.get(5);
         while (miliSeconds > 0) {
             miliSeconds -= sleepTime;
 

@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -20,7 +21,7 @@ public class ConcurrentScheduler {
     private final Object FUTURES = new Object();
 
     enum Status {
-        NOT_STARTED, IN_PROGRESS, CANCELLED, DONE
+        NOT_STARTED, IN_PROGRESS, CANCELLED, DONE, FAIL
     }
 
 
@@ -116,7 +117,8 @@ public class ConcurrentScheduler {
                         else {
                             statusChildWork = Status.DONE;
                         }
-                        if (statusChildWork != Status.DONE && statusChildWork != Status.CANCELLED) { // если у этой задачи не выполнена подзадача или не отменена, то кладём в очередь обратно,
+                        if (statusChildWork != Status.DONE && statusChildWork != Status.CANCELLED && statusChildWork != Status.FAIL) {
+                        // если у этой задачи не выполнена подзадача или не отменена, или не вылетело исключение, то кладём в очередь обратно,
                             worksDeque.offer(currentWork);
                             continue; // и пытаемся по новой взять задачу
                         } else {
@@ -148,6 +150,10 @@ public class ConcurrentScheduler {
                             continue;
                         }
                     }
+                } catch (Exception e) {
+                    // В задаче вылетел эксепшн
+                    currentWork.future.setStatus(Status.FAIL);
+                    continue;
                 }
                 synchronized (currentWork){} // чтобы не перешёл на следующую, если пытаемся отменить выполняемую им задачу
                 if (interrupted()) {
