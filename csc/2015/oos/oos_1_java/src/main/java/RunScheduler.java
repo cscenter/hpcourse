@@ -45,46 +45,62 @@ public class RunScheduler {
         while (!exit) {
             try {
                 CommandFactory.Command command = CommandFactory.parseCommand(reader.readLine());
-                switch (command.getType()) {
-                    case ADD: {
-                        CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
-                        TaskFuture future = scheduler.submit(addCommand.getCallable());
-                        LogWrapper.i("ADDED TASK: " + future.getId());
-                        break;
-                    }
-                    case STATUS: {
-                        CommandFactory.StatusCommand statusCommand = (CommandFactory.StatusCommand) command;
-                        Optional<TaskFuture.Status> status = scheduler.getStatus(statusCommand.getId());
-                        if (status.isPresent()) {
-                            LogWrapper.i("TASK: " + statusCommand.getId() + " STATUS: " + status.get());
-                        } else {
-                            LogWrapper.w("There is no task with id: " + statusCommand.getId());
+                if (command == null) {
+                    LogWrapper.w("There is no such command");
+                } else {
+                    switch (command.getType()) {
+                        case ADD: {
+                            CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
+                            TaskFuture future = scheduler.submit(addCommand.getCallable());
+                            LogWrapper.i("ADDED TASK: " + future.getId());
+                            break;
                         }
-                        break;
-                    }
-                    case INTERRUPT: {
-                        CommandFactory.InterruptCommand interruptCommand = (CommandFactory.InterruptCommand) command;
-                        if (scheduler.interrupt(interruptCommand.getId())) {
-                            LogWrapper.i("TASK: " + interruptCommand.getId() + " INTERRUPTED");
-                        } else {
-                            LogWrapper.w("There is no task with id: " + interruptCommand.getId());
+                        case STATUS: {
+                            CommandFactory.StatusCommand statusCommand = (CommandFactory.StatusCommand) command;
+                            Optional<TaskFuture.Status> status = scheduler.getStatus(statusCommand.getId());
+                            if (status.isPresent()) {
+                                LogWrapper.i("TASK: " + statusCommand.getId() + " STATUS: " + status.get());
+                            } else {
+                                LogWrapper.w("There is no task with id: " + statusCommand.getId());
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case RESULT: {
-                        CommandFactory.ResultCommand resultCommand = (CommandFactory.ResultCommand) command;
-                        Optional<Long> mayBeResult = scheduler.getResult(resultCommand.getId());
-                        if (mayBeResult.isPresent()) {
-                            LogWrapper.i("RESULT OF TASK: " + resultCommand.getId() + " IS " + mayBeResult.get());
-                        } else {
-                            LogWrapper.w("There is no task with id: " + resultCommand.getId());
+                        case INTERRUPT: {
+                            CommandFactory.InterruptCommand interruptCommand = (CommandFactory.InterruptCommand) command;
+                            if (scheduler.interrupt(interruptCommand.getId())) {
+                                LogWrapper.i("TASK: " + interruptCommand.getId() + " INTERRUPTED");
+                            } else {
+                                LogWrapper.w("There is no task with id: " + interruptCommand.getId());
+                                LogWrapper.w("Or task with id: " + interruptCommand.getId() + " is not int RUNNING status");
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case EXIT: {
-                        scheduler.exit();
-                        exit = true;
-                        break;
+                        case RESULT: {
+                            CommandFactory.ResultCommand resultCommand = (CommandFactory.ResultCommand) command;
+                            Optional<Long> mayBeResult = scheduler.getResult(resultCommand.getId());
+                            if (mayBeResult.isPresent()) {
+                                LogWrapper.i("RESULT OF TASK: " + resultCommand.getId() + " IS " + mayBeResult.get());
+                            } else {
+                                LogWrapper.w("There is no task with id: " + resultCommand.getId());
+                            }
+                            break;
+                        }
+                        case EXCEPTION: {
+                            CommandFactory.ExceptionCommand exceptionCommand = (CommandFactory.ExceptionCommand) command;
+                            Optional<Exception> mayBeResult = scheduler.getInternalException(exceptionCommand.getId());
+                            if (mayBeResult.isPresent()) {
+                                LogWrapper.i("EXCEPTION OF TASK: " + exceptionCommand.getId() + " IS " + mayBeResult.get().toString());
+                            } else {
+                                LogWrapper.w("There is no task with id: " + exceptionCommand.getId());
+                            }
+                            break;
+                        }
+                        case EXIT: {
+                            scheduler.exit();
+                            exit = true;
+                            LogWrapper.i("Goodbye :)");
+                            break;
+                        }
                     }
                 }
             } catch (IOException e) {

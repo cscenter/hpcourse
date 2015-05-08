@@ -14,9 +14,9 @@ public class Scheduler {
     public Scheduler(int threadCount) {
         threads = new WorkerThread[threadCount];
 
-        for (WorkerThread thread : threads) {
-            thread = new WorkerThread();
-            thread.start();
+        for (int i = 0; i < threads.length; i++) {
+            threads[i] = new WorkerThread();
+            threads[i].start();
         }
     }
 
@@ -47,8 +47,7 @@ public class Scheduler {
 
     public boolean interrupt(long id) {
         Optional<TaskFuture> mayBeFuture = getFutureById(id);
-        if (mayBeFuture.isPresent()) {
-            //            TODO: COMPLETED?
+        if (mayBeFuture.isPresent() && mayBeFuture.get().getStatus() == TaskFuture.Status.RUNNING) {
             TaskFuture future = mayBeFuture.get();
             future.interrupt();
             return true;
@@ -68,9 +67,20 @@ public class Scheduler {
     }
 
     public Optional<Long> getResult(long id) {
-        TaskFuture future = allFutures.get(id);
-        if (future != null) {
-            return Optional.of(future.get());
+        Optional<TaskFuture> mayBeFuture = getFutureById(id);
+
+        if (mayBeFuture.isPresent()) {
+            return Optional.of(mayBeFuture.get().get());
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Exception> getInternalException(Long id) {
+        Optional<TaskFuture> mayBeFuture = getFutureById(id);
+
+        if (mayBeFuture.isPresent()) {
+            return Optional.of(mayBeFuture.get().getInternalException());
         } else {
             return Optional.empty();
         }
@@ -84,12 +94,15 @@ public class Scheduler {
             while (!isKill) {
                 TaskFuture future;
                 synchronized (futures) {
-                    while (futures.isEmpty()) {
+                    while (futures.isEmpty() && !isKill) {
                         try {
                             futures.wait();
                         } catch (InterruptedException e) {
-                            e.printStackTrace();
+//                            LogWrapper.e(e);
                         }
+                    }
+                    if (isKill) {
+                        return;
                     }
                     future = futures.remove(0);
                 }
@@ -101,6 +114,7 @@ public class Scheduler {
                         future.setStatus(TaskFuture.Status.COMPLETED);
                     } catch (Exception e) {
                         future.setStatus(TaskFuture.Status.INTERRUPTED);
+                        future.setInternalException(e);
                     }
                 } catch (RuntimeException e) {
                     // If we don't catch RuntimeException,

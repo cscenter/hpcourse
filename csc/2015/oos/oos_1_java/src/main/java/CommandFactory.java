@@ -12,7 +12,8 @@ public class CommandFactory {
         ADD("add"),
         STATUS("status"),
         INTERRUPT("interrupt"),
-        RESULT("result");
+        RESULT("result"),
+        EXCEPTION("exception");
 
         private String value;
 
@@ -112,24 +113,42 @@ public class CommandFactory {
         }
     }
 
+    public static class ExceptionCommand implements Command {
+        private final long id;
+
+        public ExceptionCommand(long id) {
+            this.id = id;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        @Override
+        public CommandType getType() {
+            return CommandType.EXCEPTION;
+        }
+    }
+
     public static Command parseCommand(String input) {
         String[] args = input.split(" ");
         CommandType type = CommandType.resolveCommand(args[0]);
-        switch (type) {
-            case ADD:
-                return new AddCommand(Long.parseLong(args[1]));
-            case EXIT:
-                return new ExitCommand();
-            case STATUS:
-                return new StatusCommand(Long.parseLong(args[1]));
-            case INTERRUPT:
-                return new InterruptCommand(Long.parseLong(args[1]));
-            case RESULT:
-                return new ResultCommand(Long.parseLong(args[1]));
-            default: {
-                return null;
-                // FIXME: replace null with Optional
+        if (type != null) {
+            switch (type) {
+                case ADD:
+                    return new AddCommand(Long.parseLong(args[1]));
+                case EXIT:
+                    return new ExitCommand();
+                case STATUS:
+                    return new StatusCommand(Long.parseLong(args[1]));
+                case INTERRUPT:
+                    return new InterruptCommand(Long.parseLong(args[1]));
+                case RESULT:
+                    return new ResultCommand(Long.parseLong(args[1]));
+                case EXCEPTION:
+                    return new ExceptionCommand(Long.parseLong(args[1]));
             }
         }
+        return null;
     }
 }

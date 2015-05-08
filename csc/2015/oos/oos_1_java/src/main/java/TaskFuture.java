@@ -26,6 +26,7 @@ public class TaskFuture {
     private Scheduler.WorkerThread thread;
     private final long id = UniqueID.createID();
     private Status status;
+    private Exception internalException = null;
 
     public void setTask(Callable task) {
         this.task = task;
@@ -49,6 +50,14 @@ public class TaskFuture {
 
     public void setStatus(Status status) {
         this.status = status;
+    }
+
+    public Exception getInternalException() {
+        return internalException;
+    }
+
+    public void setInternalException(Exception internalException) {
+        this.internalException = internalException;
     }
 
     public void interrupt() {
