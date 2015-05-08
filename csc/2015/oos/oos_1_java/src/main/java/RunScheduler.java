@@ -48,7 +48,7 @@ public class RunScheduler {
                 switch (command.getType()) {
                     case ADD: {
                         CommandFactory.AddCommand addCommand = (CommandFactory.AddCommand) command;
-                        TaskFuture<Long> future = scheduler.submit(addCommand.getCallable());
+                        TaskFuture future = scheduler.submit(addCommand.getCallable());
                         LogWrapper.i("ADDED TASK: " + future.getId());
                         break;
                     }
@@ -68,6 +68,16 @@ public class RunScheduler {
                             LogWrapper.i("TASK: " + interruptCommand.getId() + " INTERRUPTED");
                         } else {
                             LogWrapper.w("There is no task with id: " + interruptCommand.getId());
+                        }
+                        break;
+                    }
+                    case RESULT: {
+                        CommandFactory.ResultCommand resultCommand = (CommandFactory.ResultCommand) command;
+                        Optional<Long> mayBeResult = scheduler.getResult(resultCommand.getId());
+                        if (mayBeResult.isPresent()) {
+                            LogWrapper.i("RESULT OF TASK: " + resultCommand.getId() + " IS " + mayBeResult.get());
+                        } else {
+                            LogWrapper.w("There is no task with id: " + resultCommand.getId());
                         }
                         break;
                     }

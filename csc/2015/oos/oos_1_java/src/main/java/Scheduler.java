@@ -8,8 +8,8 @@ import java.util.concurrent.Callable;
 public class Scheduler {
 
     private final WorkerThread[] threads;
-    private final List<TaskFuture<Long>> futures = new ArrayList<>();
-    private final Map<Long, TaskFuture<Long>> allFutures = new HashMap<>();
+    private final List<TaskFuture> futures = new ArrayList<>();
+    private final Map<Long, TaskFuture> allFutures = new HashMap<>();
 
     public Scheduler(int threadCount) {
         threads = new WorkerThread[threadCount];
@@ -20,8 +20,8 @@ public class Scheduler {
         }
     }
 
-    public TaskFuture<Long> submit(Callable task) {
-        TaskFuture<Long> taskFuture = new TaskFuture<>();
+    public TaskFuture submit(Callable task) {
+        TaskFuture taskFuture = new TaskFuture();
         taskFuture.setTask(task);
         taskFuture.setStatus(TaskFuture.Status.WAITING);
         allFutures.put(taskFuture.getId(), taskFuture);
@@ -32,12 +32,12 @@ public class Scheduler {
         return taskFuture;
     }
 
-    public Optional<TaskFuture<Long>> getFutureById(long id) {
+    public Optional<TaskFuture> getFutureById(long id) {
         return Optional.ofNullable(allFutures.get(id));
     }
 
     public Optional<TaskFuture.Status> getStatus(long id) {
-        Optional<TaskFuture<Long>> future = getFutureById(id);
+        Optional<TaskFuture> future = getFutureById(id);
         if (future.isPresent()) {
             return Optional.of(future.get().getStatus());
         } else {
@@ -46,10 +46,10 @@ public class Scheduler {
     }
 
     public boolean interrupt(long id) {
-        Optional<TaskFuture<Long>> mayBeFuture = getFutureById(id);
+        Optional<TaskFuture> mayBeFuture = getFutureById(id);
         if (mayBeFuture.isPresent()) {
             //            TODO: COMPLETED?
-            TaskFuture<Long> future = mayBeFuture.get();
+            TaskFuture future = mayBeFuture.get();
             future.interrupt();
             return true;
         } else {
@@ -67,13 +67,22 @@ public class Scheduler {
         }
     }
 
+    public Optional<Long> getResult(long id) {
+        TaskFuture future = allFutures.get(id);
+        if (future != null) {
+            return Optional.of(future.get());
+        } else {
+            return Optional.empty();
+        }
+    }
+
     public class WorkerThread extends Thread {
         private boolean isKill = false;
 
         @Override
         public void run() {
             while (!isKill) {
-                TaskFuture<Long> future;
+                TaskFuture future;
                 synchronized (futures) {
                     while (futures.isEmpty()) {
                         try {

@@ -11,7 +11,8 @@ public class CommandFactory {
         EXIT("exit"),
         ADD("add"),
         STATUS("status"),
-        INTERRUPT("interrupt");
+        INTERRUPT("interrupt"),
+        RESULT("result");
 
         private String value;
 
@@ -94,6 +95,23 @@ public class CommandFactory {
         }
     }
 
+    public static class ResultCommand implements Command {
+        private final long id;
+
+        public ResultCommand(long id) {
+            this.id = id;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        @Override
+        public CommandType getType() {
+            return CommandType.RESULT;
+        }
+    }
+
     public static Command parseCommand(String input) {
         String[] args = input.split(" ");
         CommandType type = CommandType.resolveCommand(args[0]);
@@ -106,6 +124,8 @@ public class CommandFactory {
                 return new StatusCommand(Long.parseLong(args[1]));
             case INTERRUPT:
                 return new InterruptCommand(Long.parseLong(args[1]));
+            case RESULT:
+                return new ResultCommand(Long.parseLong(args[1]));
             default: {
                 return null;
                 // FIXME: replace null with Optional

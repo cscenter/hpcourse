@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
  * Created by olgaoskina
  * 03 May 2015
  */
-public class TaskFuture<Type> {
+public class TaskFuture {
 
     public enum Status {
         WAITING("WAITING"), RUNNING("RUNNING"), INTERRUPTED("INTERRUPTED"), COMPLETED("COMPLETED");
@@ -56,11 +56,14 @@ public class TaskFuture<Type> {
         status = Status.INTERRUPTED;
     }
 
-    public Type get() throws Exception {
-        return null;
-    }
-
-    public Type get(long timeout, TimeUnit unit) throws Exception {
-        return null;
+    public long get() {
+        while (status != Status.COMPLETED) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        return id;
     }
 }
