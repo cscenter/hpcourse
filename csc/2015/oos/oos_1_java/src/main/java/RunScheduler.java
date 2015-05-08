@@ -103,7 +103,7 @@ public class RunScheduler {
                         }
                     }
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LogWrapper.e("", e);
             }
         }

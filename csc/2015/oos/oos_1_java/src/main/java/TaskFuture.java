@@ -1,4 +1,5 @@
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,7 +26,7 @@ public class TaskFuture {
     private Callable task;
     private Scheduler.WorkerThread thread;
     private final long id = UniqueID.createID();
-    private Status status;
+    private volatile Status status;
     private Exception internalException = null;
 
     public void setTask(Callable task) {
@@ -67,6 +68,9 @@ public class TaskFuture {
 
     public long get() {
         while (status != Status.COMPLETED) {
+            if (status == Status.INTERRUPTED) {
+                throw new CancellationException();
+            }
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {

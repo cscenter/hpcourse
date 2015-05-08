@@ -87,7 +87,7 @@ public class Scheduler {
     }
 
     public class WorkerThread extends Thread {
-        private boolean isKill = false;
+        private volatile boolean isKill = false;
 
         @Override
         public void run() {
