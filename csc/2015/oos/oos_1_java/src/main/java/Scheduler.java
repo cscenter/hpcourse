@@ -98,7 +98,7 @@ public class Scheduler {
                         try {
                             futures.wait();
                         } catch (InterruptedException e) {
-//                            LogWrapper.e(e);
+                            //                            LogWrapper.e(e);
                         }
                     }
                     if (isKill) {

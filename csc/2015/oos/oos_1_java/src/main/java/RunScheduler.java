@@ -3,7 +3,6 @@ import com.beust.jcommander.Parameter;
 import org.apache.log4j.PropertyConfigurator;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Optional;
 

@@ -1,6 +1,5 @@
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by olgaoskina
