@@ -1,5 +1,6 @@
 package ru.compscicenter2015.concurrency;
 
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -7,15 +8,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.omg.CORBA.TIMEOUT;
 
 public class MyFuture<V> implements Future<V> {
 	private final Callable<V> task;
 	private volatile Thread currentThread;
 	private volatile V result;
-	private volatile Exception exception;
+	private volatile Throwable exception;
 	private final AtomicInteger state;
 	
 	private static final int NEW       = 0;
@@ -39,7 +37,7 @@ public class MyFuture<V> implements Future<V> {
 		currentThread = Thread.currentThread();
 		try {
 			result = task.call();
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			state.compareAndSet(RUNNING, ERROR);
 			exception = e; 
 		} 
@@ -49,6 +47,7 @@ public class MyFuture<V> implements Future<V> {
 		}
 	}
 	
+	@SuppressWarnings("finally")
 	@Override
 	public boolean cancel(boolean mayInterruptIfRunning) {
 		if (state.get() == CANCELED)
@@ -60,12 +59,15 @@ public class MyFuture<V> implements Future<V> {
 				Thread t = null;
 				while ((t = currentThread) == null)
 					Thread.yield();
-				if (t != null)
+				if (t != null) {
 					t.interrupt();
+				}
 			} finally {
-				state.compareAndSet(RUNNING, CANCELED);
+				if (state.compareAndSet(RUNNING, CANCELED))
+					return true;
+				else
+					return false; // задача уже могла к этому времени быть DONE
 			}
-			return true;
 		}
 		return false;
 	}

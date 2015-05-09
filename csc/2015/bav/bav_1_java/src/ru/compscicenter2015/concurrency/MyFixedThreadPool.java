@@ -24,7 +24,7 @@ public class MyFixedThreadPool {
 		worker = new Worker[n];
 		workQueue = new LinkedList<Future<?>>();
 		for (int i = 0; i < n; i++) 
-			worker[i] = new Worker(i);
+			worker[i] = new Worker();
 		for (int i = 0; i < n; i++)
 			worker[i].start();
 	}
@@ -64,11 +64,9 @@ public class MyFixedThreadPool {
 	}
 
 	final class Worker implements Runnable {
-		final private int workerId;
 		final private Thread thread;
 
-		Worker(int workerId) {
-			this.workerId = workerId;
+		Worker() {
 			thread = new Thread(this);
 		}
 		
@@ -88,12 +86,10 @@ public class MyFixedThreadPool {
 						}
 					}
 				}
-				//System.out.println(Thread.currentThread().getName() + " are notified");
+				Thread.currentThread().interrupted(); // Если ктото пытался прервать задачу, которая не прерывается 
 				Future<?> future = getTaskFromWorkQueue(); 
 				if (future != null) {
-					//System.out.println(Thread.currentThread().getName() + " are working");
 					((MyFuture<?>) future).start(); 
-					//System.out.println("Work by " + Thread.currentThread().getName() + " has done");
 				}
 			}
 		}
