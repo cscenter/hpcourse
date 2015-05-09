@@ -1,8 +1,8 @@
 package ru.compscicenter2015.concurrency;
 
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,6 +13,8 @@ public class MyFixedThreadPool {
 	final private int threadsCount;
 	private final Queue<Future<?>> workQueue; 
 	private final Worker worker[];
+	private final TreeMap<Long, Future<?>> futureWithId;
+	
 	private final Object lockForTasks = new Object();
 
 	MyFixedThreadPool(int n) {
@@ -23,10 +25,18 @@ public class MyFixedThreadPool {
 		isWorking = new AtomicBoolean(true);
 		worker = new Worker[n];
 		workQueue = new LinkedList<Future<?>>();
+		futureWithId = new TreeMap<Long, Future<?>>();
 		for (int i = 0; i < n; i++) 
 			worker[i] = new Worker();
 		for (int i = 0; i < n; i++)
 			worker[i].start();
+	}
+	
+	public boolean cancel(long id) {
+		if (!futureWithId.containsKey(id))
+			throw new IllegalArgumentException();
+		Future <?> future = futureWithId.get(id);
+		return future.cancel(true);
 	}
 
 	public void shutdown() {
@@ -39,16 +49,24 @@ public class MyFixedThreadPool {
 	public boolean isShutdown() {
 		return isWorking.get();
 	}
+	
+	public String getStatus(long id) {
+		if (!futureWithId.containsKey(id))
+			return "Task with this id is absent";
+		Future <?> future = futureWithId.get(id);
+		return ((MyFuture<?>) future).getState();
+	}
 
-	public Future<?> submit(Callable<?> task) {
+	public Future<?> submit(Callable<?> task, long id) {
 		Future<?> future = new MyFuture<>(task);
-		addTaskIntoWorkQueue(future);
+		addTaskIntoWorkQueue(future, id);
 		return future;
 	}
 	
-	private void addTaskIntoWorkQueue(Future<?> future) {
+	private void addTaskIntoWorkQueue(Future<?> future, long id) {
 		synchronized (lockForTasks) {
 			workQueue.add(future);
+			futureWithId.put(id, future);
 			lockForTasks.notifyAll();
 		}
 	}

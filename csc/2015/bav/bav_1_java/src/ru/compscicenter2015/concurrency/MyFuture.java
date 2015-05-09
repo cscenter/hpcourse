@@ -50,6 +50,8 @@ public class MyFuture<V> implements Future<V> {
 	@SuppressWarnings("finally")
 	@Override
 	public boolean cancel(boolean mayInterruptIfRunning) {
+		if (state.get() == DONE)
+			return false;
 		if (state.get() == CANCELED)
 			return true;		
 		if (state.compareAndSet(NEW, CANCELED)) 
@@ -63,10 +65,7 @@ public class MyFuture<V> implements Future<V> {
 					t.interrupt();
 				}
 			} finally {
-				if (state.compareAndSet(RUNNING, CANCELED))
-					return true;
-				else
-					return false; // задача уже могла к этому времени быть DONE
+				state.set(CANCELED);
 			}
 		}
 		return false;
@@ -117,7 +116,19 @@ public class MyFuture<V> implements Future<V> {
 		return result;
 	}
 	
-	public int getState() {
-		return state.get();
+	public String getState() {
+		switch(state.get()) {
+		case NEW:
+			return "New";
+		case RUNNING:
+			return "Running";
+		case CANCELED:
+			return "Canceled";	
+		case DONE:
+			return "Done";
+		case ERROR:
+			return "Error";
+		}
+		return "";
 	}
 }
