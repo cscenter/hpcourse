@@ -20,7 +20,7 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         System.out.print("Number of threads: ");
-        Map<Integer, FutureImpl> futureTasks = new HashMap<>();
+        Map<Integer, ThreadPoolImpl.FutureImpl> futureTasks = new HashMap<>();
         TaskFactory taskFactory = new TaskFactory();
         ThreadPoolImpl threadPool = new ThreadPoolImpl(Integer.parseInt(in.readLine()));
         threadPool.execute();
@@ -37,7 +37,8 @@ public class Main {
                 long duration = Long.parseLong(input.substring("submit ".length()));
                 TaskFactory.Task task = taskFactory.createTask(duration);
                 System.out.println("Task " + task.getId() + " created.");
-                FutureImpl futureTask = (FutureImpl) threadPool.submit(Executors.callable(task));
+                ThreadPoolImpl.FutureImpl futureTask =
+                        (ThreadPoolImpl.FutureImpl) threadPool.submit(Executors.callable(task), task.getId());
                 futureTasks.put(task.getId(), futureTask);
             } else if (input.startsWith("status ")) {
                 Integer id = Integer.parseInt(input.substring("status ".length()));

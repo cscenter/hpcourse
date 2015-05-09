@@ -14,14 +14,15 @@ import static org.junit.Assert.*;
 public class FutureImplTest {
     private final Object monitor = new Object();
     private WaitingTask task;
-    private FutureImpl future;
+    private ThreadPoolImpl.FutureImpl future;
     private Thread workerThread;
     private static final String result = "result";
 
     @Before
     public void setUp() {
         task = new WaitingTask();
-        future = new FutureImpl<>(task, result);
+        ThreadPoolImpl threadPool = new ThreadPoolImpl(10);
+        future = threadPool.new FutureImpl<>(task, result, 0);
         workerThread = new Thread(future);
     }
 
@@ -70,7 +71,7 @@ public class FutureImplTest {
     @Test
     public void testIsDone() throws Exception {
         workerThread.start();
-        while(task.state.get() != 1) Thread.yield();
+        while (task.state.get() != 1) Thread.yield();
         synchronized (monitor) {
             monitor.notifyAll();
         }
@@ -82,7 +83,7 @@ public class FutureImplTest {
     @Test
     public void testGet_1() throws Exception {
         workerThread.start();
-        while(task.state.get() != 1) Thread.yield();
+        while (task.state.get() != 1) Thread.yield();
         synchronized (monitor) {
             monitor.notifyAll();
         }
@@ -101,7 +102,7 @@ public class FutureImplTest {
         } catch (TimeoutException e) {
             //expected
         }
-        while(task.state.get() != 1) Thread.yield();
+        while (task.state.get() != 1) Thread.yield();
         synchronized (monitor) {
             monitor.notifyAll();
         }
