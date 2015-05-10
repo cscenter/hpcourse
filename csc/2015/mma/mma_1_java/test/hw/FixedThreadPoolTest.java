@@ -52,13 +52,6 @@ public class FixedThreadPoolTest {
         assertTrue(spy.interruptionExceptionWasThrown);
     }
 
-    @Test
-    public void fooling() throws Exception {
-        FixedThreadPool man = new FixedThreadPool(1);
-        man.submit(sleepTask(10 * 1000));
-        man.submit(sleepTask(10 * 1000));
-    }
-
     // doubles
     private Future sleepTask(int durationMs) {
         return new Future(() -> {

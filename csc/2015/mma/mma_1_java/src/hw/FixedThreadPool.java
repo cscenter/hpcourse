@@ -1,10 +1,14 @@
 package hw;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 public class FixedThreadPool {
 
     private Thread[] threads;
-    private ConcurrentQueue q = new ConcurrentQueue();
+    private Queue<Future> q = new LinkedList<Future>();
     private volatile boolean stopping;
+    private Object lock = new Object();
 
     public FixedThreadPool(int nThreads) {
         threads = new Thread[nThreads];
@@ -15,11 +19,19 @@ public class FixedThreadPool {
     }
 
     public void submit(Future future) throws IndexOutOfBoundsException {
-        q.add(future);
+        synchronized (lock) {
+            q.add(future);
+        }
     }
 
     public void join() throws InterruptedException {
-        while (!q.isEmpty()) {}
+        while (true) {
+            synchronized (lock) {
+                if(q.isEmpty()){
+                    break;
+                }
+            }
+        }
 
         stopping = true;
 
@@ -32,7 +44,10 @@ public class FixedThreadPool {
         @Override
         public void run() {
             while (!stopping) {
-                Future f = q.poll();
+                Future f = null;
+                synchronized (lock) {
+                    f = q.poll();
+                }
                 if (f != null) {
                     f.run();
                 }
