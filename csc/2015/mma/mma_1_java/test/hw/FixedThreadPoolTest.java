@@ -3,8 +3,10 @@ package hw;
 import org.junit.Test;
 
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class FixedThreadPoolTest {
     private final int TEST_TIMEOUT_MS = 5 * 1000;
@@ -38,6 +40,18 @@ public class FixedThreadPoolTest {
         pool.join();
     }
 
+    @Test(timeout = TEST_TIMEOUT_MS)
+    public void interruptedExceptionWasCalledOnCancel() throws InterruptedException {
+        InterruptedExceptionSpy spy = new InterruptedExceptionSpy();
+        Future task = new Future(spy);
+        FixedThreadPool pool = new FixedThreadPool(1);
+        pool.submit(task);
+        submit(task);
+        task.cancel();
+        pool.join();
+        assertTrue(spy.interruptionExceptionWasThrown);
+    }
+
     @Test
     public void fooling() throws Exception {
         FixedThreadPool man = new FixedThreadPool(1);
@@ -45,16 +59,32 @@ public class FixedThreadPoolTest {
         man.submit(sleepTask(10 * 1000));
     }
 
-    private Future sleepTask(int durationMs){
+    // doubles
+    private Future sleepTask(int durationMs) {
         return new Future(() -> {
             Thread.sleep(durationMs);
             return Optional.empty();
         });
     }
 
+    // utils
     private void submit(Future f) throws InterruptedException {
         FixedThreadPool pool = new FixedThreadPool(1);
         pool.submit(f);
         pool.join();
+    }
+
+    private class InterruptedExceptionSpy implements Callable {
+        public boolean interruptionExceptionWasThrown;
+
+        public Object call() {
+            int INF = 100500 * 1000;
+            try {
+                Thread.sleep(INF);
+            } catch (InterruptedException e) {
+                interruptionExceptionWasThrown = true;
+            }
+            return null;
+        }
     }
 }
