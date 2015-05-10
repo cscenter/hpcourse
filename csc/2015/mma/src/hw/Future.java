@@ -1,0 +1,60 @@
+package hw;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class Future implements Runnable {
+    private final Callable task;
+    private final AtomicInteger status = new AtomicInteger(TaskStatus.NOTSTARTED.getValue());
+    private Exception exception;
+    private Object result;
+
+    public Future(Callable task) {
+        this.task = task;
+    }
+
+    public TaskStatus getStatus() {
+        return TaskStatus.get(status.get());
+    }
+
+    public Exception getException() {
+        return exception;
+    }
+
+    public Object getResult() {
+        return result;
+    }
+
+    public boolean cancel() {
+        TaskStatus s = getStatus();
+        if (s == TaskStatus.CANCELLED || s == TaskStatus.DONE) {
+            return false;
+        }
+
+        if (casStatus(TaskStatus.NOTSTARTED, TaskStatus.CANCELLED)) {
+            return true;
+        }
+        return false;
+    }
+
+
+    @Override
+    public void run() {
+        if (!casStatus(TaskStatus.NOTSTARTED, TaskStatus.RUNNING)) {
+            return;
+        }
+        try {
+            result = task.call();
+        } catch (Exception ex) {
+            exception = ex;
+        } finally {
+            casStatus(TaskStatus.RUNNING, TaskStatus.DONE);
+        }
+    }
+
+    private boolean casStatus(TaskStatus from, TaskStatus to) {
+        return status.compareAndSet(from.getValue(), to.getValue());
+    }
+}
+
+
