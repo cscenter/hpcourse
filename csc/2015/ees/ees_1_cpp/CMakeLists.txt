@@ -14,5 +14,6 @@ add_library(thread_pool STATIC ${SOURCE_FILES})
 add_executable(${CMAKE_PROJECT_NAME} app.cpp)
 add_executable(${CMAKE_PROJECT_NAME}_test test.cpp)
 
+# Couldn't get how to link to gtest dynamically. Change paths for your system.
 target_link_libraries(${CMAKE_PROJECT_NAME}_test -lpthread thread_pool ${Boost_LIBRARIES} /usr/lib/libgtest.a /usr/lib/libgtest_main.a)
 target_link_libraries(${CMAKE_PROJECT_NAME} -lpthread thread_pool ${Boost_LIBRARIES})
