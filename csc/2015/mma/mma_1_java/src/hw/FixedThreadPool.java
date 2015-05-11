@@ -6,9 +6,9 @@ import java.util.Queue;
 public class FixedThreadPool {
 
     private Thread[] threads;
-    private Queue<Future> q = new LinkedList<Future>();
+    private IQueue<Future> q = new LockFreeQueue<Future>();
     private volatile boolean stopping;
-    private Object lock = new Object();
+
 
     public FixedThreadPool(int nThreads) {
         threads = new Thread[nThreads];
@@ -19,17 +19,15 @@ public class FixedThreadPool {
     }
 
     public void submit(Future future) throws IndexOutOfBoundsException {
-        synchronized (lock) {
-            q.add(future);
-        }
+
+        q.add(future);
+
     }
 
     public void join() throws InterruptedException {
         while (true) {
-            synchronized (lock) {
-                if(q.isEmpty()){
-                    break;
-                }
+            if(q.isEmpty()){
+                break;
             }
         }
 
@@ -45,9 +43,7 @@ public class FixedThreadPool {
         public void run() {
             while (!stopping) {
                 Future f = null;
-                synchronized (lock) {
-                    f = q.poll();
-                }
+                f = q.poll();
                 if (f != null) {
                     f.run();
                 }
