@@ -10,8 +10,8 @@ public class LockFreeQueue<T> implements IQueue<T> {
 
     public LockFreeQueue() {
         Node sentinel = new Node(null);
-        this.head = new AtomicReference<Node>(sentinel);
-        this.tail = new AtomicReference<Node>(sentinel);
+        this.head = new AtomicReference<>(sentinel);
+        this.tail = new AtomicReference<>(sentinel);
     }
 
     private static <T> boolean CAS(AtomicReference<T> target, T expect, T update) {
@@ -19,7 +19,7 @@ public class LockFreeQueue<T> implements IQueue<T> {
     }
 
     public boolean isEmpty() {
-       // while (true) {
+        while (true) {
             Node oldHead = head.get();
             Node oldHeadNext = oldHead.next.get();
             Node oldTail = tail.get();
@@ -28,9 +28,9 @@ public class LockFreeQueue<T> implements IQueue<T> {
                 if (oldHead == oldTail) {
                     return oldHeadNext == null;
                 }
+                return false;
             }
-       // }
-        return false;
+        }
     }
 
     public void add(T item) {
@@ -85,27 +85,3 @@ public class LockFreeQueue<T> implements IQueue<T> {
         }
     }
 }
-
-/*
-Enqueue (T item ) {
-Node<T>∗ oldTail ;
-Node<T>∗ oldTailNext ;
-Node<T>∗ newTail =
-new Node<T>(item ) ;
-whil e ( t ru e ) {
-oldTail = Tail ;
-oldTailNext = Tail −>next ;
-i f ( oldTail == Tail ) {
-i f ( oldTailNext == n u l l ) {
-i f (CAS(&Tail −>next , n ull ,
-newTail ))
-break ;
-}
-e l s e
-CAS(&Tail , oldTail ,
-oldTailNext ) ;
-}
-}
-CAS(&Tail , oldTail , newTail ) ;
-}
- */

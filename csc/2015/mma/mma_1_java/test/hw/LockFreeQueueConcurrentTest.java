@@ -15,13 +15,14 @@ public class LockFreeQueueConcurrentTest {
     private final int NVALUES = 10;
     private final int N_WRITERS = 2;
     private final int N_READERS = 2;
-    private IQueue<Integer> q = new LockFreeQueue<>();
+    private IQueue<Integer> q;
 
     @Before
     public void setUp() throws Exception {
         if (NVALUES % N_WRITERS != 0 || NVALUES % N_READERS != 0) {
             throw new Exception("NVALUES should be divisible to N_WRITERS and N_READERS");
         }
+        q = new LockFreeQueue<>();
     }
 
     @Test

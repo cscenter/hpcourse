@@ -22,11 +22,11 @@ public class FixedThreadPoolTest {
 
     @Test
     public void testResult() throws InterruptedException {
-        Future exceptionTask = new Future(() -> {
+        Future resultTask = new Future(() -> {
             return 4;
         });
-        submit(exceptionTask);
-        assertEquals(4, exceptionTask.getResult());
+        submit(resultTask);
+        assertEquals(4, resultTask.getResult());
     }
 
     @Test(timeout = TEST_TIMEOUT_MS)
@@ -60,13 +60,6 @@ public class FixedThreadPoolTest {
         });
     }
 
-    // utils
-    private void submit(Future f) throws InterruptedException {
-        FixedThreadPool pool = new FixedThreadPool(1);
-        pool.submit(f);
-        pool.join();
-    }
-
     private class InterruptedExceptionSpy implements Callable {
         public boolean interruptionExceptionWasThrown;
 
@@ -79,5 +72,12 @@ public class FixedThreadPoolTest {
             }
             return null;
         }
+    }
+
+    // utils
+    private void submit(Future f) throws InterruptedException {
+        FixedThreadPool pool = new FixedThreadPool(1);
+        pool.submit(f);
+        pool.join();
     }
 }
