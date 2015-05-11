@@ -4,6 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import static org.junit.Assert.assertNotNull;
@@ -15,7 +16,19 @@ public class LockFreeQueueConcurrentTest {
     private final int NVALUES = 10;
     private final int N_WRITERS = 2;
     private final int N_READERS = 2;
+    int N_PER_WRITER = NVALUES / N_WRITERS;
+    int N_PER_READER = NVALUES / N_WRITERS;
     private IQueue<Integer> q;
+
+    private static void runAndJoin(Iterable<Thread> threads) throws Exception {
+        for (Thread t : threads) {
+            t.start();
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -26,22 +39,13 @@ public class LockFreeQueueConcurrentTest {
     }
 
     @Test
-    public void testWrite() throws Exception {
-
-        int n_per_writer = NVALUES / N_WRITERS;
-        Thread[] wThreads = new Thread[N_WRITERS];
+    public void testAsyncWrite() throws Exception {
+        List<Thread> threads = new LinkedList<>();
         for (int i = 0; i < N_WRITERS; i++) {
-            Writer w = new Writer(q, i * n_per_writer, (i + 1) * n_per_writer);
-            wThreads[i] = new Thread(w);
+            Writer w = new Writer(q, i * N_PER_WRITER, (i + 1) * N_PER_WRITER);
+            threads.add(new Thread(w));
         }
-        for (int i = 0; i < N_WRITERS; i++) {
-            wThreads[i].start();
-        }
-
-        for (int i = 0; i < N_WRITERS; i++) {
-            wThreads[i].join();
-        }
-
+        runAndJoin(threads);
         List<Integer> list = new ArrayList<>();
         for (int i = 0; i < NVALUES; i++) {
             assertNotNull(q);
@@ -51,29 +55,31 @@ public class LockFreeQueueConcurrentTest {
     }
 
     @Test
-    public void testReadWrite() throws Exception {
-        int n_per_writer = NVALUES / N_WRITERS;
-        int n_per_reader = NVALUES / N_WRITERS;
-        Thread[] wThreads = new Thread[N_WRITERS];
-        for (int i = 0; i < N_WRITERS; i++) {
-            Writer w = new Writer(q, i * n_per_writer, (i + 1) * n_per_writer);
-            wThreads[i] = new Thread(w);
+    public void testAsyncRead() throws Exception {
+        for (int i = 0; i < NVALUES; i++) {
+            q.add(i);
         }
-
-        Thread[] rThreads = new Thread[N_WRITERS];
-        for (int i = 0; i < N_WRITERS; i++) {
-            Reader w = new Reader(q, n_per_reader);
-            rThreads[i] = new Thread(w);
+        List<Thread> threads = new LinkedList<>();
+        for (int i = 0; i < N_READERS; i++) {
+            Reader r = new Reader(q, N_PER_READER);
+            threads.add(new Thread(r));
         }
+        runAndJoin(threads);
+        assertTrue(q.isEmpty());
+    }
 
+    @Test
+    public void testAsyncReadWrite() throws Exception {
+        List<Thread> threads = new LinkedList<>();
         for (int i = 0; i < N_WRITERS; i++) {
-            wThreads[i].start();
+            Writer w = new Writer(q, i * N_PER_WRITER, (i + 1) * N_PER_WRITER);
+            threads.add(new Thread(w));
         }
-
-        for (int i = 0; i < N_WRITERS; i++) {
-            rThreads[i].join();
+        for (int i = 0; i < N_READERS; i++) {
+            Reader r = new Reader(q, N_PER_READER);
+            threads.add(new Thread(r));
         }
-
+        runAndJoin(threads);
         assertTrue(q.isEmpty());
     }
 
@@ -107,7 +113,7 @@ public class LockFreeQueueConcurrentTest {
 
         @Override
         public void run() {
-            for (int i = 0; i < elapsed; i++) {
+            while (elapsed > 0) {
                 Integer item = q.poll();
                 if (item != null) {
                     elapsed--;

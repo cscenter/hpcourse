@@ -2,7 +2,6 @@ package hw;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-// I drew my **inspiration** from here
 // http://titan.fsb.hr/~drunje/papers/iti2007.pdf
 public class LockFreeQueue<T> implements IQueue<T> {
     private AtomicReference<Node> head;
