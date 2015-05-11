@@ -60,6 +60,13 @@ public class FixedThreadPoolTest {
         });
     }
 
+    // utils
+    private void submit(Future f) throws InterruptedException {
+        FixedThreadPool pool = new FixedThreadPool(1);
+        pool.submit(f);
+        pool.join();
+    }
+
     private class InterruptedExceptionSpy implements Callable {
         public boolean interruptionExceptionWasThrown;
 
@@ -72,12 +79,5 @@ public class FixedThreadPoolTest {
             }
             return null;
         }
-    }
-
-    // utils
-    private void submit(Future f) throws InterruptedException {
-        FixedThreadPool pool = new FixedThreadPool(1);
-        pool.submit(f);
-        pool.join();
     }
 }

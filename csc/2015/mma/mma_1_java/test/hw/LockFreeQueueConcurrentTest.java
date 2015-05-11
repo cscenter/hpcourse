@@ -11,13 +11,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class LockFreeQueueConcurrentTest {
+    private final int TEST_TIMEOUT_MS = 50 * 1000;
 
     // should be divisible to N_WRITERS and N_READERS
-    private final int NVALUES = 10;
-    private final int N_WRITERS = 2;
-    private final int N_READERS = 2;
-    int N_PER_WRITER = NVALUES / N_WRITERS;
-    int N_PER_READER = NVALUES / N_WRITERS;
+    private final int N_VALUES = 100000;
+    private final int N_WRITERS = 20;
+    private final int N_READERS = 50;
+    private final int N_PER_WRITER = N_VALUES / N_WRITERS;
+    private final int N_PER_READER = N_VALUES / N_READERS;
     private IQueue<Integer> q;
 
     private static void runAndJoin(Iterable<Thread> threads) throws Exception {
@@ -32,13 +33,13 @@ public class LockFreeQueueConcurrentTest {
 
     @Before
     public void setUp() throws Exception {
-        if (NVALUES % N_WRITERS != 0 || NVALUES % N_READERS != 0) {
-            throw new Exception("NVALUES should be divisible to N_WRITERS and N_READERS");
+        if (N_VALUES % N_WRITERS != 0 || N_VALUES % N_READERS != 0) {
+            throw new Exception("N_VALUES should be divisible to N_WRITERS and N_READERS");
         }
         q = new LockFreeQueue<>();
     }
 
-    @Test
+    @Test(timeout = TEST_TIMEOUT_MS)
     public void testAsyncWrite() throws Exception {
         List<Thread> threads = new LinkedList<>();
         for (int i = 0; i < N_WRITERS; i++) {
@@ -47,16 +48,16 @@ public class LockFreeQueueConcurrentTest {
         }
         runAndJoin(threads);
         List<Integer> list = new ArrayList<>();
-        for (int i = 0; i < NVALUES; i++) {
+        for (int i = 0; i < N_VALUES; i++) {
             assertNotNull(q);
             list.add(q.poll());
         }
         assertTrue(q.isEmpty());
     }
 
-    @Test
+    @Test(timeout = TEST_TIMEOUT_MS)
     public void testAsyncRead() throws Exception {
-        for (int i = 0; i < NVALUES; i++) {
+        for (int i = 0; i < N_VALUES; i++) {
             q.add(i);
         }
         List<Thread> threads = new LinkedList<>();
@@ -68,7 +69,7 @@ public class LockFreeQueueConcurrentTest {
         assertTrue(q.isEmpty());
     }
 
-    @Test
+    @Test(timeout = TEST_TIMEOUT_MS)
     public void testAsyncReadWrite() throws Exception {
         List<Thread> threads = new LinkedList<>();
         for (int i = 0; i < N_WRITERS; i++) {

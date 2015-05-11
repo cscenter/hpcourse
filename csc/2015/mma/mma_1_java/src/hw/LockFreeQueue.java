@@ -2,7 +2,7 @@ package hw;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-// http://titan.fsb.hr/~drunje/papers/iti2007.pdf
+// fixed implementation of http://titan.fsb.hr/~drunje/papers/iti2007.pdf
 public class LockFreeQueue<T> implements IQueue<T> {
     private AtomicReference<Node> head;
     private AtomicReference<Node> tail;
@@ -66,6 +66,10 @@ public class LockFreeQueue<T> implements IQueue<T> {
                     }
                     CAS(tail, oldTail, oldHeadNext);
                 } else {
+                    if (oldHeadNext == null) {
+                        //queue is empty
+                        return null;
+                    }
                     T value = oldHeadNext.value;
                     if (CAS(head, oldHead, oldHeadNext))
                         return value;
