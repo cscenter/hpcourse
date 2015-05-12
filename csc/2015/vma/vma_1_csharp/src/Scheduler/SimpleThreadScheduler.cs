@@ -7,10 +7,10 @@ namespace HPLab.Scheduler
 {
     public class SimpleThreadScheduler : IDisposable
     {
-        private const int MAX_TASKS_PER_THREAD = 10;
+        private const int INITIAL_TASKS_PER_THREAD = 10;
 
         private bool disposed;
-        private volatile int TasksInProgress;
+        private volatile int CurrentStartedTaskId;
         private volatile int TotalTasks;
 
         private List<Thread> Threads;
@@ -22,6 +22,7 @@ namespace HPLab.Scheduler
         private Dictionary<int, Future<object>> Tasks;
         private Dictionary<int, object> TaskResults;
         private Dictionary<int, CancellationTokenSource> Tokens;
+        private Dictionary<int, int> TasksToThreadQueue;
 
         public SimpleThreadScheduler()
         {
@@ -30,6 +31,7 @@ namespace HPLab.Scheduler
             Tokens = new Dictionary<int, CancellationTokenSource>();
             TaskResults = new Dictionary<int, object>();
             mainThread = new Thread(MainThreadStart);
+            mainThread.Start();
         }
 
         static SimpleThreadScheduler()
@@ -47,12 +49,14 @@ namespace HPLab.Scheduler
             }
 
             TotalThreads = totalThreads;
-            TaskQueue = new int[TotalThreads * MAX_TASKS_PER_THREAD + 1];
+            TaskQueue = new int[TotalThreads * INITIAL_TASKS_PER_THREAD + 1];
             Tasks = new Dictionary<int, Future<object>>(TaskQueue.Length);
+            TasksToThreadQueue = new Dictionary<int, int>();
             Threads = new List<Thread>(TotalThreads);
             for (var i = 0; i < TotalThreads; ++i)
             {
                 Threads[i] = new Thread(ThreadStartPolling);
+                TasksToThreadQueue[Threads[i].ManagedThreadId] = 0;
                 Threads[i].Start();
             }
         }
@@ -62,12 +66,12 @@ namespace HPLab.Scheduler
             while (!disposed)
             {
                 var totalTasks = Volatile.Read(ref TotalTasks);
-                var tasksInProgress = Volatile.Read(ref TasksInProgress);
+                var tasksInProgress = Volatile.Read(ref CurrentStartedTaskId);
                 
                 if (tasksInProgress < totalTasks)
                 {
                     totalTasks = Volatile.Read(ref TotalTasks);
-                    tasksInProgress = Volatile.Read(ref TasksInProgress);
+                    tasksInProgress = Volatile.Read(ref CurrentStartedTaskId);
          
                     while (tasksInProgress < totalTasks)
                     {
@@ -82,24 +86,84 @@ namespace HPLab.Scheduler
         {
             while (!disposed)
             {
-                int taskIdToRun = -1;
-                do
+                newTaskAvailable.Wait();
+                if (TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId] >= TotalTasks)
                 {
-                    newTaskAvailable.Wait();;
-                } while ((taskIdToRun = Interlocked.Exchange(ref TasksInProgress, TasksInProgress + 1)) != TasksInProgress);
-                //run logic here
+                    continue;
+                }
+
+                if (!StartTask(TaskQueue[TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId]]))
+                {
+                    ++TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId];
+                    continue;
+                }
+                newTaskAvailable.Reset();
+                var taskIdToRun = TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId];
+                Interlocked.Increment(ref CurrentStartedTaskId);
+                RunTask(taskIdToRun);
             }
         }
 
-        internal object GetResult(int id)
+        private void RunTask(int taskIdToRun)
         {
-            if (id < TotalTasks || !Tasks.ContainsKey(id))
+            var task = Tasks[taskIdToRun];
+            var result = 0;
+
+            while (task.CurrentTime < task.TotalTime)
+            {
+                if (Tokens[taskIdToRun].IsCancellationRequested)
+                {
+                    CancelTask(taskIdToRun);
+                    if (task.State == FutureState.InProgress)
+                    {
+                        Tokens[taskIdToRun].Token.ThrowIfCancellationRequested();
+                    }
+                    break;
+                }
+                for (var i = 1; i <= 1000000; ++i)
+                {
+                    result += i;
+                    result /= i;
+                }
+                ++task.CurrentTime;
+            }
+         
+            CompleteTask(taskIdToRun, task.TotalTime + result - 1);
+        }
+
+        private bool StartTask(int taskId)
+        {
+            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            {
+                //throw ?
+                return false;
+            }
+            var task = Tasks[taskId];
+
+            if (task.State == FutureState.Created)
+            {
+                lock (task)
+                {
+                    if (task.State == FutureState.Created)
+                    {
+                        task.State = FutureState.InProgress;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        internal object GetTaskResult(int taskId)
+        {
+            if (taskId < TotalTasks || !Tasks.ContainsKey(taskId))
             {
                 //throw ?
                 return null;
             }
 
-            var task = Tasks[id];
+            var task = Tasks[taskId];
             while (task.State <= FutureState.InProgress)
             {
                 Thread.Yield();
@@ -108,7 +172,7 @@ namespace HPLab.Scheduler
             switch (task.State)
             {
                 case FutureState.Success:
-                    return TaskResults[id];
+                    return TaskResults[taskId];
 
                 case FutureState.Faulted:
                     throw GetAggregateException(task);
@@ -119,14 +183,14 @@ namespace HPLab.Scheduler
             }
         }
 
-        internal bool Complete(int id, object result)
+        internal bool CompleteTask(int taskId, object result)
         {
-            if (id > TotalTasks || !Tasks.ContainsKey(id))
+            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
                 //throw ?
                 return false;
             }
-            var task = Tasks[id];
+            var task = Tasks[taskId];
 
             if (task.State <= FutureState.InProgress)
             {
@@ -134,14 +198,14 @@ namespace HPLab.Scheduler
                 {
                     if (task.State <= FutureState.InProgress)
                     {
-                        TaskResults[id] = result;
+                        TaskResults[taskId] = result;
                         task.State = FutureState.Success;
                         return true;
                     }
                 }
             }
 
-            return task.State == FutureState.Success;
+            return false;
         }
 
         private static AggregateException GetAggregateException(Future<object> task)
@@ -163,14 +227,14 @@ namespace HPLab.Scheduler
             return new AggregateException("Something bad happened during task execution.");
         }
 
-        internal bool Cancel(int id)
+        internal bool CancelTask(int taskId)
         {
-            if (id > TotalTasks || !Tasks.ContainsKey(id))
+            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
                 //throw ?
                 return false;
             }
-            var task = Tasks[id];
+            var task = Tasks[taskId];
 
             if (task.State <= FutureState.InProgress)
             {
@@ -178,25 +242,24 @@ namespace HPLab.Scheduler
                 {
                     if (task.State <= FutureState.InProgress)
                     {
-                        Tokens[id].Cancel();
+                        Tokens[taskId].Cancel();
                         task.State = FutureState.Canceled;
                         return true;
                     }
                 }
             }
 
-            return task.State == FutureState.Canceled;
+            return false;
         }
 
-        internal bool Fail(int id, ApplicationException ex)
+        internal bool FailTask(int taskId, ApplicationException ex)
         {
-            //check
-            if (id > TotalTasks || !Tasks.ContainsKey(id))
+            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
                 //throw ?
                 return false;
             }
-            var task = Tasks[id];
+            var task = Tasks[taskId];
 
             if (task.State <= FutureState.InProgress)
             {
@@ -211,7 +274,7 @@ namespace HPLab.Scheduler
                 }
             }
 
-            return task.State == FutureState.Faulted;
+            return false;
         }
 
         ~SimpleThreadScheduler()
