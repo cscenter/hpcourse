@@ -1,56 +1,66 @@
 package hw;
 
 import java.util.LinkedList;
-import java.util.Queue;
 
-public class FixedThreadPool {
+public class FixedThreadPool implements ThreadPool {
+    private final LinkedList queue;
+    private final Thread[] threads;
 
-    private Thread[] threads;
-    private Queue<Future> q = new LinkedList<Future>();
     private volatile boolean stopping;
-    private Object lock = new Object();
 
     public FixedThreadPool(int nThreads) {
-        threads = new Thread[nThreads];
+        queue = new LinkedList();
+        threads = new FixedThreadPoolThread[nThreads];
+
         for (int i = 0; i < nThreads; i++) {
             threads[i] = new FixedThreadPoolThread();
             threads[i].start();
         }
     }
 
-    public void submit(Future future) throws IndexOutOfBoundsException {
-        synchronized (lock) {
-            q.add(future);
-        }
-    }
-
-    public void join() throws InterruptedException {
+    public void awaitAll() throws InterruptedException {
         while (true) {
-            synchronized (lock) {
-                if(q.isEmpty()){
-                    break;
-                }
+            if (queue.isEmpty()) {
+                break;
             }
         }
 
         stopping = true;
 
-        for(Thread t:threads){
+        synchronized (queue) {
+            queue.notifyAll();
+        }
+
+        for (Thread t : threads) {
             t.join();
         }
     }
 
+    public void submit(Runnable r) {
+        synchronized (queue) {
+            queue.addLast(r);
+            queue.notify();
+        }
+    }
+
     private class FixedThreadPoolThread extends Thread {
-        @Override
         public void run() {
-            while (!stopping) {
-                Future f = null;
-                synchronized (lock) {
-                    f = q.poll();
+            while (true) {
+                Runnable r;
+                synchronized (queue) {
+                    while (queue.isEmpty() && !stopping) {
+                        try {
+                            queue.wait();
+                        } catch (InterruptedException e) {
+                        }
+                    }
+                    r = (Runnable) queue.poll();
                 }
-                if (f != null) {
-                    f.run();
+                if (stopping) {
+                    break;
                 }
+
+                r.run();
             }
         }
     }
