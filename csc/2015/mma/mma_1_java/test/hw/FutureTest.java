@@ -1,14 +1,19 @@
 package hw;
 
+import hw.threadpool.ThreadPoolFactory;
 import org.junit.Test;
 
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.*;
 
 public class FutureTest {
 
     private final int TEST_TIMEOUT_MS = 5 * 1000;
+
+    private ThreadPool pool = ThreadPoolFactory.create(1);
 
     @Test
     public void cancelNotStarted() throws Exception {
@@ -20,38 +25,60 @@ public class FutureTest {
     @Test
     public void cancelDone() throws Exception {
         Future task = dummyTask();
-        submit(task);
+        pool.submit(task);
+        task.get();
         assertTrue(task.cancel());
         assertEquals(TaskStatus.DONE, task.getStatus());
     }
 
     @Test
     public void cancelDoneSubsequent() throws Exception {
-        Future task = dummyTask();
-        submit(task);
-        task.cancel();
-        task.cancel();
-        assertTrue("subsequent calls to isDone() will always return true.", task.cancel());
-        assertEquals(TaskStatus.DONE, task.getStatus());
+        Future done = dummyTask();
+        pool.submit(done);
+        done.get();
+        done.cancel();
+        assertTrue("subsequent calls to isDone() will always return true.", done.cancel());
+        assertEquals(TaskStatus.DONE, done.getStatus());
     }
 
-    @Test(timeout = TEST_TIMEOUT_MS)
+    @Test(timeout = TEST_TIMEOUT_MS, expected = CancellationException.class)
     public void cancelRunning() throws Exception {
         Future task = longRunningTask();
-        FixedThreadPool pool = submit(task, false);
+        pool.submit(task);
         assertFalse(task.cancel());
-        pool.join();
-        assertEquals(TaskStatus.CANCELLED, task.getStatus());
+        try {
+            task.get();
+        }catch (CancellationException ce) {
+            assertEquals(TaskStatus.CANCELLED, task.getStatus());
+            throw ce;
+        }
+    }
+
+
+    @Test(expected = ExecutionException.class)
+    public void testException() throws Exception {
+        Future exceptionTask = new Future(() -> {
+            throw new Exception();
+        });
+        pool.submit(exceptionTask);
+        exceptionTask.get();
     }
 
     @Test
-    public void cancelCancelledTrue() throws Exception {
-        Future done = dummyTask();
-        submit(done);
-        done.cancel();
-        assertTrue("Subsequent calls to isCancelled() will always return true if this method returned true.",
-                done.cancel());
-        assertEquals(TaskStatus.DONE, done.getStatus());
+    public void testResult() throws Exception {
+        Future resultTask = new Future(() -> {
+            return 4;
+        });
+        pool.submit(resultTask);
+        assertEquals(4, resultTask.get());
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MS, expected = CancellationException.class)
+    public void ableToCancel() throws Exception {
+        Future task = longRunningTask();
+        pool.submit(task);
+        task.cancel();
+        task.get();
     }
 
     // doubles
@@ -67,19 +94,5 @@ public class FutureTest {
         return new Future(() -> {
             return 42;
         });
-    }
-
-    // utils
-    private void submit(Future f) throws InterruptedException {
-        submit(f, true);
-    }
-
-    private FixedThreadPool submit(Future f, boolean join) throws InterruptedException {
-        FixedThreadPool pool = new FixedThreadPool(1);
-        pool.submit(f);
-        if (join) {
-            pool.join();
-        }
-        return pool;
     }
 }

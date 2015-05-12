@@ -1,13 +1,14 @@
 package hw;
 
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
-// command line API for hw.FixedThreadPool
+// command line API for hw.threadpool.FixedThreadPool
 public class Main {
-    public static void main(String[] args)  {
+    public static void main(String[] args) {
         int nThreads = -1;
         if (args.length == 1) {
             try {
@@ -32,7 +33,7 @@ public class Main {
 
     private void start(int nThreads) {
         Scanner in = new Scanner(System.in);
-        FixedThreadPool pool = new FixedThreadPool(nThreads);
+        ThreadPool pool = new FixedThreadPool(nThreads);
         List<Future> tasks = new LinkedList<>();
         usage();
         while (true) {
