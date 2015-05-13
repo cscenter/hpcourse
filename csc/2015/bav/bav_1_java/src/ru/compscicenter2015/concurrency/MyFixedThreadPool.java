@@ -4,10 +4,13 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MyFixedThreadPool {
+	private AtomicLong innerTaskId;
 	private AtomicBoolean isWorking; 
 	
 	final private int threadsCount;
@@ -22,6 +25,7 @@ public class MyFixedThreadPool {
 			throw new IllegalArgumentException();
 		threadsCount = n;
 		
+		innerTaskId = new AtomicLong(0);
 		isWorking = new AtomicBoolean(true);
 		worker = new Worker[n];
 		workQueue = new LinkedList<Future<?>>();
@@ -40,10 +44,11 @@ public class MyFixedThreadPool {
 	}
 
 	public void shutdown() {
-		for (int i = 0; i < threadsCount; i++) {
-			worker[i].interrupt();
+		if (isWorking.compareAndSet(true, false)) {
+			for (int i = 0; i < threadsCount; i++) {
+				worker[i].interrupt();
+			}
 		}
-		isWorking.compareAndSet(true, false);
 	}
 	
 	public boolean isShutdown() {
@@ -56,7 +61,19 @@ public class MyFixedThreadPool {
 		Future <?> future = futureWithId.get(id);
 		return ((MyFuture<?>) future).getState();
 	}
+	
+	public Future<?> submit(Runnable task) {
+		return submit(Executors.callable(task), innerTaskId.getAndIncrement());
+	}
+	
+	public Future<?> submit(Runnable task, long id) {
+		return submit(Executors.callable(task), id);
+	}
 
+	public Future<?> submit(Callable<?> task) {
+		return submit(task, innerTaskId.getAndIncrement());
+	}
+	
 	public Future<?> submit(Callable<?> task, long id) {
 		Future<?> future = new MyFuture<>(task);
 		addTaskIntoWorkQueue(future, id);
@@ -103,8 +120,7 @@ public class MyFixedThreadPool {
 							break;
 						}
 					}
-				}
-				Thread.currentThread().interrupted(); // Если ктото пытался прервать задачу, которая не прерывается 
+				} 
 				Future<?> future = getTaskFromWorkQueue(); 
 				if (future != null) {
 					((MyFuture<?>) future).start(); 

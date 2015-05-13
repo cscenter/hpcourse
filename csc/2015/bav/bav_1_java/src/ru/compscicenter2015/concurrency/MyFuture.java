@@ -1,6 +1,5 @@
 package ru.compscicenter2015.concurrency;
 
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;

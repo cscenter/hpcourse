@@ -63,7 +63,7 @@ public class Main {
 						int duration = Integer.parseInt(input.substring("status ".length()));
 						Task task = new Task(duration);
 						System.out.println("Task with id " + task.getId() + " created");
-						Future <?> future = pool.submit(Executors.callable(task), task.getId());
+						pool.submit(task, task.getId());
 					}
 					else
 						if (input.startsWith("cancel ")) {
