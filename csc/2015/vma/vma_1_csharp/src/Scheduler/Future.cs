@@ -17,7 +17,7 @@ namespace HPLab.Scheduler
         Canceled
     }
 
-    public class Future<T>
+    public class Future
     {
         private readonly int _id;
         private readonly SimpleThreadScheduler _scheduler;
@@ -34,21 +34,25 @@ namespace HPLab.Scheduler
 
         }
 
-        internal List<Future<T>> ChildTasks { get; set; }
+        internal List<Future> ChildTasks { get; set; }
 
         public FutureState State { get; internal set; }
         
         public int CurrentTime { get; internal set; }
         
         public int TotalTime { get; internal set; }
-        
+
+        public int Id { get { return _id; } }
+
+        public int? ParentId { get; internal set; }
+
         public ApplicationException ExecutionException { get; internal set; }
 
-        public T Result
+        public object Result
         {
             get
             {
-                return (T)_scheduler.GetTaskResult(_id);
+                return _scheduler.GetTaskResult(_id);
             }
         }
 

@@ -19,7 +19,7 @@ namespace HPLab.Scheduler
 
         private ManualResetEventSlim newTaskAvailable;
         private int[] TaskQueue;
-        private Dictionary<int, Future<object>> Tasks;
+        private Dictionary<int, Future> Tasks;
         private Dictionary<int, object> TaskResults;
         private Dictionary<int, CancellationTokenSource> Tokens;
         private Dictionary<int, int> TasksToThreadQueue;
@@ -50,12 +50,12 @@ namespace HPLab.Scheduler
 
             TotalThreads = totalThreads;
             TaskQueue = new int[TotalThreads * INITIAL_TASKS_PER_THREAD + 1];
-            Tasks = new Dictionary<int, Future<object>>(TaskQueue.Length);
+            Tasks = new Dictionary<int, Future>(TaskQueue.Length);
             TasksToThreadQueue = new Dictionary<int, int>();
             Threads = new List<Thread>(TotalThreads);
             for (var i = 0; i < TotalThreads; ++i)
             {
-                Threads[i] = new Thread(ThreadStartPolling);
+                Threads.Add(new Thread(ThreadStartPolling));
                 TasksToThreadQueue[Threads[i].ManagedThreadId] = 0;
                 Threads[i].Start();
             }
@@ -75,6 +75,11 @@ namespace HPLab.Scheduler
          
                     while (tasksInProgress < totalTasks)
                     {
+                        //updated the TotalTasks, but still adding to dictionary
+                        if (!Tasks.ContainsKey(tasksInProgress))
+                        {
+                            continue;
+                        }
                         newTaskAvailable.Set();
                         ++tasksInProgress;
                     }
@@ -94,48 +99,83 @@ namespace HPLab.Scheduler
 
                 if (!StartTask(TaskQueue[TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId]]))
                 {
+                    if (Tasks[TaskQueue[TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId]]].ParentId != null)
+                    {
+                        newTaskAvailable.Reset();
+                        Interlocked.Increment(ref CurrentStartedTaskId);
+                    }
                     ++TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId];
                     continue;
                 }
                 newTaskAvailable.Reset();
-                var taskIdToRun = TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId];
                 Interlocked.Increment(ref CurrentStartedTaskId);
+                var taskIdToRun = TasksToThreadQueue[Thread.CurrentThread.ManagedThreadId];
                 RunTask(taskIdToRun);
             }
         }
 
-        private void RunTask(int taskIdToRun)
+        private int GetNewTaskId()
         {
-            var task = Tasks[taskIdToRun];
-            var result = 0;
-
-            while (task.CurrentTime < task.TotalTime)
+            int result;
+            do
             {
-                if (Tokens[taskIdToRun].IsCancellationRequested)
+                result = TotalTasks;
+                if ((result = Interlocked.CompareExchange(ref TotalTasks, result + 1, result)) == result)
                 {
-                    CancelTask(taskIdToRun);
-                    if (task.State == FutureState.InProgress)
-                    {
-                        Tokens[taskIdToRun].Token.ThrowIfCancellationRequested();
-                    }
                     break;
                 }
-                for (var i = 1; i <= 1000000; ++i)
-                {
-                    result += i;
-                    result /= i;
-                }
-                ++task.CurrentTime;
+                Thread.SpinWait(1);
+            } while (!disposed);
+            return result;
+        }
+
+        public Future SubmitNewTask(int taskDuration)
+        {
+            // array size check
+            var result = new Future(GetNewTaskId(), this);
+            Tasks[result.Id] = result;
+            Tokens[result.Id] = new CancellationTokenSource();
+            TaskQueue[result.Id] = result.Id;
+
+            return result;
+        }
+
+        public Future SubmitChildTask(int taskDuration, int parentId)
+        {
+            if (!Tasks.ContainsKey(parentId))
+            {
+                return null;
             }
-         
-            CompleteTask(taskIdToRun, task.TotalTime + result - 1);
+
+            var parent = Tasks[parentId];
+            if (parent.State <= FutureState.InProgress)
+            {
+                lock (parent)
+                {
+                    if (parent.State <= FutureState.InProgress)
+                    {
+                        var result = new Future(GetNewTaskId(), this)
+                        {
+                            State = FutureState.InProgress,
+                            TotalTime = taskDuration,
+                            ParentId = parent.Id
+                        };
+
+                        Tasks[result.Id] = result;
+                        Tokens[result.Id] = new CancellationTokenSource();
+                        TaskQueue[result.Id] = result.Id;
+                        parent.ChildTasks.Add(result);
+                        return result;
+                    }
+                }
+            }
+            return null;
         }
 
         private bool StartTask(int taskId)
         {
             if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
-                //throw ?
                 return false;
             }
             var task = Tasks[taskId];
@@ -155,11 +195,40 @@ namespace HPLab.Scheduler
             return false;
         }
 
+        private void RunTask(int taskIdToRun)
+        {
+            var task = Tasks[taskIdToRun];
+            var result = 0;
+
+            while (task.CurrentTime < task.TotalTime)
+            {
+                if (Tokens[taskIdToRun].IsCancellationRequested)
+                {
+                    CancelTask(taskIdToRun);
+                    if (task.State == FutureState.InProgress)
+                    {
+                        Tokens[taskIdToRun].Token.ThrowIfCancellationRequested();
+                    }
+                    return;
+                }
+
+                //recursive child run here
+
+                for (var i = 1; i <= 1000000; ++i)
+                {
+                    result += i;
+                    result /= i;
+                }
+                ++task.CurrentTime;
+            }
+
+            CompleteTask(taskIdToRun, task.TotalTime + result - 1);
+        }
+
         internal object GetTaskResult(int taskId)
         {
-            if (taskId < TotalTasks || !Tasks.ContainsKey(taskId))
+            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
-                //throw ?
                 return null;
             }
 
@@ -187,7 +256,6 @@ namespace HPLab.Scheduler
         {
             if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
-                //throw ?
                 return false;
             }
             var task = Tasks[taskId];
@@ -208,7 +276,7 @@ namespace HPLab.Scheduler
             return false;
         }
 
-        private static AggregateException GetAggregateException(Future<object> task)
+        private static AggregateException GetAggregateException(Future task)
         {
             var faults = task.ChildTasks == null
                 ? new List<ApplicationException>()
@@ -231,7 +299,6 @@ namespace HPLab.Scheduler
         {
             if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
-                //throw ?
                 return false;
             }
             var task = Tasks[taskId];
@@ -256,7 +323,6 @@ namespace HPLab.Scheduler
         {
             if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
             {
-                //throw ?
                 return false;
             }
             var task = Tasks[taskId];
@@ -299,6 +365,13 @@ namespace HPLab.Scheduler
                 if (newTaskAvailable != null)
                 {
                     newTaskAvailable.Dispose();
+                }
+                foreach (var tokenSource in Tokens)
+                {
+                    if (tokenSource.Value != null)
+                    {
+                        tokenSource.Value.Dispose();
+                    }
                 }
                 foreach (var thread in Threads)
                 {
