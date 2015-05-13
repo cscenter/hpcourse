@@ -1,8 +1,6 @@
 ﻿using HPLab.Scheduler;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace HPLab
@@ -11,7 +9,7 @@ namespace HPLab
     {
         static void Main(string[] args)
         {
-            var threadsTotal = 0;
+            int threadsTotal;
             
             if (args.Length == 0 || !int.TryParse(args[0], out threadsTotal))
             {
@@ -23,34 +21,86 @@ namespace HPLab
 
             SimpleThreadScheduler.Default.SetInitialThreadCount(threadsTotal);
 
+            Console.WriteLine("Hit `Enter` to start next test.");
+
+            Console.ReadLine();
+            Console.Write("SimpleTaskTest");
             SimpleTaskTest();
-            //ConsecutiveTaskTest();
-            //ConsecutiveTaskWithChildrenTest();
-            Console.ReadKey();
+            Console.WriteLine(" - Success");
+
+            Console.ReadLine();
+            Console.Write("ConsecutiveTaskSmallTest");
+            ConsecutiveTaskSmallTest();
+            Console.WriteLine(" - Success");
+
+            Console.ReadLine();
+            Console.Write("ConsecutiveTaskTest");
+            ConsecutiveTaskTest();
+            Console.WriteLine(" - Success");
+
+            Console.ReadLine();
+            Console.Write("ConsecutiveTaskWithChildrenTest");
+            ConsecutiveTaskWithChildrenTest();
+            Console.WriteLine(" - Success");
+
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
+            SimpleThreadScheduler.Default.Dispose();
         }
 
         private static void SimpleTaskTest()
         {
-            var parent = SimpleThreadScheduler.Default.SubmitNewTask(20);
+            var parent = SimpleThreadScheduler.Default.SubmitNewTask(10);
+            if ((int)parent.Result != parent.TotalTime)
+            {
+                throw new ApplicationException("No luck here");
+            }
+        }
+
+        private static void ConsecutiveTaskSmallTest()
+        {
+            var tasks = new Future[SimpleThreadScheduler.Default.TotalThreads * 2];
+            foreach (var taskDuration in Enumerable.Range(1, tasks.Length))
+            {
+                tasks[taskDuration - 1] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
+            }
+
+            Thread.Sleep(TimeSpan.FromMinutes(1));
+            foreach (var task in tasks)
+            {
+                if ((int)task.Result != task.TotalTime)
+                {
+                    throw new ApplicationException("No luck here");
+                }
+            }
         }
 
         private static void ConsecutiveTaskTest()
         {
-            Future[] tasks = new Future[1000];
-            foreach (var taskDuration in Enumerable.Range(0, 1000))
+            var tasks = new Future[1000];
+            foreach (var taskDuration in Enumerable.Range(1, tasks.Length))
             {
-                tasks[taskDuration] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
+                tasks[taskDuration - 1] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
+            }
+
+            Thread.Sleep(TimeSpan.FromMinutes(20));
+            foreach (var task in tasks)
+            {
+                if ((int)task.Result != task.TotalTime)
+                {
+                    throw new ApplicationException("No luck here");
+                }
             }
         }
 
         private static void ConsecutiveTaskWithChildrenTest()
         {
-            Future[] tasks = new Future[2000];
-            foreach (var taskDuration in Enumerable.Range(0, 1000))
+            var tasks = new Future[10];
+            foreach (var taskDuration in Enumerable.Range(1, tasks.Length / 2))
             {
-                tasks[taskDuration] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
-                Thread.Sleep(7000);
-                tasks[taskDuration + 1] = SimpleThreadScheduler.Default.SubmitChildTask(taskDuration * 2, tasks[taskDuration].Id);
+                tasks[2 * taskDuration - 1] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
+                Thread.Sleep(TimeSpan.FromSeconds(7));
+                tasks[2 * taskDuration] = SimpleThreadScheduler.Default.SubmitChildTask(taskDuration * 2, tasks[taskDuration].Id);
             }
         }
     }

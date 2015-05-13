@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPLab.Scheduler
 {
@@ -26,15 +22,15 @@ namespace HPLab.Scheduler
         {
             _id = id;
             _scheduler = scheduler;
+            ChildTasks = new List<Future>();
         }
 
         public Future(int id)
             : this(id, SimpleThreadScheduler.Default)
         {
-
         }
 
-        internal List<Future> ChildTasks { get; set; }
+        internal List<Future> ChildTasks { get; private set; }
 
         public FutureState State { get; internal set; }
         
