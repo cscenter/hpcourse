@@ -153,7 +153,7 @@ public class MyFixedThreadPoolTest {
 	
 	@Test
 	public void testWithMergeSortForRecursiveTask() {
-		int n = 10;
+		int n = 100_000;
 		int a[] = new int[n];
 		Random random = new Random();
 		for (int i = 0; i < n; i++) {
@@ -163,7 +163,7 @@ public class MyFixedThreadPoolTest {
 		for (int i = 0; i < a.length; i++)
 			ans[i] = a[i];
 		Arrays.sort(ans);
-		Future<?> future = pool.submit(new MergeSortClass(a, 0, a.length - 1));
+		Future<?> future = pool.submit(new MergeSortClass(a, 0, a.length - 1, pool));
 		try {
 			future.get();
 		} catch (InterruptedException | ExecutionException e) {
