@@ -11,27 +11,31 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MyFuture<V> implements Future<V> {
 	private final Callable<V> task;
 	private volatile Thread currentThread;
+	private volatile Future<?> parent;
 	private volatile V result;
+	//private volatile boolean allowWork;
 	private volatile Throwable exception;
 	private final AtomicInteger state;
 	
-	private static final int NEW       = 0;
-	private static final int RUNNING   = 1;
-	private static final int CANCELED  = 2;
-	private static final int DONE      = 3;
-	private static final int ERROR     = 4;
+	private static final int NEW        = 0;
+	private static final int RUNNING    = 1;
+	private static final int CANCELED   = 2;
+	private static final int DONE       = 3;
+	private static final int ERROR      = 4;
+	private static final int WAIT_CHILD = 5;
 	
 	public MyFuture(Callable<V> task) {
 		if (task == null)
 			throw new NullPointerException();
 		this.task = task;
+		parent = null;
 		exception = null;
 		result = null;
+		//allowWork = true;
 		state = new AtomicInteger(NEW);
 	}
 
 	public void start() {
-	//	System.out.println("Im ready to do smth usefull");
 		state.compareAndSet(NEW, RUNNING);
 		currentThread = Thread.currentThread();
 		try {
@@ -83,7 +87,7 @@ public class MyFuture<V> implements Future<V> {
 	@Override
 	public V get() throws InterruptedException, ExecutionException {
 		synchronized (task) {
-			while (state.get() == NEW || state.get() == RUNNING) {
+			while (state.get() == NEW || state.get() == RUNNING || state.get() == WAIT_CHILD) {
 				task.wait();
 			}
 		}
@@ -115,6 +119,22 @@ public class MyFuture<V> implements Future<V> {
 		return result;
 	}
 	
+	synchronized public void setParent(Future<?> parent) {
+		this.parent = parent;
+	}
+	
+	public Future<?> getParent() {
+		return parent;
+	}
+	
+	public void setNewState() {
+		state.set(NEW);
+	}
+
+	public void setWaitChildState() {
+		state.set(WAIT_CHILD);
+	}
+	
 	public String getState() {
 		switch(state.get()) {
 		case NEW:
@@ -128,6 +148,6 @@ public class MyFuture<V> implements Future<V> {
 		case ERROR:
 			return "Error";
 		}
-		return "";
+		return "Wait child";
 	}
 }

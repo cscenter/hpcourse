@@ -3,6 +3,7 @@ package ru.compscicenter2015.concurrency;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -16,7 +17,9 @@ public class MyFixedThreadPool {
 	final private int threadsCount;
 	private final Queue<Future<?>> workQueue; 
 	private final Worker worker[];
+	
 	private final TreeMap<Long, Future<?>> futureWithId;
+	private final TreeMap<Long, Future<?>> futureForThreadId;
 	
 	private final Object lockForTasks = new Object();
 
@@ -30,6 +33,7 @@ public class MyFixedThreadPool {
 		worker = new Worker[n];
 		workQueue = new LinkedList<Future<?>>();
 		futureWithId = new TreeMap<Long, Future<?>>();
+		futureForThreadId = new TreeMap<Long, Future<?>>();
 		for (int i = 0; i < n; i++) 
 			worker[i] = new Worker();
 		for (int i = 0; i < n; i++)
@@ -70,12 +74,23 @@ public class MyFixedThreadPool {
 		return submit(Executors.callable(task), id);
 	}
 
+	public Future<?> submit(Runnable task, Future<?> parent) {
+		return submit(Executors.callable(task), innerTaskId.getAndIncrement(), parent);
+	}
+	
 	public Future<?> submit(Callable<?> task) {
 		return submit(task, innerTaskId.getAndIncrement());
 	}
 	
 	public Future<?> submit(Callable<?> task, long id) {
 		Future<?> future = new MyFuture<>(task);
+		addTaskIntoWorkQueue(future, id);
+		return future;
+	}
+	
+	public Future<?> submit(Callable<?> task, long id, Future<?> parent) {
+		Future<?> future = new MyFuture<>(task);
+		((MyFuture<?>)future).setParent(parent);
 		addTaskIntoWorkQueue(future, id);
 		return future;
 	}
@@ -96,6 +111,26 @@ public class MyFixedThreadPool {
 			else
 				return null;
 		}
+	}
+	
+	public void addIntoFutureForThreadId(Thread thread, Future<?> future) {
+		synchronized (futureForThreadId) {
+			if (futureForThreadId.containsKey(thread.getId())) {
+				futureForThreadId.remove(thread.getId());
+			}
+			futureForThreadId.put(thread.getId(), future);
+		}
+	}
+	
+	public Future<?> getFutureByThread(Thread thread) {
+		synchronized (futureForThreadId) {
+			return futureForThreadId.get(Thread.currentThread().getId());
+		}		
+	}
+	
+	public void waitForChild() {
+		Future <?> future = getFutureByThread(Thread.currentThread());
+		((MyFuture<?>) future).setWaitChildState();
 	}
 
 	final class Worker implements Runnable {
@@ -123,7 +158,14 @@ public class MyFixedThreadPool {
 				} 
 				Future<?> future = getTaskFromWorkQueue(); 
 				if (future != null) {
-					((MyFuture<?>) future).start(); 
+					addIntoFutureForThreadId(Thread.currentThread(), future);
+					((MyFuture<?>) future).start();
+					Future <?> parent = ((MyFuture<?>) future).getParent();
+					if (parent != null) {
+						((MyFuture<?>)parent).setNewState();
+						addTaskIntoWorkQueue(parent, innerTaskId.getAndIncrement());
+					}
+					//((MyFuture<?>) future).allowParent(true);
 				}
 			}
 		}

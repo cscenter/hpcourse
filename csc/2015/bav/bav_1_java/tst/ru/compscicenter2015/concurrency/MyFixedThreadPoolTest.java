@@ -153,7 +153,7 @@ public class MyFixedThreadPoolTest {
 	
 	@Test
 	public void testWithMergeSortForRecursiveTask() {
-		int n = 100_000;
+		int n = 100000;
 		int a[] = new int[n];
 		Random random = new Random();
 		for (int i = 0; i < n; i++) {
@@ -167,12 +167,11 @@ public class MyFixedThreadPoolTest {
 		try {
 			future.get();
 		} catch (InterruptedException | ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			assertTrue("Unexpected exception", false);
 		}
 		for (int i = 0; i < a.length; i++)
 			if (ans[i] != a[i])
-				assertTrue(false);
+				assertTrue("Wrong answer", false);
 		assertTrue(true);
 	}
 	
