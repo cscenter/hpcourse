@@ -96,7 +96,9 @@ public class MyFixedThreadPool {
 	private void addTaskIntoWorkQueue(Future<?> future, long id) {
 		synchronized (lockForTasks) {
 			workQueue.add(future);
-			futureWithId.put(id, future);
+			synchronized (futureWithId) {
+				futureWithId.put(id, future);	
+			}
 			lockForTasks.notifyAll();
 		}
 	}
