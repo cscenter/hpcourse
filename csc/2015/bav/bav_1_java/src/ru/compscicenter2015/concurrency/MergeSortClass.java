@@ -10,8 +10,6 @@ public class MergeSortClass implements Runnable {
 	private final int l; //read only
 	private final int r; //readl only
 	private final int recursiveDeep; //read only
-	private Future <?> futureRecursiveLeft;
-	private Future <?> futureRecursiveRight;
 	
 	MergeSortClass(int array[], int l, int r, MyFixedThreadPool pool) {
 		this.array = array;
@@ -56,7 +54,7 @@ public class MergeSortClass implements Runnable {
 	public void run() {
 		if (r - l <= 0)
 			return;
-		if (r - l + 1 <= 16 || recursiveDeep >= MAX_RECURSIVE_DEEP) {
+		if (r - l + 1 <= 4 || recursiveDeep >= MAX_RECURSIVE_DEEP) {
 			synchronized (array) {
 				for (int i = l; i < r; i++)
 					for (int j = i + 1; j <= r; j++)
@@ -68,22 +66,10 @@ public class MergeSortClass implements Runnable {
 			}
 		} else {
 			int m = (r + l) / 2;
-			if (futureRecursiveLeft == null) {
-				futureRecursiveLeft = pool.submit(new MergeSortClass(array, l, m, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
-				if (!futureRecursiveLeft.isDone()) {
-					pool.waitForChild();
-					return;
-				}
-			}
-			if (futureRecursiveRight == null) {
-				futureRecursiveRight = pool.submit(new MergeSortClass(array, m + 1, r, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
-				if (!futureRecursiveRight.isDone()) {
-					pool.waitForChild();
-					return;
-				}
-			}
+			Future<?> futureRecursiveLeft = pool.submit(new MergeSortClass(array, l, m, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
+			Future<?> futureRecursiveRight = pool.submit(new MergeSortClass(array, m + 1, r, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
 			
-			try { // уже выполнено, либо какая то ошибка в подзадаче, о чем мы узнаем
+			try { 
 				futureRecursiveLeft.get();
 			} catch (InterruptedException e) {
 				pool.getFutureByThread(Thread.currentThread()).cancel(false);
@@ -101,7 +87,6 @@ public class MergeSortClass implements Runnable {
 				return;
 			}
 			merge(l, r);
-
 		}
 	}
 	
