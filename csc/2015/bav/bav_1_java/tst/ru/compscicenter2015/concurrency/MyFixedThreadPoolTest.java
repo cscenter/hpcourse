@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -147,6 +149,30 @@ public class MyFixedThreadPoolTest {
 		} catch (CancellationException e) {
 			assertTrue(true);
 		}
+	}
+	
+	@Test
+	public void testWithMergeSortForRecursiveTask() {
+		int n = 100000;
+		int a[] = new int[n];
+		Random random = new Random();
+		for (int i = 0; i < n; i++) {
+			a[i] = random.nextInt();
+		}
+		int ans[] = new int[n];
+		for (int i = 0; i < a.length; i++)
+			ans[i] = a[i];
+		Arrays.sort(ans);
+		Future<?> future = pool.submit(new MergeSortClass(a, 0, a.length - 1, pool));
+		try {
+			future.get();
+		} catch (InterruptedException | ExecutionException e) {
+			assertTrue("Unexpected exception", false);
+		}
+		for (int i = 0; i < a.length; i++)
+			if (ans[i] != a[i])
+				assertTrue("Wrong answer", false);
+		assertTrue(true);
 	}
 	
 	@After

@@ -23,8 +23,8 @@ size_t base_state::get_id()
 void base_state::set_exception(std::__exception_ptr::exception_ptr ptr)
 {
     state_ = TaskState::COMPLETE;
-    condition_.notify_all();
     exception_ = ptr;
+    condition_.notify_all();
 }
 
 std::__exception_ptr::exception_ptr base_state::exception() const
