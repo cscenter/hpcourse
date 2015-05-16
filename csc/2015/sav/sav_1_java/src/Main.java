@@ -53,13 +53,15 @@ public class Main {
 
     }
     static class Sleepy_task implements Runnable {
-        private static volatile int counter = 0;
-        private int time_of_sleeping;
-        private int task_id;
+        private static int counter = 0;
+        private final int time_of_sleeping;
+        private final int task_id;
         Sleepy_task(int time_of_sleeping) {
             this.time_of_sleeping = time_of_sleeping;
             this.task_id = counter;
-            counter ++;
+            synchronized(this){
+                counter ++;
+            }
         }
         public void run(){
             try{

@@ -35,9 +35,9 @@ public class My_scheduler {
 
     Future<?> submit(Callable<?> task, int task_id) {
         Future<?> new_future = new Future_of_task(task);
-        table_of_futures.put(task_id, new_future);
         synchronized (lock_for_threads) {
             queue_of_tasks.add(new_future);
+            table_of_futures.put(task_id, new_future);
             lock_for_threads.notifyAll();
         }
         return new_future;
@@ -74,10 +74,9 @@ public class My_scheduler {
                 Future<?> new_future = null;
                 synchronized (lock_for_threads) {
                     if (!queue_of_tasks.isEmpty()) {
-                    new_future = (Future_of_task<?>)queue_of_tasks.poll();
+                        new_future = queue_of_tasks.poll();
                     }
                 }
-                Thread.currentThread().interrupted();
                 if (new_future != null) {
                     ((Future_of_task<?>)new_future).start();
                 }
@@ -86,10 +85,10 @@ public class My_scheduler {
     }
     class Future_of_task<V> implements Future<V> {
         private Exception exception;
-        private volatile V result;
-        private volatile Status status_of_task;
+        private V result;
+        private Status status_of_task;
         private final Callable<V> task;
-        private volatile Thread thread;
+        private Thread thread;
         Future_of_task (Callable<V> t) {
             this.task = t;
             this.status_of_task = Status.NEW;
@@ -125,9 +124,7 @@ public class My_scheduler {
             }
             if (mayInterruptIfRunning) {
                 status_of_task = Status.CANCELLED;
-                if(thread != null) {
                     thread.interrupt();
-                }
                 return true;
             }
             return false;
@@ -155,7 +152,7 @@ public class My_scheduler {
         public V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException{
             long deadline = System.currentTimeMillis() + unit.toMillis(timeout);
             synchronized(task) {
-                while (status_of_task != Status.DONE || status_of_task != Status.ERROR || status_of_task != Status.CANCELLED) {
+                while (status_of_task != Status.DONE && status_of_task != Status.ERROR && status_of_task != Status.CANCELLED) {
                     task.wait(deadline);
                     if (System.currentTimeMillis() > deadline){
                         break;
