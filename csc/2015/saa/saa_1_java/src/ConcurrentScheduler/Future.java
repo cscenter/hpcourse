@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutionException;
 public class Future<T> {
 
     public enum State{
-        Created,
+        Waiting,
         Running,
         Done,
         Canceled,
@@ -24,12 +24,12 @@ public class Future<T> {
 
     public Future(int taskId, Scheduler newScheduler){
         TaskId = taskId;
-        state = State.Created;
+        state = State.Waiting;
         scheduler = newScheduler;
     }
 
     public boolean startRunning(int id){
-        if(casState(State.Created, State.Running)) {
+        if(casState(State.Waiting, State.Running)) {
             ThreadId = id;
             return true;
         }
@@ -81,7 +81,7 @@ public class Future<T> {
                 thisTask.ChildTask.future.cancel();
             }
 
-            if (state.equals(State.Created)) {
+            if (state.equals(State.Waiting)) {
                 scheduler.Tasks.remove(thisTask);
                 System.out.println(TaskId + " canceled");
             } else {

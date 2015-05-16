@@ -10,12 +10,14 @@ public class Scheduler {
     final Queue<Task> Tasks;
     final Dictionary<Integer, Task> TaskCollection;
     private int ThreadNumber;
+    private boolean isRunning;
 
     Scheduler(int threadNumber) {
         ThreadNumber = threadNumber;
         Tasks = new ArrayDeque<>();
         Threads = new HashMap<>();
         TaskCollection = new Hashtable<>();
+        isRunning = true;
 
         for (int i = 0; i < ThreadNumber; ++i) {
             CleverThread myCleverThread = new CleverThread();
@@ -38,6 +40,7 @@ public class Scheduler {
     }
 
     public void shutDown() {
+        isRunning = false;
         Collection<CleverThread> threadCollection = Threads.values();
         threadCollection.forEach(CleverThread::interrupt);
         System.out.println("all threads interrupted");
@@ -53,7 +56,7 @@ public class Scheduler {
         @Override
         public void run() {
 
-            while (true) {
+            while (isRunning) {
                 //Try to get the task from queue, checking if it is not waiting for its child task to finish
                 while (currentTask == null) {
                     try {
