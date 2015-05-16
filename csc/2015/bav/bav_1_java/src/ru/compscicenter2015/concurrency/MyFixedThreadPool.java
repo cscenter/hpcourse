@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class MyFixedThreadPool {
-	private AtomicLong innerTaskId;
-	private AtomicBoolean isWorking; 
+	private final AtomicLong innerTaskId;
+	private final AtomicBoolean isWorking; 
 	final private int threadsCount;
 	
 	private final Queue<Future<?>> workQueue; 
@@ -160,9 +160,9 @@ public class MyFixedThreadPool {
 	}
 	public class MyFuture<V> implements Future<V> {
 		private final Callable<V> task;
-		private volatile Thread currentThread;
-		private volatile V result;
-		private volatile Throwable exception;
+		private Thread currentThread;
+		private V result;
+		private Throwable exception;
 		private final AtomicInteger state;
 		
 		private static final int NEW        = 0;
@@ -210,9 +210,7 @@ public class MyFixedThreadPool {
 					Thread t = null;
 					while ((t = currentThread) == null)
 						Thread.yield();
-					if (t != null) {
-						t.interrupt();
-					}
+					t.interrupt();
 				} finally {
 					state.set(CANCELED);
 				}
