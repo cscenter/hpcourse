@@ -54,6 +54,17 @@ public class RunScheduler {
                             LogWrapper.i("ADDED TASK: " + future.getId());
                             break;
                         }
+                        case ADD_SUBTASK: {
+                            CommandFactory.AddSubtaskCommand addSubtaskCommand = (CommandFactory.AddSubtaskCommand) command;
+                            Optional<TaskFuture> future = scheduler.submitSubtask(addSubtaskCommand.getId(), addSubtaskCommand.getCallable());
+                            if (future.isPresent()) {
+                                LogWrapper.i("ADDED TASK: " + future.get().getId());
+                            } else {
+                                LogWrapper.w("There is no task with id: " + addSubtaskCommand.getId());
+                                LogWrapper.w("Or task with id: " + addSubtaskCommand.getId() + " in status INTERRUPT or COMPLETED");
+                            }
+                            break;
+                        }
                         case STATUS: {
                             CommandFactory.StatusCommand statusCommand = (CommandFactory.StatusCommand) command;
                             Optional<TaskFuture.Status> status = scheduler.getStatus(statusCommand.getId());
@@ -81,6 +92,16 @@ public class RunScheduler {
                                 LogWrapper.i("RESULT OF TASK: " + resultCommand.getId() + " IS " + mayBeResult.get());
                             } else {
                                 LogWrapper.w("There is no task with id: " + resultCommand.getId());
+                            }
+                            break;
+                        }
+                        case RUN_SUBTASK: {
+                            CommandFactory.RunSubtaskCommand runSubtaskCommand = (CommandFactory.RunSubtaskCommand) command;
+                            boolean result = scheduler.runSubtask(runSubtaskCommand.getParentId(), runSubtaskCommand.getSubtaskId());
+                            if (result) {
+                                LogWrapper.i("SUBTASK WITH ID: " + runSubtaskCommand.getSubtaskId() + " WILL BE RUN");
+                            } else {
+                                LogWrapper.w("There is no subtask with id: " + runSubtaskCommand.getSubtaskId() + " in task with id: " + runSubtaskCommand.getParentId());
                             }
                             break;
                         }

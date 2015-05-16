@@ -32,6 +32,17 @@ public class Scheduler {
         return taskFuture;
     }
 
+    public Optional<TaskFuture> submitSubtask(long taskId, Callable task) {
+        Optional<TaskFuture> mayBeFuture = getFutureById(taskId);
+        if (mayBeFuture.isPresent()) {
+            TaskFuture future = mayBeFuture.get();
+            if (future.getStatus() != TaskFuture.Status.COMPLETED && future.getStatus() != TaskFuture.Status.INTERRUPTED) {
+                return Optional.of(future.addSubTask(task));
+            }
+        }
+        return Optional.empty();
+    }
+
     public Optional<TaskFuture> getFutureById(long id) {
         return Optional.ofNullable(allFutures.get(id));
     }
@@ -76,6 +87,16 @@ public class Scheduler {
         }
     }
 
+    public boolean runSubtask(long parentId, long subtaskId) {
+        Optional<TaskFuture> mayBeFuture = getFutureById(parentId);
+        if (mayBeFuture.isPresent()) {
+            TaskFuture taskFuture = mayBeFuture.get();
+            return taskFuture.runSubtask(subtaskId);
+        } else {
+            return false;
+        }
+    }
+
     public Optional<Exception> getInternalException(Long id) {
         Optional<TaskFuture> mayBeFuture = getFutureById(id);
 
@@ -98,7 +119,7 @@ public class Scheduler {
                         try {
                             futures.wait();
                         } catch (InterruptedException e) {
-                            //                            LogWrapper.e(e);
+                            // LogWrapper.e(e);
                         }
                     }
                     if (isKill) {
@@ -111,6 +132,7 @@ public class Scheduler {
                 try {
                     try {
                         future.getTask().call();
+                        future.runSubtasks();
                         future.setStatus(TaskFuture.Status.COMPLETED);
                     } catch (Exception e) {
                         future.setStatus(TaskFuture.Status.INTERRUPTED);

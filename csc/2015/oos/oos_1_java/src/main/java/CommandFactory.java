@@ -13,7 +13,9 @@ public class CommandFactory {
         STATUS("status"),
         INTERRUPT("interrupt"),
         RESULT("result"),
-        EXCEPTION("exception");
+        EXCEPTION("exception"),
+        ADD_SUBTASK("add_subtask"),
+        RUN_SUBTASK("run_subtask");
 
         private String value;
 
@@ -52,6 +54,32 @@ public class CommandFactory {
         @Override
         public CommandType getType() {
             return CommandType.ADD;
+        }
+    }
+
+    public static class AddSubtaskCommand implements Command {
+        private final long id;
+        private final Callable<Optional> callable;
+
+        public AddSubtaskCommand(long id, long duration) {
+            this.id = id;
+            callable = () -> {
+                Thread.sleep(duration);
+                return Optional.empty();
+            };
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public Callable<Optional> getCallable() {
+            return callable;
+        }
+
+        @Override
+        public CommandType getType() {
+            return CommandType.ADD_SUBTASK;
         }
     }
 
@@ -113,6 +141,29 @@ public class CommandFactory {
         }
     }
 
+    public static class RunSubtaskCommand implements Command {
+        private final long parentId;
+        private final long subtaskId;
+
+        public RunSubtaskCommand(long parentId, long subtaskId) {
+            this.parentId = parentId;
+            this.subtaskId = subtaskId;
+        }
+
+        public long getParentId() {
+            return parentId;
+        }
+
+        public long getSubtaskId() {
+            return subtaskId;
+        }
+
+        @Override
+        public CommandType getType() {
+            return CommandType.RUN_SUBTASK;
+        }
+    }
+
     public static class ExceptionCommand implements Command {
         private final long id;
 
@@ -147,6 +198,10 @@ public class CommandFactory {
                     return new ResultCommand(Long.parseLong(args[1]));
                 case EXCEPTION:
                     return new ExceptionCommand(Long.parseLong(args[1]));
+                case ADD_SUBTASK:
+                    return new AddSubtaskCommand(Long.parseLong(args[1]), Long.parseLong(args[2]));
+                case RUN_SUBTASK:
+                    return new RunSubtaskCommand(Long.parseLong(args[1]), Long.parseLong(args[2]));
             }
         }
         return null;
