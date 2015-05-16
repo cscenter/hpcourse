@@ -18,14 +18,12 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MyFixedThreadPool {
 	private AtomicLong innerTaskId;
 	private AtomicBoolean isWorking; 
-	
 	final private int threadsCount;
+	
 	private final Queue<Future<?>> workQueue; 
 	private final Worker worker[];
-	
 	private final TreeSet<Long> threadSet;
 	private final TreeMap<Long, Future<?>> futureWithId;
-	private final TreeMap<Long, Future<?>> futureForThreadId;
 	
 	private final Object lockForTasks = new Object();
 
@@ -40,7 +38,7 @@ public class MyFixedThreadPool {
 		workQueue = new LinkedList<Future<?>>();
 		threadSet = new TreeSet<Long>();
 		futureWithId = new TreeMap<Long, Future<?>>();
-		futureForThreadId = new TreeMap<Long, Future<?>>();
+		
 		for (int i = 0; i < n; i++) 
 			worker[i] = new Worker();
 		for (int i = 0; i < n; i++)
@@ -48,10 +46,12 @@ public class MyFixedThreadPool {
 	}
 	
 	public boolean cancel(long id) {
-		if (!futureWithId.containsKey(id))
-			throw new IllegalArgumentException();
-		Future <?> future = futureWithId.get(id);
-		return future.cancel(true);
+		synchronized (futureWithId) {
+			if (!futureWithId.containsKey(id))
+				throw new IllegalArgumentException();
+			Future <?> future = futureWithId.get(id);
+			return future.cancel(true);
+		}
 	}
 
 	public void shutdown() {
@@ -67,10 +67,12 @@ public class MyFixedThreadPool {
 	}
 	
 	public String getStatus(long id) {
-		if (!futureWithId.containsKey(id))
-			return "Task with this id is absent";
-		Future <?> future = futureWithId.get(id);
-		return ((MyFuture<?>) future).getState();
+		synchronized (futureWithId) {
+			if (!futureWithId.containsKey(id))
+				return "Task with this id is absent";
+			Future <?> future = futureWithId.get(id);
+			return ((MyFuture<?>) future).getState();	
+		}
 	}
 	
 	public Future<?> submit(Runnable task) {
@@ -80,22 +82,12 @@ public class MyFixedThreadPool {
 	public Future<?> submit(Runnable task, long id) {
 		return submit(Executors.callable(task), id);
 	}
-
-	public Future<?> submit(Runnable task, Future<?> parent) {
-		return submit(Executors.callable(task), innerTaskId.getAndIncrement(), parent);
-	}
 	
 	public Future<?> submit(Callable<?> task) {
 		return submit(task, innerTaskId.getAndIncrement());
 	}
 	
 	public Future<?> submit(Callable<?> task, long id) {
-		Future<?> future = new MyFuture<>(task);
-		addTaskIntoWorkQueue(future, id);
-		return future;
-	}
-	
-	public Future<?> submit(Callable<?> task, long id, Future<?> parent) {
 		Future<?> future = new MyFuture<>(task);
 		addTaskIntoWorkQueue(future, id);
 		return future;
@@ -131,21 +123,6 @@ public class MyFixedThreadPool {
 		}
 	}
 	
-	private void addIntoFutureForThreadId(Thread thread, Future<?> future) {
-		synchronized (futureForThreadId) {
-			if (futureForThreadId.containsKey(thread.getId())) {
-				futureForThreadId.remove(thread.getId());
-			}
-			futureForThreadId.put(thread.getId(), future);
-		}
-	}
-	
-	public Future<?> getFutureByThread(Thread thread) {
-		synchronized (futureForThreadId) {
-			return futureForThreadId.get(Thread.currentThread().getId());
-		}		
-	}
-
 	final class Worker implements Runnable {
 		final private Thread thread;
 
@@ -172,7 +149,6 @@ public class MyFixedThreadPool {
 				} 
 				Future<?> future = getTaskFromWorkQueue(); 
 				if (future != null) {
-					addIntoFutureForThreadId(Thread.currentThread(), future);
 					((MyFuture<?>) future).start();
 				}
 			}
@@ -260,10 +236,8 @@ public class MyFixedThreadPool {
 				boolean isThreadInPool = isThreadInThreadSet(Thread.currentThread());
 				while (state.get() == NEW || state.get() == RUNNING) {
 					Future<?> future = null;
-					Thread.sleep(10);
+					Thread.sleep(10); // т.к. по идее мы уже выполняем какую-то задачу, то пропускаем вперед сначала остальные(незанятые) потоки 
 					if (isThreadInPool && (future = getTaskFromWorkQueue()) != null) {
-						addIntoFutureForThreadId(Thread.currentThread(), future);
-						//System.out.println(future);
 						((MyFuture<?>)future).start();
 						//System.out.println(future + " is ready");
 					} 

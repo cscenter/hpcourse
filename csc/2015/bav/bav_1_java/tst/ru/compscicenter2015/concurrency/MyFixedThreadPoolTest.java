@@ -17,23 +17,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-class TaskSumCannotInterrupt implements Callable<Long> {
-	private final long n;
-	TaskSumCannotInterrupt(long n) {
-		this.n = n;
-	}
-		
-	@Override
-	public Long call() throws Exception {
-		long sum = 0;
-		for (int i = 1; i <= n; i++)
-			sum += i;
-		if (n == 0)
-			sum /= n; // деление на ноль
-		return sum;
-	}	
-}
-
 class TaskSumCanInterrupt implements Callable<Long> {
 	private final long n;
 	TaskSumCanInterrupt(long n) {
@@ -65,7 +48,7 @@ public class MyFixedThreadPoolTest {
 	
 	@Test
 	public void divideByZeroInTask() {
-		Future <?> future = pool.submit(new TaskSumCannotInterrupt(0), 1);
+		Future <?> future = pool.submit(new TaskSumCanInterrupt(0), 1);
 		try {
 			future.get();
 			assertTrue("Expected exception", false);
@@ -80,7 +63,7 @@ public class MyFixedThreadPoolTest {
 	public void testManyThreadsAndMoreTasks() {
 		ArrayList <Future<?>> futureList = new ArrayList<Future<?>>();
 		for (int i = 1; i <= 100000; i++)
-			futureList.add(pool.submit(new TaskSumCannotInterrupt(i), 1));
+			futureList.add(pool.submit(new TaskSumCanInterrupt(i), 1));
 		for (int i = 1; i <= 100000; i++) {
 			long value = 0;
 			try {
@@ -94,7 +77,7 @@ public class MyFixedThreadPoolTest {
 	
 	@Test
 	public void testsWithTimedGet() {
-		Future <?> f = pool.submit(new TaskSumCannotInterrupt(100_000_000L), 1);
+		Future <?> f = pool.submit(new TaskSumCanInterrupt(100_000_000L), 1);
 		try {
 			long res = (long)f.get(2L, TimeUnit.SECONDS);
 			long realRes = (100_000_000L * 100_000_001) / 2L;
@@ -107,7 +90,7 @@ public class MyFixedThreadPoolTest {
 			assertTrue("Not expected TimeoutException", false);
 		}
 		
-		f = pool.submit(new TaskSumCannotInterrupt(1_000_000_000_000_000_000L), 1);
+		f = pool.submit(new TaskSumCanInterrupt(1_000_000_000_000_000_000L), 1);
 		try {
 			f.get(2L, TimeUnit.SECONDS);
 			assertTrue("You have very fast computer ;)", false);
@@ -125,20 +108,6 @@ public class MyFixedThreadPoolTest {
 
 	@Test 
 	public void testWhenWeCanInterrupt() throws InterruptedException {
-		Future <?> future = pool.submit(new TaskSumCanInterrupt(1_000_000_000_000_000L), 1);
-		Thread.currentThread().sleep(100);
-		future.cancel(true);
-		try {
-			future.get();
-		} catch (ExecutionException e) {
-			assertTrue("Unexpected ExecutionException", false);
-		} catch (CancellationException e) {
-			assertTrue(true);
-		}
-	}
-	
-	@Test 
-	public void testWhenWeCanNotInterrupt() throws InterruptedException {
 		Future <?> future = pool.submit(new TaskSumCanInterrupt(1_000_000_000_000_000L), 1);
 		Thread.currentThread().sleep(100);
 		future.cancel(true);

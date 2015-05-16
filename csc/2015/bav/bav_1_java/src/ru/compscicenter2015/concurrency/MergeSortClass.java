@@ -66,22 +66,19 @@ public class MergeSortClass implements Runnable {
 			}
 		} else {
 			int m = (r + l) / 2;
-			Future<?> futureRecursiveLeft = pool.submit(new MergeSortClass(array, l, m, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
-			Future<?> futureRecursiveRight = pool.submit(new MergeSortClass(array, m + 1, r, pool, recursiveDeep + 1), pool.getFutureByThread(Thread.currentThread()));
+			Future<?> futureRecursiveLeft = pool.submit(new MergeSortClass(array, l, m, pool, recursiveDeep + 1));
+			Future<?> futureRecursiveRight = pool.submit(new MergeSortClass(array, m + 1, r, pool, recursiveDeep + 1));
 			
 			try { 
 				futureRecursiveLeft.get();
 			} catch (InterruptedException e) {
-				pool.getFutureByThread(Thread.currentThread()).cancel(false);
 				return;
 			} catch (ExecutionException e) {
-				//ошибка в подзадаче
 				return;
 			}
 			try {
 				futureRecursiveRight.get();
 			} catch (InterruptedException e) {
-				pool.getFutureByThread(Thread.currentThread()).cancel(false);
 				return;
 			} catch (ExecutionException e) {
 				return;
