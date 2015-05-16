@@ -33,6 +33,8 @@ public class BlockingQueueImpl<T> {
     }
 
     public int size() {
-        return queue.size();
+        synchronized (queue) {
+            return queue.size();
+        }
     }
 }
