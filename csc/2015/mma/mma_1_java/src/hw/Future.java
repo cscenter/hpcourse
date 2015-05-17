@@ -6,7 +6,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 // a la http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html
-public class Future<V> implements Runnable {
+public class Future<V> {
     private final Callable task;
     private final AtomicInteger status = new AtomicInteger(TaskStatus.NOTSTARTED.getValue());
     private Exception exception;
@@ -53,9 +53,23 @@ public class Future<V> implements Runnable {
     }
 
     public V get() throws InterruptedException, ExecutionException {
-        while (!(getStatus() == TaskStatus.DONE || getStatus() == TaskStatus.CANCELLED)) {
-            synchronized (task) {
-                task.wait();
+        if (casStatus(TaskStatus.NOTSTARTED, TaskStatus.RUNNING)) {
+            try {
+                thread = Thread.currentThread();
+                result = (V) task.call();
+            } catch (Exception ex) {
+                exception = ex;
+            } finally {
+                casStatus(TaskStatus.RUNNING, TaskStatus.DONE);
+                notifyTask();
+            }
+        } else {
+            // awaiting
+            boolean fromPool = Thread.currentThread() instanceof FixedThreadPool.FixedThreadPoolThread;
+            if (!fromPool) {
+                while (!(getStatus() == TaskStatus.DONE || getStatus() == TaskStatus.CANCELLED)) {
+                    waitTask();
+                }
             }
         }
 
@@ -70,22 +84,6 @@ public class Future<V> implements Runnable {
         return result;
     }
 
-    @Override
-    public void run() {
-        if (!casStatus(TaskStatus.NOTSTARTED, TaskStatus.RUNNING)) {
-            return;
-        }
-        try {
-            thread = Thread.currentThread();
-            result = (V) task.call();
-        } catch (Exception ex) {
-            exception = ex;
-        } finally {
-            casStatus(TaskStatus.RUNNING, TaskStatus.DONE);
-            notifyTask();
-        }
-    }
-
     private boolean casStatus(TaskStatus from, TaskStatus to) {
         return status.compareAndSet(from.getValue(), to.getValue());
     }
@@ -95,6 +93,10 @@ public class Future<V> implements Runnable {
             task.notify();
         }
     }
+
+    private void waitTask() throws InterruptedException {
+        synchronized (task) {
+            task.wait();
+        }
+    }
 }
-
-

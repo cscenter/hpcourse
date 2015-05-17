@@ -2,7 +2,7 @@ package hw;
 
 
 public interface ThreadPool {
-    void submit(Runnable task);
+    void submit(Future task);
 
-    void awaitAll() throws InterruptedException;
+    void awaitCompletion() throws InterruptedException;
 }
