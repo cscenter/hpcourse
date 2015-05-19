@@ -10,7 +10,7 @@ public abstract class ThreadLocalStorage<T> {
 
     private Map<Thread, T> values = new HashMap<Thread, T>();
 
-    public T get() {
+    public synchronized T get() {
         Thread current = Thread.currentThread();
 
         T value = values.get(current);

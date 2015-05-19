@@ -3,6 +3,7 @@ package com.den.concurrency;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Zaycev Denis
@@ -25,7 +26,7 @@ public class WorkingQueue {
 
     private final Map<Runnable, Exception> taskException = new HashMap<Runnable, Exception>();
 
-    private boolean alive = true;
+    private volatile AtomicBoolean alive = new AtomicBoolean(true);
 
     public WorkingQueue(int maxThreadsCount) {
         this.tasks = new LinkedList<Runnable>();
@@ -38,7 +39,7 @@ public class WorkingQueue {
     }
 
     public void execute(Runnable task) {
-        if (!alive) {
+        if (!alive.get()) {
             throw new IllegalStateException("Trying to submit new task after shut down!");
         }
 
@@ -61,14 +62,11 @@ public class WorkingQueue {
         }
     }
 
-    public synchronized void shutDown() {
-        if (alive) {
-
-            alive = false;
+    public void shutDown() {
+        if (alive.compareAndSet(true, false)) {
             for (Worker worker : workers) {
                 worker.interrupt();
             }
-
         }
     }
 
@@ -82,7 +80,7 @@ public class WorkingQueue {
 
         @Override
         public void run() {
-            while (alive) {
+            while (alive.get()) {
                 runNextTask();
             }
         }
@@ -112,18 +110,18 @@ public class WorkingQueue {
                 return null;
             }
 
-            return alive ? assigned.removeFirst() : null;
+            return alive.get() ? assigned.removeFirst() : null;
         }
 
         private Runnable getTaskFromSharedQueue() {
             synchronized (tasks) {
-                while (tasks.isEmpty() && alive) {
+                while (tasks.isEmpty() && alive.get()) {
                     try {
                         tasks.wait();
                     } catch (InterruptedException e) { /* JUST IGNORE */ }
                 }
 
-                if (!alive) {
+                if (!alive.get()) {
                     return null;
                 }
 
