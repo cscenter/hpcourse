@@ -40,7 +40,7 @@ public class WorkingQueue {
 
     public void execute(Runnable task) {
         if (!alive.get()) {
-            throw new IllegalStateException("Trying to submit new task after shut down!");
+            throw new IllegalStateException("Trying to submit new task after shut down");
         }
 
         Thread current = Thread.currentThread();
