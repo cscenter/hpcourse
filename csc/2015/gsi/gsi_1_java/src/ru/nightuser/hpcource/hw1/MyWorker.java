@@ -22,9 +22,7 @@ final class MyWorker implements Runnable {
     workerThreadRef.set(Thread.currentThread());
     try {
       while (fetchAndRunTask(null) != null) ;
-    } catch (InterruptedException ie) {
-      Thread.interrupted();
-    }
+    } catch (InterruptedException ie) {}
   }
 
   MyTask<?> fetchAndRunTask(MyTask<?> awaitingTask) throws InterruptedException {
@@ -32,8 +30,7 @@ final class MyWorker implements Runnable {
     synchronized (tasks) {
       while ((awaitingTask == null || !awaitingTask.isDone()) &&
           pool.isRunning() &&
-          tasks.isEmpty() &&
-          !Thread.currentThread().isInterrupted()) {
+          tasks.isEmpty()) {
         tasks.wait();
       }
 

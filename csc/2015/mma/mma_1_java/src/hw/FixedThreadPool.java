@@ -18,35 +18,30 @@ public class FixedThreadPool implements ThreadPool {
         }
     }
 
-    public void awaitAll() throws InterruptedException {
-        while (true) {
-            if (queue.isEmpty()) {
-                break;
-            }
-        }
-
+    public void awaitCompletion() throws InterruptedException {
         stopping = true;
-
-        synchronized (queue) {
+        synchronized (queue){
             queue.notifyAll();
         }
-
         for (Thread t : threads) {
             t.join();
         }
     }
 
-    public void submit(Runnable r) {
+    public void submit(Future r) {
+        if (stopping) {
+            throw new IllegalStateException("stopping");
+        }
         synchronized (queue) {
             queue.addLast(r);
             queue.notify();
         }
     }
 
-    private class FixedThreadPoolThread extends Thread {
+    public class FixedThreadPoolThread extends Thread {
         public void run() {
             while (true) {
-                Runnable r;
+                Future r;
                 synchronized (queue) {
                     while (queue.isEmpty() && !stopping) {
                         try {
@@ -54,13 +49,17 @@ public class FixedThreadPool implements ThreadPool {
                         } catch (InterruptedException e) {
                         }
                     }
-                    r = (Runnable) queue.poll();
+                    r = (Future) queue.poll();
                 }
-                if (stopping) {
+
+                if (r == null && stopping) {
                     break;
                 }
 
-                r.run();
+                try {
+                    r.get();
+                } catch (Exception e) {
+                }
             }
         }
     }

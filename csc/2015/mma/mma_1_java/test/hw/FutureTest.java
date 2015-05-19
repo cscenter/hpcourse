@@ -48,7 +48,7 @@ public class FutureTest {
         assertFalse(task.cancel());
         try {
             task.get();
-        }catch (CancellationException ce) {
+        } catch (CancellationException ce) {
             assertEquals(TaskStatus.CANCELLED, task.getStatus());
             throw ce;
         }
@@ -81,18 +81,79 @@ public class FutureTest {
         task.get();
     }
 
+    @Test(timeout = TEST_TIMEOUT_MS)
+    public void childTask() throws Exception {
+        Future f = new Future(() -> {
+            Future child = dummyTask();
+            pool.submit(child);
+            child.get();
+            return Optional.empty();
+        });
+
+        pool.submit(f);
+        f.get();
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MS)
+    public void childTaskWithoutPool() throws Exception {
+        pool = ThreadPoolFactory.create(0);
+        Future f = new Future(() -> {
+            Future child = dummyTask();
+            pool.submit(child);
+            child.get();
+            return Optional.empty();
+        });
+
+        pool.submit(f);
+        f.get();
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MS)
+    public void childInChildTask() throws Exception {
+        Future f = new Future(() -> {
+            Future f1 = new Future(() -> {
+                Future child = dummyTask();
+                pool.submit(child);
+                child.get();
+                return Optional.empty();
+            });
+            pool.submit(f1);
+            f1.get();
+
+            return Optional.empty();
+        });
+
+        pool.submit(f);
+        f.get();
+    }
+
+//    @Test
+//    public void childTask_JUC() throws Exception {
+//        //java.util.concurrent.ExecutorService p = java.util.concurrent.Executors.newSingleThreadExecutor();
+//        java.util.concurrent.ForkJoinPool p = new java.util.concurrent.ForkJoinPool(1);
+//        FutureTask f = new FutureTask(() -> {
+//            FutureTask child = dummyTask_JUC();
+//            p.submit(child);
+//            child.get();
+//            return Optional.empty();
+//        });
+//
+//        p.submit(f);
+//        f.get();
+//    }
+
     // doubles
+    private Future dummyTask() {
+        return new Future(() -> {
+            return 42;
+        });
+    }
+
     private Future longRunningTask() {
         int INF = 100500 * 1000;
         return new Future(() -> {
             Thread.sleep(INF);
             return Optional.empty();
-        });
-    }
-
-    private Future dummyTask() {
-        return new Future(() -> {
-            return 42;
         });
     }
 }

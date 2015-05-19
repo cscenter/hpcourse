@@ -4,6 +4,7 @@ import hw.threadpool.ThreadPoolFactory;
 import org.junit.Test;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
@@ -28,8 +29,39 @@ public class FixedThreadPoolConcurrentTest {
             pool.submit(incTask);
         }
 
-        pool.awaitAll();
+        pool.awaitCompletion();
 
         assertEquals(N_TASKS, inc.get());
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MS, expected = IllegalStateException.class)
+    public void unableToSubmitTaskAfterCompletionRequest() throws Throwable {
+        ThreadPool pool = ThreadPoolFactory.create(1);
+
+        Future shutdown = new Future(() -> {
+            pool.submit(dummyTask());
+            return Optional.empty();
+        });
+
+        pool.submit(shutdown);
+        pool.awaitCompletion();
+
+        try {
+            shutdown.get();
+        } catch (ExecutionException e) {
+            throw e.getCause();
+        }
+    }
+
+    @Test(timeout = TEST_TIMEOUT_MS)
+    public void emptyThreadPoolCompletion() throws Exception {
+        ThreadPool pool = ThreadPoolFactory.create(1);
+        pool.awaitCompletion();
+    }
+
+    private Future dummyTask() {
+        return new Future(() -> {
+            return 42;
+        });
     }
 }

@@ -1,3 +1,4 @@
+import java.util.HashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 
@@ -27,6 +28,8 @@ public class TaskFuture {
     private final long id = UniqueID.createID();
     private volatile Status status;
     private Exception internalException = null;
+    private HashMap<Long, TaskFuture> subtasks = new HashMap<>();
+    private HashMap<Long, TaskFuture> subtasksForRun = new HashMap<>();
 
     public void setTask(Callable task) {
         this.task = task;
@@ -77,5 +80,36 @@ public class TaskFuture {
             }
         }
         return id;
+    }
+
+    public boolean runSubtask(long subtaskId) {
+        TaskFuture subtask = subtasks.get(subtaskId);
+        if (subtask == null) {
+            return false;
+        } else {
+            subtasks.remove(subtaskId);
+            subtasksForRun.put(subtaskId, subtask);
+            return true;
+        }
+    }
+
+    public TaskFuture addSubTask(Callable task) {
+        TaskFuture future = new TaskFuture();
+        future.setTask(task);
+        subtasks.put(future.getId(), future);
+        return future;
+    }
+
+    public void runSubtasks() {
+        subtasksForRun
+                .values()
+                .stream()
+                .forEach(future -> {
+                    try {
+                        future.getTask().call();
+                    } catch (Exception e) {
+                        future.setInternalException(e);
+                    }
+                });
     }
 }
