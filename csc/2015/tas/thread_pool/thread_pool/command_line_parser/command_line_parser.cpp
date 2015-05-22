@@ -1,7 +1,7 @@
 #include "command_line_parser.hpp"
 
-#include <boost/program_options.hpp>
 #include <iostream>
+#include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
 
@@ -33,7 +33,7 @@ bool CommandLineParser::parse(int argc, char *argv[])
             return false;
         }
 
-    } catch (const boost::exception & e) {
+    } catch (const boost::exception &) {
         std::cout << "Incorrectly command line format.";
         return false;
     }

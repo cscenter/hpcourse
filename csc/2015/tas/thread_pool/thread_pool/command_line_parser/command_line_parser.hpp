@@ -4,9 +4,9 @@
 class CommandLineParser
 {
 public:
-    bool parse(int argc, char *argv[]);
-
     int count_threads{ 0 };
+
+    bool parse(int argc, char *argv[]);
 };
 
 #endif
