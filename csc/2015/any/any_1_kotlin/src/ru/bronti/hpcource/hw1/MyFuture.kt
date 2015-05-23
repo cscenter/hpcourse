@@ -1,124 +1,140 @@
 package ru.bronti.hpcource.hw1
 
-import java.lang
+import java.util.LinkedList
+import java.util.Queue
+import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.RejectedExecutionException
+import java.lang.ThreadGroup
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
-public class MyFuture<V> (private val task: Callable<V>, public val name: String): Future<V> {
+public class MyFuture<V> (private val task: Callable<V>,
+                          val name: String,
+                          private val threadPool: MyThreadPool): Future<V> {
 
     private val resultMonitor = Object()
 
-    volatile var isRun = false
-    volatile var isDone = false
-    val isCancelled = AtomicBoolean(false)
-                                     //todo: status + cas !!!!!!!!!!
+    val WAITING = 0
+    val RUNNING = 1
+    val DONE    = 2
+    val CANCELLED = 4
 
-    volatile var worker: Thread? = null
+    val status = AtomicInteger(WAITING)
+
+    volatile var workerThread: MyThread? = null
     volatile var result: V = null
     volatile var exeption: Exception? = null
 
-    override public fun isDone(): Boolean = isDone
-    override public fun isCancelled(): Boolean = isCancelled.get()
+    override public fun isDone(): Boolean = status.get() % CANCELLED >= DONE
+    override public fun isCancelled(): Boolean = status.get() >= CANCELLED
 
-    override public fun get(timeout: Long, unit: TimeUnit): V {
-        var timedOut: Boolean = false
-        synchronized(resultMonitor) {
-            val expirationTime = System.currentTimeMillis() + unit.toMillis(timeout);
-            while (!isDone && !isCancelled()) {
-                resultMonitor.wait(expirationTime - System.currentTimeMillis());
-                if (System.currentTimeMillis() >= expirationTime) {
-                    timedOut = true
-                    break
-                }
-            }
-            if (isCancelled()) {
-                throw CancellationException()
-            }
-            if (!timedOut) {
-                if (exeption != null) {
-                    throw ExecutionException(exeption)
-                }
-                return result
-            }
-            else {
-                throw TimeoutException()
+    private fun doWaitOnce(expirationTime: Long?): Boolean {
+        if (Thread.currentThread() is MyThread &&
+                !threadPool.isShut &&
+                !threadPool.queue.isEmpty() &&
+                !isCancelled()) {
+            //println(Thread.currentThread().getName() + " is waiting for " + name)
+            val wasInterrupted = Thread.interrupted()
+            (Thread.currentThread() as MyThread).task.runTask(false)
+            if (wasInterrupted) {
+                Thread.currentThread().interrupt()
             }
         }
+        else {
+            synchronized(resultMonitor) {
+                if (!isCancelled()) {
+                    if (expirationTime != null) {
+                        resultMonitor.wait(expirationTime - System.currentTimeMillis())
+                    } else {
+                        resultMonitor.wait()
+                    }
+                }
+            }
+        }
+        if (expirationTime != null && System.currentTimeMillis() >= expirationTime) {
+            return true
+        }
+        return false
     }
 
-    override public fun get(): V {
-        synchronized(resultMonitor) {
-            while (!isDone && !isCancelled()) {
-                resultMonitor.wait()
-            }
-            if (isCancelled()) {
-                throw CancellationException()
-            }
+    private fun doGet(expirationTime: Long?): V {
+        var timedOut = false
+        while (!isDone() && !isCancelled() && !timedOut) {
+            timedOut = doWaitOnce(expirationTime)
+        }
+        if (isCancelled()) {
+            throw CancellationException()
+        }
+        if (!timedOut) {
             if (exeption != null) {
                 throw ExecutionException(exeption)
             }
             return result
         }
+        else {
+            throw TimeoutException()
+        }
+    }
+
+    override public fun get(timeout: Long, unit: TimeUnit): V {
+        val expirationTime = System.currentTimeMillis() + unit.toMillis(timeout);
+        return doGet(expirationTime)
+    }
+
+    override public fun get(): V {
+        return doGet(null)
     }
 
     override public fun cancel(mayInterruptIfRunning: Boolean): Boolean {
-        var wasDone: Boolean? = null
-        synchronized(isCancelled) {
-            synchronized(resultMonitor) {
-                isCancelled.set(true)
-                resultMonitor.notifyAll()
-            }
-            wasDone = isDone && !isRun
-            if (mayInterruptIfRunning && isRun && !isDone) {
-                worker!!.interrupt()
-                //println(name + " interrupted while running")
-            }
+        var result: Boolean = false
+        synchronized(resultMonitor) {
+            status.set(status.get() % CANCELLED + CANCELLED)
+            resultMonitor.notifyAll()
         }
-//        if (!wasDone!! && !isRun) {
-//            println(name + " interrupted while waiting")
-//        }
-//        if (!(!wasDone!! && !(isRun && !mayInterruptIfRunning))) {
-//            println(name + " cancellation failed")
-//        }
-        return !wasDone!! && !(isRun && !mayInterruptIfRunning)
+        if (mayInterruptIfRunning) {
+            if (status.get() % CANCELLED == RUNNING) {
+                workerThread!!.interrupt()
+                result = true
+            }
+            //println(name + " interrupted while running")
+        }
+        result = result or (status.get() % CANCELLED == WAITING)
+        status.set(CANCELLED + DONE + status.get() % DONE)
+        return result
     }
 
     throws(javaClass<InterruptedException>())
-    fun run(thread: Thread) {
-        worker = thread
-        synchronized(isCancelled) {
-            if (!isCancelled()) {
-                isRun = true
-                //println(name + " running")
-            }
-        }
+    fun run(thread: MyThread) {
+        workerThread = thread
         var temp: V = null
-        if (!isCancelled()) {
+        if (status.compareAndSet(WAITING, RUNNING)) {
+            //println(name + " running")
             try {
                 temp = task.call()
-            }
-            catch (e: InterruptedException) {
-                throw e
-            }
-            catch (e: Exception) {
+            } catch (e: InterruptedException) {
+                synchronized(resultMonitor) {
+                    if (status.compareAndSet(RUNNING, RUNNING + DONE)) {
+                        result = temp
+                        resultMonitor.notifyAll()
+                        throw e
+                    }
+                }
+            } catch (e: Exception) {
                 exeption = e
+            }
+            if (!isCancelled()) {
+                synchronized(resultMonitor) {
+                    if (status.compareAndSet(RUNNING, RUNNING + DONE)) {
+                        result = temp
+                        resultMonitor.notifyAll()
+                    }
+                }
             }
         }
         else {
             //println("skipped execution by " + name)
-        }
-        synchronized(isCancelled) {
-            synchronized(resultMonitor) {
-                if (!isCancelled()) {
-                    result = temp
-                }
-                isDone = true
-                resultMonitor.notifyAll()
-            }
-            //println(name + " done")
-            if (!isCancelled()) {
-                isRun = false
-            }
         }
     }
 
