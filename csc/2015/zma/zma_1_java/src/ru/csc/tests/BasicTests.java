@@ -75,4 +75,20 @@ public class BasicTests {
         task3.get();
         task4.get();
     }
+
+    @Test(timeout = 3000)
+    public void taskWithInnerTask() throws ExecutionException, InterruptedException {
+        ThreadPool pool = new ThreadPool(1);
+        int id = pool.submit(() -> {
+            int innerId = pool.submit(ThreadPoolTask.createTimedTask(2));
+            ThreadPoolTask<?> innerTask = pool.getTaskById(innerId);
+            try {
+                innerTask.get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        });
+        ThreadPoolTask<?> task = pool.getTaskById(id);
+        task.get();
+    }
 }

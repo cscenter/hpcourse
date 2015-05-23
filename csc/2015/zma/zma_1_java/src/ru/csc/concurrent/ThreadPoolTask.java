@@ -47,6 +47,10 @@ public class ThreadPoolTask<T> implements Future<T> {
 
     @Override
     public T get() throws InterruptedException, ExecutionException {
+        if (isWaiting()) {
+            execute();
+        }
+
         if (isCancelled()) {
             throw new InterruptedException();
         }
@@ -85,16 +89,19 @@ public class ThreadPoolTask<T> implements Future<T> {
             status = Status.EXECUTION_EXCEPTION;
         } finally {
             executor = null;
+            if (status == Status.RUNNING) {
+                status = Status.DONE;
+            }
             synchronized (resultingLock) {
                 resultingLock.notifyAll();
             }
         }
 
-        if (status == Status.RUNNING) {
-            status = Status.DONE;
-        }
-
         return true;
+    }
+
+    private boolean isWaiting() {
+        return status == Status.WAITING;
     }
 
     public static Runnable createTimedTask(int seconds) {
