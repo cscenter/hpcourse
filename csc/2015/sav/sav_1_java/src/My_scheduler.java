@@ -28,8 +28,10 @@ public class My_scheduler {
 
     public void shut_down() {
         isAlive = false;
-        for (int i = 0;i < pool_of_workers.length; i++) {
-            pool_of_workers[i].interrupt();
+        synchronized (lock_for_threads) {
+            for (int i = 0;i < pool_of_workers.length; i++) {
+                pool_of_workers[i].interrupt();
+            }
         }
     }
 
@@ -43,15 +45,20 @@ public class My_scheduler {
         return new_future;
     }
     public boolean cancel_id(int task_id) throws IllegalArgumentException{
-        if (table_of_futures.containsKey(task_id)){
-            return table_of_futures.get(task_id).cancel(true);
-        }
-        else {
-            throw new IllegalArgumentException();
+        synchronized (lock_for_threads)
+        {
+            if (table_of_futures.containsKey(task_id)){
+                return table_of_futures.get(task_id).cancel(true);
+            }
+            else{
+                throw new IllegalArgumentException();
+            }
         }
     }
     public String get_Status(int task_id) {
-        return ((Future_of_task<?>)table_of_futures.get(task_id)).get_Status();
+        synchronized (lock_for_threads){
+            return ((Future_of_task<?>)table_of_futures.get(task_id)).get_Status();
+        }
     }
 
 
@@ -124,7 +131,7 @@ public class My_scheduler {
             }
             if (mayInterruptIfRunning) {
                 status_of_task = Status.CANCELLED;
-                    thread.interrupt();
+                thread.interrupt();
                 return true;
             }
             return false;
@@ -183,3 +190,4 @@ public class My_scheduler {
         }
     }
 }
+
