@@ -1,16 +1,15 @@
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SimpleRunnableFuture<V> implements RunnableFuture<V> { // based on FutureTask
-    private Callable<V> target;
+    private volatile Callable<V> target;
 
     private V result;
     private Throwable throwable;
 
-    private AtomicBoolean runner;
+    private volatile Thread runner;
 
     private AtomicInteger state;
 
@@ -24,28 +23,25 @@ public class SimpleRunnableFuture<V> implements RunnableFuture<V> { // based on 
 
     @Override
     public void run() {
-        if (state.get() != NEW || !runner.compareAndSet(false, true)) { // runner prevents concurrent runs
-            return;
-        }
+        if (!state.compareAndSet(NEW, COMPLETING)) return; // prevent concurrent calls to run()
+        runner = Thread.currentThread();
         try {
-            if (state.get() == NEW) {
-                synchronized (target) {
-                    try {
-                        state.set(COMPLETING);
-                        result = target.call();
-                        state.set(NORMAL);
-                    } catch (Throwable t) {
-                        throwable = t;
-                        state.set(EXCEPTIONAL);
-                    }
+            synchronized (target) {
+                try {
+                    state.set(COMPLETING);
+                    result = target.call();
+                    state.set(NORMAL);
+                } catch (Throwable t) {
+                    throwable = t;
+                    state.set(EXCEPTIONAL);
+                }
+                Callable<V> callable = target;
+                if (callable != null) {
                     target.notify(); // wake up for waitForResult()
                 }
             }
         } finally {
-            runner.set(false);
-            while (state.get() == INTERRUPTING) {
-                Thread.yield();
-            }
+            runner = null;
         }
     }
 
@@ -60,7 +56,10 @@ public class SimpleRunnableFuture<V> implements RunnableFuture<V> { // based on 
         try { // in case exception comes out of interrupt()
             if (mayInterruptIfRunning) {
                 try {
-                    Thread.currentThread().interrupt();
+                    Thread thread = runner;
+                    if (thread != null) {
+                        thread.interrupt();
+                    }
                 } finally {
                     state.set(INTERRUPTED);
                 }
@@ -125,7 +124,6 @@ public class SimpleRunnableFuture<V> implements RunnableFuture<V> { // based on 
         }
         target = callable;
         state = new AtomicInteger(NEW);
-        runner = new AtomicBoolean(false);
     }
 
     public SimpleRunnableFuture(Runnable runnable, V result) {
@@ -134,6 +132,5 @@ public class SimpleRunnableFuture<V> implements RunnableFuture<V> { // based on 
         }
         target = Executors.callable(runnable, result);
         state = new AtomicInteger(NEW);
-        runner = new AtomicBoolean(false);
     }
 }

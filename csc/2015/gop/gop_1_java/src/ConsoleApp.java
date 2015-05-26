@@ -2,11 +2,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class ConsoleApp {
     private static final int DEFAULT_THRESHOLD = 20;
-    private static final int QUEUE_LIMIT = 20;
+    private static final int QUEUE_LIMIT = 4;
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -19,7 +22,7 @@ public class ConsoleApp {
         } catch (NumberFormatException nfe) {
             usage();
         }
-        SimpleFixedThreadPool pool = new SimpleFixedThreadPool(n, QUEUE_LIMIT);
+        ExecutorService pool = new SimpleFixedThreadPool(n, QUEUE_LIMIT);
 
         System.out.println("Available commands:\nsleep int : sleeping task\nrecur int : recursive task\nstop int : stop task by ID\nstatus id : check status by id\nexit : shutdown now");
         int uniqueId = 1;
@@ -67,7 +70,7 @@ public class ConsoleApp {
                         System.out.println("Wrong ID!");
                     }
                     else {
-                        toStop.cancel(false);
+                        toStop.cancel(true);
                         System.out.format("Stopped task ID%d\n", parameter);
                     }
                     break;
