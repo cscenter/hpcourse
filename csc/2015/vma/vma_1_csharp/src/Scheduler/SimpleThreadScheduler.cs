@@ -9,7 +9,7 @@ namespace HPLab.Scheduler
     {
         private const int INITIAL_TASKS_PER_THREAD = 10;
 
-        private bool _disposed;
+        private volatile bool _disposed;
         private volatile int CurrentStartedTaskId;
         private volatile int TotalTasks;
 
@@ -66,19 +66,11 @@ namespace HPLab.Scheduler
 
         private void MainThreadStart()
         {
-            while (!_disposed)
+            while (!Volatile.Read(ref _disposed))
             {
                 var totalTasks = Volatile.Read(ref TotalTasks);
                 var tasksInProgress = Volatile.Read(ref CurrentStartedTaskId);
 
-                if (tasksInProgress >= totalTasks)
-                {
-                    continue;
-                }
-
-                totalTasks = Volatile.Read(ref TotalTasks);
-                tasksInProgress = Volatile.Read(ref CurrentStartedTaskId);
-         
                 while (tasksInProgress < totalTasks)
                 {
                     //already updated the TotalTasks, but still adding to dictionary
@@ -94,7 +86,7 @@ namespace HPLab.Scheduler
 
         private void ThreadStartPolling()
         {
-            while (!_disposed)
+            while (!Volatile.Read(ref _disposed))
             {
                 newTaskAvailable.Wait();
                 var currentIdInThread = TLSQueue[Thread.CurrentThread.ManagedThreadId];
@@ -105,16 +97,16 @@ namespace HPLab.Scheduler
 
                 if (!StartTask(TaskQueue[currentIdInThread]))
                 {
-                    if (Tasks[TaskQueue[currentIdInThread]].ParentId != null)
-                    {
-                        newTaskAvailable.Reset();
-                        Interlocked.Increment(ref CurrentStartedTaskId);
-                    }
                     ++TLSQueue[Thread.CurrentThread.ManagedThreadId];
                     continue;
                 }
                 newTaskAvailable.Reset();
                 Interlocked.Increment(ref CurrentStartedTaskId);
+                if (Tasks[currentIdInThread].Parent != null)
+                { 
+                    continue;
+                }
+
                 var taskIdToRun = currentIdInThread;
                 RunTask(taskIdToRun);
             }
@@ -131,7 +123,7 @@ namespace HPLab.Scheduler
                     break;
                 }
                 Thread.SpinWait(1);
-            } while (!_disposed);
+            } while (!Volatile.Read(ref _disposed));
             return result;
         }
 
@@ -142,7 +134,10 @@ namespace HPLab.Scheduler
             {
                 lock (TaskQueue)
                 {
-                    Array.Resize(ref TaskQueue, TaskQueue.Length * 2);
+                    if (TotalTasks + TotalThreads > TaskQueue.Length)
+                    {
+                        Array.Resize(ref TaskQueue, TaskQueue.Length * 2);
+                    }
                 }
             }
 
@@ -160,9 +155,9 @@ namespace HPLab.Scheduler
 
         public Future SubmitChildTask(int taskDuration, int parentId)
         {
-            if (!Tasks.ContainsKey(parentId))
+            while (!Tasks.ContainsKey(parentId))
             {
-                return null;
+                continue;
             }
 
             var parent = Tasks[parentId];
@@ -174,7 +169,7 @@ namespace HPLab.Scheduler
                     {
                         var result = new Future(GetNewTaskId(), this)
                         {
-                            State = FutureState.InProgress,
+                            State = FutureState.Created,
                             TotalTime = taskDuration,
                             ParentId = parent.Id
                         };
@@ -192,9 +187,9 @@ namespace HPLab.Scheduler
 
         private bool StartTask(int taskId)
         {
-            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            while (!Tasks.ContainsKey(taskId))
             {
-                return false;
+                continue;
             }
 
             var task = Tasks[taskId];
@@ -252,15 +247,18 @@ namespace HPLab.Scheduler
 
         internal object GetTaskResult(int taskId)
         {
-            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            while (!Tasks.ContainsKey(taskId))
             {
-                return null;
+                continue;
             }
 
             var task = Tasks[taskId];
             while (task.State <= FutureState.InProgress)
             {
-                Thread.Yield();
+                if (!Thread.Yield())
+                { 
+                    Thread.Sleep(1000);
+                }
             }
 
             switch (task.State)
@@ -279,9 +277,9 @@ namespace HPLab.Scheduler
 
         internal bool CompleteTask(int taskId, object result)
         {
-            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            while (!Tasks.ContainsKey(taskId))
             {
-                return false;
+                continue;
             }
 
             var task = Tasks[taskId];
@@ -303,9 +301,9 @@ namespace HPLab.Scheduler
 
         internal bool CancelTask(int taskId)
         {
-            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            while (!Tasks.ContainsKey(taskId))
             {
-                return false;
+                continue;
             }
             
             var task = Tasks[taskId];
@@ -327,9 +325,9 @@ namespace HPLab.Scheduler
 
         internal bool FailTask(int taskId, ApplicationException ex)
         {
-            if (taskId > TotalTasks || !Tasks.ContainsKey(taskId))
+            while (!Tasks.ContainsKey(taskId))
             {
-                return false;
+                continue;
             }
             
             var task = Tasks[taskId];
@@ -381,7 +379,7 @@ namespace HPLab.Scheduler
 
         private void Dispose(bool isDisposing)
         {
-            if (_disposed)
+            if (Volatile.Read(ref _disposed))
             {
                 return;
             }
@@ -410,7 +408,7 @@ namespace HPLab.Scheduler
                     mainThread.Abort();
                 }
             }
-            _disposed = true;
+            Interlocked.Exchange(ref _disposed, true);
         }
     }
 }

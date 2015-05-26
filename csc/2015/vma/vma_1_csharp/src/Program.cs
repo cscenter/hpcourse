@@ -30,12 +30,12 @@ namespace HPLab
 
             Console.ReadLine();
             Console.Write("ConsecutiveTaskSmallTest");
-            ConsecutiveTaskSmallTest();
+            /ConsecutiveTaskSmallTest();
             Console.WriteLine(" - Success");
 
             Console.ReadLine();
             Console.Write("ConsecutiveTaskTest");
-            ConsecutiveTaskTest();
+            //ConsecutiveTaskTest();
             Console.WriteLine(" - Success");
 
             Console.ReadLine();
