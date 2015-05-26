@@ -30,7 +30,7 @@ namespace HPLab
 
             Console.ReadLine();
             Console.Write("ConsecutiveTaskSmallTest");
-            /ConsecutiveTaskSmallTest();
+            ConsecutiveTaskSmallTest();
             Console.WriteLine(" - Success");
 
             Console.ReadLine();
@@ -59,13 +59,13 @@ namespace HPLab
 
         private static void ConsecutiveTaskSmallTest()
         {
-            var tasks = new Future[SimpleThreadScheduler.Default.TotalThreads * 2];
+            var tasks = new Future[SimpleThreadScheduler.Default.TotalThreads * 10];
             foreach (var taskDuration in Enumerable.Range(1, tasks.Length))
             {
                 tasks[taskDuration - 1] = SimpleThreadScheduler.Default.SubmitNewTask(taskDuration);
             }
 
-            Thread.Sleep(TimeSpan.FromMinutes(1));
+            Thread.Sleep(TimeSpan.FromMinutes(30));
             foreach (var task in tasks)
             {
                 if ((int)task.Result != task.TotalTime)

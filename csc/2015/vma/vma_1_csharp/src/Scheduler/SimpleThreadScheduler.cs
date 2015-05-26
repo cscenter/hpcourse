@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -21,18 +22,15 @@ namespace HPLab.Scheduler
         
         private int[] TaskQueue;
         
-        private Dictionary<int, Future> Tasks;
-        private readonly Dictionary<int, object> TaskResults;
-        private readonly Dictionary<int, CancellationTokenSource> Tokens;
-
-        private Dictionary<int, int> TLSQueue;
+        private ConcurrentDictionary<int, Future> Tasks;
+        private ConcurrentDictionary<int, object> TaskResults;
+        private ConcurrentDictionary<int, CancellationTokenSource> Tokens;
+        private ConcurrentDictionary<int, int> TLSQueue;
 
         public SimpleThreadScheduler()
         {
             _disposed = false;
             newTaskAvailable = new ManualResetEventSlim();
-            Tokens = new Dictionary<int, CancellationTokenSource>();
-            TaskResults = new Dictionary<int, object>();
             mainThread = new Thread(MainThreadStart);
             mainThread.Start();
         }
@@ -53,8 +51,10 @@ namespace HPLab.Scheduler
 
             TotalThreads = totalThreads;
             TaskQueue = new int[TotalThreads * INITIAL_TASKS_PER_THREAD + 1];
-            Tasks = new Dictionary<int, Future>(TaskQueue.Length);
-            TLSQueue = new Dictionary<int, int>();
+            Tasks = new ConcurrentDictionary<int, Future>(TotalThreads, TaskQueue.Length);
+            TLSQueue = new ConcurrentDictionary<int, int>(TotalThreads, TotalThreads);
+            Tokens = new ConcurrentDictionary<int, CancellationTokenSource>();
+            TaskResults = new ConcurrentDictionary<int, object>();
             Threads = new List<Thread>(TotalThreads);
             for (var i = 0; i < TotalThreads; ++i)
             {
@@ -92,6 +92,7 @@ namespace HPLab.Scheduler
                 var currentIdInThread = TLSQueue[Thread.CurrentThread.ManagedThreadId];
                 if (currentIdInThread >= TotalTasks)
                 {
+                    TLSQueue[Thread.CurrentThread.ManagedThreadId] = Volatile.Read(ref CurrentStartedTaskId);
                     continue;
                 }
 
@@ -102,7 +103,7 @@ namespace HPLab.Scheduler
                 }
                 newTaskAvailable.Reset();
                 Interlocked.Increment(ref CurrentStartedTaskId);
-                if (Tasks[currentIdInThread].Parent != null)
+                if (Tasks[currentIdInThread].ParentId != null)
                 { 
                     continue;
                 }
@@ -148,6 +149,7 @@ namespace HPLab.Scheduler
             };
             Tasks[result.Id] = result;
             Tokens[result.Id] = new CancellationTokenSource();
+            result.Token = Tokens[result.Id].Token;
             TaskQueue[result.Id] = result.Id;
 
             return result;
@@ -157,7 +159,7 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(parentId))
             {
-                continue;
+                Thread.Yield();
             }
 
             var parent = Tasks[parentId];
@@ -176,6 +178,7 @@ namespace HPLab.Scheduler
 
                         Tasks[result.Id] = result;
                         Tokens[result.Id] = new CancellationTokenSource();
+                        result.Token = Tokens[result.Id].Token;
                         TaskQueue[result.Id] = result.Id;
                         parent.ChildTasks.Add(result);
                         return result;
@@ -189,7 +192,7 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(taskId))
             {
-                continue;
+                Thread.Yield();
             }
 
             var task = Tasks[taskId];
@@ -215,12 +218,21 @@ namespace HPLab.Scheduler
 
             while (task.CurrentTime < task.TotalTime)
             {
-                if (Tokens[taskIdToRun].IsCancellationRequested)
+                if (task.Token.IsCancellationRequested)
                 {
                     CancelTask(taskIdToRun);
                     if (task.State == FutureState.InProgress)
                     {
                         Tokens[taskIdToRun].Token.ThrowIfCancellationRequested();
+                    }
+                    return;
+                }
+
+                if (task.ExecutionException != null)
+                {
+                    if (task.State == FutureState.InProgress)
+                    {
+                        throw GetAggregateException(task);
                     }
                     return;
                 }
@@ -249,14 +261,14 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(taskId))
             {
-                continue;
+                Thread.Yield();
             }
 
             var task = Tasks[taskId];
             while (task.State <= FutureState.InProgress)
             {
                 if (!Thread.Yield())
-                { 
+                {
                     Thread.Sleep(1000);
                 }
             }
@@ -279,7 +291,7 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(taskId))
             {
-                continue;
+                Thread.Yield();
             }
 
             var task = Tasks[taskId];
@@ -303,7 +315,7 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(taskId))
             {
-                continue;
+                Thread.Yield();
             }
             
             var task = Tasks[taskId];
@@ -327,7 +339,7 @@ namespace HPLab.Scheduler
         {
             while (!Tasks.ContainsKey(taskId))
             {
-                continue;
+                Thread.Yield();
             }
             
             var task = Tasks[taskId];
@@ -408,7 +420,7 @@ namespace HPLab.Scheduler
                     mainThread.Abort();
                 }
             }
-            Interlocked.Exchange(ref _disposed, true);
+            _disposed = true;
         }
     }
 }
