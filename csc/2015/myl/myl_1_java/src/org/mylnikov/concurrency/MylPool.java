@@ -34,10 +34,13 @@ public class MylPool{
     }
 
     public boolean cancel(long id) {
-        if (!futureWithId.containsKey(id))
-            throw new IllegalArgumentException();
-        Future <?> future = futureWithId.get(id);
-        return future.cancel(true);
+        synchronized (lockForTasks) {
+            if (!futureWithId.containsKey(id))
+                throw new IllegalArgumentException();
+            Future<?> future = futureWithId.get(id);
+            return future.cancel(true);
+        }
+
     }
 
     public void shutdown() {
@@ -53,7 +56,7 @@ public class MylPool{
 
     public String getStatus(long id) {
         if (!futureWithId.containsKey(id))
-            return "No inf about task";
+            return "No info about task";
         Future <?> future = futureWithId.get(id);
         return ((MylFeature<?>) future).getStringStatusOfFea();
     }
