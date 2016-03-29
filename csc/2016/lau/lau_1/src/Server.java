@@ -16,13 +16,13 @@ public class Server {
 
     long addTask(Task.Type type, long a, long b, long p, long m, long n) {
         Thread thread = new Thread(() -> {
-            Task task = new Task(currentTaskId, type, a, b, p, m, n);
+            Task task = new Task(currentTaskId++, type, a, b, p, m, n);
             if (task.type == Task.Type.INDEPENDENT) {
                 taskList.addIndependentTask(task);
             } else {
                 taskList.addDependentTask(task);
             }
-            System.out.println("Server: task vs id = " + (currentTaskId++) + " added. Params: "
+            System.out.println("Server: task vs id = " + currentTaskId + " added. Params: "
                     + a + " " + b + " " + p + " " + m + " " + n);
         });
         threads.add(thread);
@@ -107,7 +107,7 @@ class TaskList {
 
     public List<Task> getTasksList() {
         List<Task> result = new ArrayList<>();
-        Node currentNode = root;
+        Node currentNode = root.next;
         while (currentNode != end) {
             synchronized (currentNode) {
                 result.add(currentNode.task.clone());
