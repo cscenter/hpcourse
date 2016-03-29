@@ -15,19 +15,28 @@ public class Server {
     }
 
     long addTask(Task.Type type, long a, long b, long p, long m, long n) {
-        Thread thread = new Thread(() -> {
-            Task task = new Task(currentTaskId++, type, a, b, p, m, n);
+        Thread thread = new Thread(new TaskRunnable(new Task(currentTaskId, type, a, b, p, m, n)));
+        threads.add(thread);
+        thread.start();
+        return currentTaskId++;
+    }
+
+    class TaskRunnable implements Runnable {
+
+        private Task task;
+
+        TaskRunnable(Task task) {
+            this.task = task;
+        }
+
+        @Override
+        public void run() {
             if (task.type == Task.Type.INDEPENDENT) {
                 taskList.addIndependentTask(task);
             } else {
                 taskList.addDependentTask(task);
             }
-            System.out.println("Server: task vs id = " + currentTaskId + " added. Params: "
-                    + a + " " + b + " " + p + " " + m + " " + n);
-        });
-        threads.add(thread);
-        thread.start();
-        return currentTaskId;
+        }
     }
 
     void subscribeOnTaskResult(long taskId) {
@@ -76,6 +85,7 @@ class Task implements Cloneable {
         this.n = n;
         this.id = id;
         status = Status.RUNNING;
+        System.out.println("Created task " + toString());
     }
 
     Task(long id, Type type, long ... args) {
@@ -87,6 +97,12 @@ class Task implements Cloneable {
         this.n = args[4];
         this.id = id;
         status = Status.RUNNING;
+    }
+
+    @Override
+    public String toString() {
+        return "Task id: " + id + " state: " + status.toString() + " type " + type.toString()
+                + " params: " + a + " " + b + " " + p + " " + m + " " + n + " result: " + result;
     }
 }
 
@@ -110,7 +126,8 @@ class TaskList {
         Node currentNode = root.next;
         while (currentNode != end) {
             synchronized (currentNode) {
-                result.add(currentNode.task.clone());
+                // TODO: here should be clone()
+                result.add(currentNode.task);
                 currentNode = currentNode.next;
             }
         }
@@ -136,29 +153,48 @@ class TaskList {
     public void addDependentTask(Task task) {
         List<Long> dependentTaskIds = Arrays.asList(task.a, task.b, task.p, task.m);
         long[] dependentTasksResults = new long[dependentTaskIds.size() + 1];
-        int resultsCount = 0;
-        Node currentNode = root;
         dependentTasksResults[dependentTasksResults.length - 1] = task.n;
 
-        while (currentNode != end) {
-            currentNode.isLocked = true;
-            synchronized (currentNode) {
-                if (dependentTaskIds.contains(currentNode.task.id)) {
-                    try {
-                        while (currentNode.task.status == Task.Status.RUNNING) {
-                            wait();
-                        }
-                        dependentTasksResults[resultsCount++] = currentNode.task.result;
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+        for (int i = 0; i < dependentTaskIds.size(); i++) {
+            long currentTaskId = dependentTaskIds.get(i);
+            boolean isTaskFound = false;
+            while (!isTaskFound) {
+                Node currentNode;
+                synchronized (root) {
+                    currentNode = root.next;
+                    root.notifyAll();
                 }
-                currentNode = currentNode.next;
+                while (currentNode != end) {
+                    currentNode.isLocked = true;
+                    synchronized (currentNode) {
+                        if (currentNode.task.id == currentTaskId) {
+                            try {
+                                System.out.println("Going to wait for task id: " + currentNode.task.id);
+                                while (currentNode.task.status != Task.Status.FINISHED) {
+                                    currentNode.wait();
+                                }
+                                dependentTasksResults[i] = currentNode.task.result;
+                                isTaskFound = true;
+                                System.out.println("Finished dependency id: " + currentNode.task.id + " result " + dependentTasksResults[i]);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                        currentNode = currentNode.next;
+                        //currentNode.notifyAll();
+                    }
+                    currentNode.isLocked = false;
+                }
             }
-            currentNode.isLocked = false;
+
+            //throw new IllegalStateException("Could not find dependency id: " + currentTaskId + " in task list");
         }
-        assert dependentTaskIds.size() == resultsCount;
-        task = new Task(task.id, Task.Type.INDEPENDENT, dependentTasksResults);
+
+        task.a = dependentTasksResults[0];
+        task.b = dependentTasksResults[1];
+        task.p = dependentTasksResults[2];
+        task.m = dependentTasksResults[3];
+        task.n = dependentTasksResults[4];
         addIndependentTask(task);
     }
 
@@ -168,19 +204,25 @@ class TaskList {
             newNode.next = currentNode.next;
             currentNode.next = newNode;
             startTask(newNode.task);
+            currentNode.notifyAll();
         }
         currentNode.isLocked = false;
     }
 
     private void startTask(Task task) {
         new Thread(() -> {
-            while (task.n-- > 0) {
-                task.b = (task.a * task.p + task.b) % task.m;
-                task.a = task.b;
+            long n = task.n;
+            long a = task.a;
+            long b = task.b;
+            long p = task.p;
+            long m = task.m;
+            while (n-- > 0) {
+                b = (a * p + b) % m;
+                a = b;
             }
-            task.result = task.a;
-            task.status = Task.Status.FINISHED;
+            task.result = a;
             synchronized (task) {
+                task.status = Task.Status.FINISHED;
                 task.notifyAll();
             }
         }).start();
