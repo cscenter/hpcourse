@@ -15,28 +15,18 @@ public class Server {
     }
 
     long addTask(Task.Type type, long a, long b, long p, long m, long n) {
-        Thread thread = new Thread(new TaskRunnable(new Task(currentTaskId, type, a, b, p, m, n)));
-        threads.add(thread);
-        thread.start();
-        return currentTaskId++;
-    }
+        Task task = new Task(currentTaskId, type, a, b, p, m, n);
 
-    class TaskRunnable implements Runnable {
-
-        private Task task;
-
-        TaskRunnable(Task task) {
-            this.task = task;
-        }
-
-        @Override
-        public void run() {
+        Thread thread = new Thread(() -> {
             if (task.type == Task.Type.INDEPENDENT) {
                 taskList.addIndependentTask(task);
             } else {
                 taskList.addDependentTask(task);
             }
-        }
+        });
+        threads.add(thread);
+        thread.start();
+        return currentTaskId++;
     }
 
     void subscribeOnTaskResult(long taskId) {
@@ -137,7 +127,6 @@ class TaskList {
     public void addIndependentTask(Task task) {
         Node newNode = new Node();
         newNode.task = task;
-
         Node currentNode = root;
 
         while (currentNode.next != end) {
@@ -160,10 +149,7 @@ class TaskList {
             boolean isTaskFound = false;
             while (!isTaskFound) {
                 Node currentNode;
-                synchronized (root) {
-                    currentNode = root.next;
-                    root.notifyAll();
-                }
+                currentNode = root.next;
                 while (currentNode != end) {
                     currentNode.isLocked = true;
                     synchronized (currentNode) {
@@ -180,8 +166,8 @@ class TaskList {
                                 e.printStackTrace();
                             }
                         }
+                        currentNode.notifyAll();
                         currentNode = currentNode.next;
-                        //currentNode.notifyAll();
                     }
                     currentNode.isLocked = false;
                 }
@@ -203,14 +189,14 @@ class TaskList {
         synchronized (currentNode) {
             newNode.next = currentNode.next;
             currentNode.next = newNode;
-            startTask(newNode.task);
-            currentNode.notifyAll();
         }
+        startTask(newNode);
         currentNode.isLocked = false;
     }
 
-    private void startTask(Task task) {
+    private void startTask(Node node) {
         new Thread(() -> {
+            Task task = node.task;
             long n = task.n;
             long a = task.a;
             long b = task.b;
@@ -221,9 +207,10 @@ class TaskList {
                 a = b;
             }
             task.result = a;
-            synchronized (task) {
+            // TODO: here synchronization on task, but Node synch needed
+            synchronized (node) {
                 task.status = Task.Status.FINISHED;
-                task.notifyAll();
+                node.notifyAll();
             }
         }).start();
     }
