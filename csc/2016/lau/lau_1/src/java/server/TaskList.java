@@ -1,79 +1,8 @@
+package server;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-public class Server {
-    private TaskList taskList;
-    private long currentTaskId;
-    private List<Thread> threads;
-
-    Server() {
-        taskList = new TaskList();
-        threads = new ArrayList<>();
-    }
-
-    long addTask(Task.Type type, long a, long b, long p, long m, long n) {
-        Task task = new Task(currentTaskId, type, a, b, p, m, n);
-
-        Thread thread = new Thread(() -> {
-            if (task.type == Task.Type.INDEPENDENT) {
-                taskList.addIndependentTask(task);
-            } else {
-                taskList.addDependentTask(task);
-            }
-        });
-        threads.add(thread);
-        thread.start();
-        return currentTaskId++;
-    }
-
-    long subscribeOnTaskResult(long taskId) {
-        return taskList.subscribeOnTaskResult(taskId);
-    }
-
-    List<Task> getTaskList() {
-        return taskList.getTasksList();
-    }
-}
-
-
-class Task implements Cloneable {
-    enum Type {
-        DEPENDENT,
-        INDEPENDENT
-    }
-
-    enum Status {
-        RUNNING,
-        FINISHED
-    }
-
-    long id;
-    long a, b, p, m;
-    long n;
-    long result;
-
-    Type type;
-    Status status;
-
-    Task(long id, Type type, long a, long b, long p, long m, long n) {
-        this.type = type;
-        this.a = a;
-        this.b = b;
-        this.p = p;
-        this.m = m;
-        this.n = n;
-        this.id = id;
-        status = Status.RUNNING;
-        System.out.println("Created task " + toString());
-    }
-
-    @Override
-    public String toString() {
-        return "Task id: " + id + " state: " + status.toString() + " type " + type.toString()
-                + " params: " + a + " " + b + " " + p + " " + m + " " + n + " result: " + result;
-    }
-}
 
 class TaskList {
     private class Node {
@@ -90,7 +19,7 @@ class TaskList {
         root.next = end;
     }
 
-    public long subscribeOnTaskResult(long taskId) {
+    long subscribeOnTaskResult(long taskId) {
         while (true) {
             Node currentNode = root.next;
             while (currentNode != end) {
@@ -115,7 +44,7 @@ class TaskList {
         }
     }
 
-    public List<Task> getTasksList() {
+    List<Task> getTasksList() {
         List<Task> result = new ArrayList<>();
         Node currentNode = root.next;
         Task task;
@@ -129,7 +58,7 @@ class TaskList {
         return result;
     }
 
-    public void addIndependentTask(Task task) {
+    void addIndependentTask(Task task) {
         Node newNode = new Node();
         newNode.task = task;
         Node currentNode = root;
@@ -144,7 +73,7 @@ class TaskList {
         insertNode(currentNode, newNode);
     }
 
-    public void addDependentTask(Task task) {
+    void addDependentTask(Task task) {
         List<Long> dependentTaskIds = Arrays.asList(task.a, task.b, task.p, task.m);
         long[] dependentTasksResults = new long[dependentTaskIds.size() + 1];
         dependentTasksResults[dependentTasksResults.length - 1] = task.n;
@@ -161,7 +90,7 @@ class TaskList {
         addIndependentTask(task);
     }
 
-    private void insertNode(Node currentNode, Node newNode) {
+    void insertNode(Node currentNode, Node newNode) {
         currentNode.isLocked = true;
         synchronized (currentNode) {
             newNode.next = currentNode.next;
