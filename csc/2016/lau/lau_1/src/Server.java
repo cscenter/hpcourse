@@ -1,5 +1,3 @@
-import com.sun.org.apache.regexp.internal.RE;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -29,8 +27,8 @@ public class Server {
         return currentTaskId++;
     }
 
-    void subscribeOnTaskResult(long taskId) {
-
+    long subscribeOnTaskResult(long taskId) {
+        return taskList.subscribeOnTaskResult(taskId);
     }
 
     List<Task> getTaskList() {
@@ -40,14 +38,6 @@ public class Server {
 
 
 class Task implements Cloneable {
-    @Override
-    protected Task clone() {
-        Task res = new Task(id, type, a, b, p, m, n);
-        res.status = status;
-        res.result = result;
-        return res;
-    }
-
     enum Type {
         DEPENDENT,
         INDEPENDENT
@@ -78,17 +68,6 @@ class Task implements Cloneable {
         System.out.println("Created task " + toString());
     }
 
-    Task(long id, Type type, long ... args) {
-        this.type = type;
-        this.a = args[0];
-        this.b = args[1];
-        this.p = args[2];
-        this.m = args[3];
-        this.n = args[4];
-        this.id = id;
-        status = Status.RUNNING;
-    }
-
     @Override
     public String toString() {
         return "Task id: " + id + " state: " + status.toString() + " type " + type.toString()
@@ -98,17 +77,42 @@ class Task implements Cloneable {
 
 class TaskList {
     private class Node {
-        Node next;
         boolean isLocked;
         Task task;
+        Node next;
     }
 
     private Node root, end;
 
-    public TaskList() {
+    TaskList() {
         root = new Node();
         end = new Node();
         root.next = end;
+    }
+
+    public long subscribeOnTaskResult(long taskId) {
+        while (true) {
+            Node currentNode = root.next;
+            while (currentNode != end) {
+                synchronized (currentNode) {
+                    currentNode.isLocked = true;
+                    Task task = currentNode.task;
+                    if (task.id == taskId) {
+                        try {
+                            while (task.status != Task.Status.FINISHED) {
+                                currentNode.wait();
+                            }
+                            currentNode.isLocked = false;
+                            return task.result;
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    currentNode.isLocked = false;
+                    currentNode = currentNode.next;
+                }
+            }
+        }
     }
 
     public List<Task> getTasksList() {
@@ -116,7 +120,7 @@ class TaskList {
         Node currentNode = root.next;
         while (currentNode != end) {
             synchronized (currentNode) {
-                // TODO: here should be clone()
+                // TODO: here should be clone(). Or not. Think about it
                 result.add(currentNode.task);
                 currentNode = currentNode.next;
             }
@@ -172,8 +176,6 @@ class TaskList {
                     currentNode.isLocked = false;
                 }
             }
-
-            //throw new IllegalStateException("Could not find dependency id: " + currentTaskId + " in task list");
         }
 
         task.a = dependentTasksResults[0];
@@ -207,7 +209,6 @@ class TaskList {
                 a = b;
             }
             task.result = a;
-            // TODO: here synchronization on task, but Node synch needed
             synchronized (node) {
                 task.status = Task.Status.FINISHED;
                 node.notifyAll();
