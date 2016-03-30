@@ -56,7 +56,7 @@ public class Server {
         }
 
         if (request.hasList()) {
-            getTaskList(request.getList());
+            getTaskList();
         }
     }
 
@@ -99,8 +99,8 @@ public class Server {
     }
 
     // TODO:
-    private void getTaskList(ListTasks listTasks) {
-
+    private void getTaskList() {
+        List<Task> tasks = getTasksList();
     }
 
     public long submitTask(Task.Type type, long a, long b, long p, long m, long n) {
