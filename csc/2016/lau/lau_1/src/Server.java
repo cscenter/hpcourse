@@ -118,12 +118,13 @@ class TaskList {
     public List<Task> getTasksList() {
         List<Task> result = new ArrayList<>();
         Node currentNode = root.next;
+        Task task;
         while (currentNode != end) {
             synchronized (currentNode) {
-                // TODO: here should be clone(). Or not. Think about it
-                result.add(currentNode.task);
+                task = currentNode.task;
                 currentNode = currentNode.next;
             }
+            result.add(task);
         }
         return result;
     }
@@ -149,33 +150,7 @@ class TaskList {
         dependentTasksResults[dependentTasksResults.length - 1] = task.n;
 
         for (int i = 0; i < dependentTaskIds.size(); i++) {
-            long currentTaskId = dependentTaskIds.get(i);
-            boolean isTaskFound = false;
-            while (!isTaskFound) {
-                Node currentNode;
-                currentNode = root.next;
-                while (currentNode != end) {
-                    currentNode.isLocked = true;
-                    synchronized (currentNode) {
-                        if (currentNode.task.id == currentTaskId) {
-                            try {
-                                System.out.println("Going to wait for task id: " + currentNode.task.id);
-                                while (currentNode.task.status != Task.Status.FINISHED) {
-                                    currentNode.wait();
-                                }
-                                dependentTasksResults[i] = currentNode.task.result;
-                                isTaskFound = true;
-                                System.out.println("Finished dependency id: " + currentNode.task.id + " result " + dependentTasksResults[i]);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        currentNode.notifyAll();
-                        currentNode = currentNode.next;
-                    }
-                    currentNode.isLocked = false;
-                }
-            }
+            dependentTasksResults[i] = subscribeOnTaskResult(dependentTaskIds.get(i));
         }
 
         task.a = dependentTasksResults[0];
