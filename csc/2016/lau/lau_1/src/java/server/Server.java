@@ -1,6 +1,7 @@
 package server;
 
 import communication.ProtocolProtos;
+import communication.ProtocolProtos.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +19,7 @@ public class Server {
         startListening();
     }
 
+    // TODO: for debug reasons here new Thread. For release should be removed
     private void startListening() throws IOException {
         new Thread(() -> {
             try (ServerSocket socket = new ServerSocket(port)) {
@@ -35,16 +37,7 @@ public class Server {
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
-                    ProtocolProtos.WrapperMessage msg = readMessage(inputStream);
-                    if (msg.hasRequest()) {
-                        System.out.println("Server: get request");
-                    }
-                    if (msg.hasResponse()) {
-                        System.out.println("Server: get response?");
-                    }
-                    if (!msg.isInitialized()) {
-                        System.out.println("Server: got not initialized msg");
-                    }
+                    processMessage(WrapperMessage.parseFrom(inputStream));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -52,12 +45,65 @@ public class Server {
         }).start();
     }
 
-    private ProtocolProtos.WrapperMessage readMessage(InputStream inputStream) throws IOException {
-        ProtocolProtos.WrapperMessage msg = ProtocolProtos.WrapperMessage.parseFrom(inputStream);
-        return msg;
+    private void processMessage(WrapperMessage msg) {
+        ServerRequest request = msg.getRequest();
+        if (request.hasSubmit()) {
+            submitTask(request.getSubmit());
+        }
+
+        if (request.hasSubscribe()) {
+            subscribeOnTaskResult(request.getSubscribe());
+        }
+
+        if (request.hasList()) {
+            getTaskList(request.getList());
+        }
     }
 
-    public long addTask(Task.Type type, long a, long b, long p, long m, long n) {
+    private void submitTask(SubmitTask submitTask) {
+        Task.Type type = getTaskType(submitTask);
+        long a = getTaskParamValue(submitTask.getTask().getA());
+        long b = getTaskParamValue(submitTask.getTask().getB());
+        long p = getTaskParamValue(submitTask.getTask().getP());
+        long m = getTaskParamValue(submitTask.getTask().getM());
+        long n = submitTask.getTask().getN();
+        submitTask(type, a, b, p, m, n);
+    }
+
+    long getTaskParamValue(ProtocolProtos.Task.Param param) {
+        if (param.hasValue()) {
+            return param.getValue();
+        }
+
+        if (param.hasDependentTaskId()) {
+            return param.getDependentTaskId();
+        }
+        throw new IllegalArgumentException("Param has unset value");
+    }
+
+    Task.Type getTaskType(SubmitTask submitTask) {
+        if (submitTask.getTask().getA().getParamValueCase().getNumber() == 0) {
+            throw new IllegalArgumentException("Task type unset");
+        }
+
+        if (submitTask.getTask().getA().getParamValueCase().getNumber() == 1) {
+            return Task.Type.INDEPENDENT;
+        } else {
+            return Task.Type.DEPENDENT;
+        }
+    }
+
+    // TODO:
+    private void subscribeOnTaskResult(Subscribe subscribe) {
+
+    }
+
+    // TODO:
+    private void getTaskList(ListTasks listTasks) {
+
+    }
+
+    public long submitTask(Task.Type type, long a, long b, long p, long m, long n) {
         return taskList.addTask(type, a, b, p, m, n);
     }
 
@@ -65,7 +111,7 @@ public class Server {
         return taskList.subscribeOnTaskResult(taskId);
     }
 
-    public List<Task> getTaskList() {
+    public List<Task> getTasksList() {
         return taskList.getTasksList();
     }
 }
