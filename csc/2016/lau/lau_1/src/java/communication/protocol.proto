@@ -1,7 +1,7 @@
 package communication;
 
 option java_package = "communication";
-option java_output_classname = "ProtocolProtos";
+option java_outer_classname = "ProtocolProtos";
 
 // Конвертное сообщение https://developers.google.com/protocol-buffers/docs/techniques#union
 message WrapperMessage {
