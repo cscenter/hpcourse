@@ -12,11 +12,26 @@ class TaskList {
     }
 
     private Node root, end;
+    private long currentTaskId;
 
     TaskList() {
         root = new Node();
         end = new Node();
         root.next = end;
+    }
+
+    long addTask(Task.Type type, long a, long b, long p, long m, long n) {
+        Task task = new Task(currentTaskId, type, a, b, p, m, n);
+
+        Thread thread = new Thread(() -> {
+            if (task.type == Task.Type.INDEPENDENT) {
+                addIndependentTask(task);
+            } else {
+                addDependentTask(task);
+            }
+        });
+        thread.start();
+        return currentTaskId++;
     }
 
     long subscribeOnTaskResult(long taskId) {
