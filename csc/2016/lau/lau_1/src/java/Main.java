@@ -87,7 +87,7 @@ public class Main {
         }*/
         new Thread(() -> {
             try {
-                Thread.currentThread().sleep(1000);
+                Thread.currentThread().sleep(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

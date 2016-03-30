@@ -20,7 +20,7 @@ class TaskList {
         root.next = end;
     }
 
-    long addTask(Task.Type type, long a, long b, long p, long m, long n) {
+    synchronized long addTask(Task.Type type, long a, long b, long p, long m, long n) {
         Task task = new Task(currentTaskId, type, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
@@ -40,20 +40,17 @@ class TaskList {
             Node currentNode = root.next;
             while (currentNode != end) {
                 synchronized (currentNode) {
-                    currentNode.isLocked = true;
                     Task task = currentNode.task;
                     if (task.id == taskId) {
                         try {
                             while (task.status != Task.Status.FINISHED) {
                                 currentNode.wait();
                             }
-                            currentNode.isLocked = false;
                             return task.result;
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     }
-                    currentNode.isLocked = false;
                     currentNode = currentNode.next;
                 }
             }
