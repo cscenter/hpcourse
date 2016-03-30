@@ -1,6 +1,5 @@
 import communication.ProtocolProtos;
 import communication.ProtocolProtos.*;
-import server.Server;
 
 import java.io.IOException;
 import java.io.OutputStream;

@@ -5,13 +5,7 @@ import java.io.IOException;
 public class Main {
     static int port = 5276;
     public static void main(String[] args) {
-        try {
-            Server server = new Server(port);
-            Client client = new Client();
-            client.runTests("127.0.0.1", port);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        testNetwork();
     }
 
     static void calculateTask(long a, long b, long p, long m, long n) {
@@ -21,6 +15,16 @@ public class Main {
             a = b;
         }
         System.out.println(" res = " + a);
+    }
+
+    static void testNetwork() {
+        try {
+            Server server = new Server(port);
+            Client client = new Client();
+            client.runTests("127.0.0.1", port);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     static void printTestResults() {
