@@ -22,6 +22,7 @@ class TaskList {
 
     long addTask(Task.Type type, long a, long b, long p, long m, long n) {
         Task task = new Task(currentTaskId, type, a, b, p, m, n);
+        System.out.println("TaskList: submitting task " + task.toString());
 
         Thread thread = new Thread(() -> {
             if (task.type == Task.Type.INDEPENDENT) {

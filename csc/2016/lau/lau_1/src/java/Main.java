@@ -8,7 +8,7 @@ public class Main {
         try {
             Server server = new Server(port);
             Client client = new Client();
-            client.sendSubscribeRequest("127.0.0.1", port);
+            client.runTests("127.0.0.1", port);
         } catch (IOException e) {
             e.printStackTrace();
         }
