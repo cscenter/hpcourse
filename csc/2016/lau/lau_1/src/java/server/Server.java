@@ -19,6 +19,10 @@ public class Server {
         startListening();
     }
 
+    public Server() {
+        taskList = new TaskList();
+    }
+
     // TODO: for debug reasons here new Thread. For release should be removed
     private void startListening() throws IOException {
         new Thread(() -> {
@@ -95,7 +99,6 @@ public class Server {
 
     // TODO:
     private void subscribeOnTaskResult(Subscribe subscribe) {
-
     }
 
     // TODO:
