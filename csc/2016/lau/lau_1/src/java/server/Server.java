@@ -63,11 +63,11 @@ public class Server {
         }
 
         if (request.hasSubscribe()) {
-            processSubscribeOnTaskResultMessage(request.getSubscribe());
+            processSubscribeOnTaskResultMessage(request, socket);
         }
 
         if (request.hasList()) {
-            processGetTaskListMessage();
+            processGetTaskListMessage(request, socket);
         }
     }
 
@@ -79,11 +79,11 @@ public class Server {
         long p = getTaskParamValue(submitTask.getTask().getP());
         long m = getTaskParamValue(submitTask.getTask().getM());
         long n = submitTask.getTask().getN();
-        // TODO: fix type
-        int taskId = (int)submitTask(type, a, b, p, m, n);
+        int taskId = submitTask(type, request.getClientId(), a, b, p, m, n);
         sendSubmitTaskResponse(socket, taskId, request.getRequestId());
     }
 
+    // TODO: figure out enum values like OK and ERROR
     private void sendSubmitTaskResponse(Socket socket, int taskId, long requestId) {
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(ServerResponse
@@ -101,13 +101,54 @@ public class Server {
         }
     }
 
-    // TODO:
-    private void processSubscribeOnTaskResultMessage(Subscribe subscribe) {
+    // TODO: Add error checking by Status
+    private void processSubscribeOnTaskResultMessage(ServerRequest request, Socket socket) {
+        long value = subscribeOnTaskResult(request.getSubscribe().getTaskId());
+        long requestId = request.getRequestId();
+        WrapperMessage msg = WrapperMessage.newBuilder()
+                .setResponse(
+                        ServerResponse.newBuilder()
+                        .setRequestId(requestId)
+                        .setSubscribeResponse(
+                                SubscribeResponse.newBuilder()
+                                        .setValue(value))).build();
+        synchronized (socket) {
+            try {
+                msg.writeTo(socket.getOutputStream());
+            } catch (IOException e) {
+                System.err.println("Could not write subscribe response on request id " + requestId);
+            }
+        }
     }
 
-    // TODO:
-    private void processGetTaskListMessage() {
+    // TODO: add to task client id
+    private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
+        long requestId = request.getRequestId();
+        ListTasksResponse.Builder listTasksResponse = ListTasksResponse.newBuilder();
+        for (Task x : tasks) {
+            listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
+                    .setTaskId(x.id)
+                    .setClientId(x.clientId)
+                    .setTask(ProtocolProtos.Task.newBuilder()
+                        .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
+                        .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
+                        .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
+                        .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
+                        .setN(x.n))
+                    .setResult(x.status == Task.Status.RUNNING ? 0 : x.result));
+        }
+        WrapperMessage msg = WrapperMessage.newBuilder().setResponse(
+                ServerResponse.newBuilder()
+                        .setRequestId(requestId)
+                        .setListResponse(listTasksResponse)).build();
+        synchronized (socket) {
+            try {
+                msg.writeTo(socket.getOutputStream());
+            } catch (IOException e) {
+                System.err.println("Can not write task list response");
+            }
+        }
     }
 
 
@@ -135,8 +176,8 @@ public class Server {
     }
 
     // Interface for manual testing
-    public long submitTask(Task.Type type, long a, long b, long p, long m, long n) {
-        return taskList.addTask(type, a, b, p, m, n);
+    public int submitTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
+        return taskList.addTask(type, clientId, a, b, p, m, n);
     }
 
     public long subscribeOnTaskResult(long taskId) {

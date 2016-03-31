@@ -12,7 +12,7 @@ class TaskList {
     }
 
     private Node root, end;
-    private long currentTaskId;
+    private int currentTaskId;
 
     TaskList() {
         root = new Node();
@@ -20,8 +20,9 @@ class TaskList {
         root.next = end;
     }
 
-    synchronized long addTask(Task.Type type, long a, long b, long p, long m, long n) {
-        Task task = new Task(currentTaskId, type, a, b, p, m, n);
+    // TODO: optimize by think lock
+    synchronized int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
+        Task task = new Task(currentTaskId, type, clientId, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
         Thread thread = new Thread(() -> {
@@ -99,7 +100,7 @@ class TaskList {
         task.b = dependentTasksResults[1];
         task.p = dependentTasksResults[2];
         task.m = dependentTasksResults[3];
-        task.n = dependentTasksResults[4];
+        task.n = dependentTasksResults[4]; // Redundant?
         addIndependentTask(task);
     }
 
