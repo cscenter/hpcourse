@@ -6,6 +6,7 @@ public class Main {
     static int port = 5276;
     public static void main(String[] args) {
         testNetwork();
+        //printTestResults();
     }
 
     static void calculateTask(long a, long b, long p, long m, long n) {
@@ -43,6 +44,13 @@ public class Main {
         calculateTask(1, 8, 3, 5, 1000);   //4
         calculateTask(1, 3, 5, 15, 1000);  //3
         calculateTask(3, 4, 3, 15, 1000);  //7
+        calculateTask(8, 5, 7, 3, 1000);  //2
+
+        calculateTask(3, 1, 4, 21, 1000001);  //19
+        calculateTask(2, 5, 9, 21, 1000001);  //8
+        calculateTask(1, 8, 6, 31, 1000001);   //9
+        calculateTask(7, 3, 5, 101, 1000001);  //38
+        calculateTask(19, 8, 9, 38, 10000001);  //34
     }
 
     static void testTasksParallel() {

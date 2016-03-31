@@ -36,14 +36,12 @@ public class Server {
         }).start();
     }
 
-    // TODO: think about overloading
     private void processClient(Socket clientSocket) {
         Thread clientThread = new Thread(() -> {
             Thread.currentThread().setName("ServerThread");
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
-                    // TODO: fix for multi user environment
                     System.out.println("Server: waiting for msg");
                     WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
                     if (msg == null) {
@@ -51,6 +49,7 @@ public class Server {
                         break;
                     }
                     processMessage(msg, clientSocket);
+                    // TODO: fix for multi msg env, ot think about it
 //                    System.out.println("Server: msg parsed");
 //                    new Thread(() -> {
 //                        processMessage(msg, clientSocket);
@@ -138,7 +137,7 @@ public class Server {
         }
     }
 
-    // TODO: add error checking
+    // TODO: add error checking Status
     private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
         long requestId = request.getRequestId();
