@@ -36,17 +36,16 @@ public class Server {
         }).start();
     }
 
+    // TODO: think about overloading
     private void processClient(Socket clientSocket) {
         Thread clientThread = new Thread(() -> {
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
+                    WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
+                    System.out.println("Server: msg parsed");
                     new Thread(() -> {
-                        try {
-                            processMessage(WrapperMessage.parseFrom(inputStream), clientSocket);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+                        processMessage(msg, clientSocket);
                     }).start();
                 }
             } catch (IOException e) {
@@ -60,14 +59,14 @@ public class Server {
         ServerRequest request = msg.getRequest();
         if (request.hasSubmit()) {
                 processSubmitTaskMessage(request, socket);
-        }
-
+        } else
         if (request.hasSubscribe()) {
             processSubscribeOnTaskResultMessage(request, socket);
-        }
-
+        } else
         if (request.hasList()) {
             processGetTaskListMessage(request, socket);
+        } else {
+            throw new IllegalArgumentException("Server: Malformed request");
         }
     }
 
@@ -91,12 +90,16 @@ public class Server {
                         .setRequestId(requestId)
                         .setSubmitResponse(SubmitTaskResponse
                                 .newBuilder()
+                                .setStatus(Status.OK)
                                 .setSubmittedTaskId(taskId))).build();
         synchronized (socket) {
             try {
+                System.out.println("Server: sending submit task response");
                 msg.writeTo(socket.getOutputStream());
+                System.out.println("Server: submit task response sent");
             } catch (IOException e) {
                 System.err.println("Error writing submit task response to request " + requestId);
+                e.printStackTrace();
             }
         }
     }
@@ -104,6 +107,8 @@ public class Server {
     // TODO: Add error checking by Status
     private void processSubscribeOnTaskResultMessage(ServerRequest request, Socket socket) {
         long value = subscribeOnTaskResult(request.getSubscribe().getTaskId());
+        System.out.println("Server: got result of subscribing on task: "
+                + request.getSubscribe().getTaskId() + " + res: " + value);
         long requestId = request.getRequestId();
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(
@@ -111,17 +116,21 @@ public class Server {
                         .setRequestId(requestId)
                         .setSubscribeResponse(
                                 SubscribeResponse.newBuilder()
+                                        .setStatus(Status.OK)
                                         .setValue(value))).build();
         synchronized (socket) {
             try {
-                msg.writeTo(socket.getOutputStream());
+                System.out.println("Server: sending subscribe response");
+                msg.writeDelimitedTo(socket.getOutputStream());
+                System.out.println("Server: subscribe response sent");
             } catch (IOException e) {
                 System.err.println("Could not write subscribe response on request id " + requestId);
+                e.printStackTrace();
             }
         }
     }
 
-    // TODO: add to task client id
+    // TODO: add error checking
     private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
         long requestId = request.getRequestId();
@@ -147,6 +156,7 @@ public class Server {
                 msg.writeTo(socket.getOutputStream());
             } catch (IOException e) {
                 System.err.println("Can not write task list response");
+                e.printStackTrace();
             }
         }
     }
@@ -181,6 +191,7 @@ public class Server {
     }
 
     public long subscribeOnTaskResult(long taskId) {
+        System.out.println("Server: subscribing on taskId: " + taskId);
         return taskList.subscribeOnTaskResult(taskId);
     }
 

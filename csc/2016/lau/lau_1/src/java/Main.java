@@ -5,7 +5,7 @@ import java.io.IOException;
 public class Main {
     static int port = 5276;
     public static void main(String[] args) {
-        testTasksParallel();
+        testNetwork();
     }
 
     static void calculateTask(long a, long b, long p, long m, long n) {

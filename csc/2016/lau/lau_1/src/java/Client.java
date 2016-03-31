@@ -2,6 +2,7 @@ import communication.ProtocolProtos;
 import communication.ProtocolProtos.*;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
@@ -10,32 +11,47 @@ public class Client {
     String id = "ClientID";
     private long currentRequestId;
 
+    // TODO: may be redundant start in new thread
     void runTests(String addr, int port) {
-        try (Socket s = new Socket(addr, port)) {
-            System.out.println("Client: connected");
-            outputStream = s.getOutputStream();
-            // Here test routines
-            // ----------------
-            sendSubmitIndependentTaskRequest(outputStream, 1, 2, 3, 4, 1000);
-            sendSubscribeRequest(outputStream, 0);
-            // ----------------
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try (Socket s = new Socket(addr, port)) {
+                    System.out.println("Client: connected");
+                    outputStream = s.getOutputStream();
+                    // Here test routines
+                    // ----------------
+                    sendSubmitIndependentTaskRequest(outputStream, 3, 1, 4, 21, 1000);
+                    sendSubscribeRequest(s, 0);
+                    while (true);
+                    // ----------------
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
-    private void sendSubscribeRequest(OutputStream outputStream, int taskId) throws IOException {
-        WrapperMessage msg = WrapperMessage.newBuilder().setRequest(ServerRequest.newBuilder()
+    private void sendSubscribeRequest(Socket socket, int taskId) throws IOException {
+        OutputStream outputStream = socket.getOutputStream();
+        InputStream inputStream = socket.getInputStream();
+        WrapperMessage requestMsg = WrapperMessage.newBuilder().setRequest(ServerRequest.newBuilder()
                 .setClientId(id)
                 .setRequestId(getCurrentRequestId())
                 .setSubscribe(Subscribe.newBuilder().setTaskId(taskId))).build();
 
         System.out.println("Client: sending subscribe msg");
-        msg.writeTo(outputStream);
+        requestMsg.writeDelimitedTo(outputStream);
+        System.out.println("Client: subscribe msg sent");
+
+//        WrapperMessage responseMsg = WrapperMessage.parseDelimitedFrom(inputStream);
+//        System.out.print("Client: get subscribe response "
+//                + "request id: " + requestMsg.getResponse().getRequestId()
+//                + " result: " + requestMsg.getResponse().getSubscribeResponse().getValue());
     }
 
     void sendSubmitIndependentTaskRequest(OutputStream outputStream, long a, long b, long p, long m, long n) throws IOException {
-        System.out.println("Sending independent task request");
+        System.out.println("Client: sending independent task request");
         WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
                 ServerRequest.newBuilder().setSubmit(
                         SubmitTask.newBuilder().setTask(
@@ -48,11 +64,12 @@ public class Client {
                         .setClientId(id)
                         .setRequestId(getCurrentRequestId())
         ).build();
-        msg.writeTo(outputStream);
+        msg.writeDelimitedTo(outputStream);
+        System.out.println("Client: independent task request sent");
     }
 
     void sendSubmitDependentTaskRequest(OutputStream outputStream, int a, int b, int p, int m, int n) throws IOException {
-        System.out.println("Sending independent task request");
+        System.out.println("Client: sending dependent task request");
         WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
                 ServerRequest.newBuilder().setSubmit(
                         SubmitTask.newBuilder().setTask(
@@ -65,7 +82,8 @@ public class Client {
                         .setClientId(id)
                         .setRequestId(getCurrentRequestId())
         ).build();
-        msg.writeTo(outputStream);
+        msg.writeDelimitedTo(outputStream);
+        System.out.println("Client: dependent task request sent");
     }
 
     void sendTaskListRequest() throws IOException {
@@ -73,7 +91,7 @@ public class Client {
                 .setClientId(id)
                 .setRequestId(getCurrentRequestId())
                 .setList(ListTasks.newBuilder())).build();
-        msg.writeTo(outputStream);
+        msg.writeDelimitedTo(outputStream);
     }
 
     public long getCurrentRequestId() {
