@@ -43,6 +43,7 @@ public class Server {
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
+                    // TODO: fix for multi user environment
                     System.out.println("Server: waiting for msg");
                     WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
                     if (msg == null) {
@@ -141,18 +142,31 @@ public class Server {
     private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
         long requestId = request.getRequestId();
-        ListTasksResponse.Builder listTasksResponse = ListTasksResponse.newBuilder();
+        ListTasksResponse.Builder listTasksResponse = ListTasksResponse.newBuilder().setStatus(Status.OK);
         for (Task x : tasks) {
-            listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
-                    .setTaskId(x.id)
-                    .setClientId(x.clientId)
-                    .setTask(ProtocolProtos.Task.newBuilder()
-                        .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
-                        .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
-                        .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
-                        .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
-                        .setN(x.n))
-                    .setResult(x.status == Task.Status.RUNNING ? 0 : x.result));
+            if (x.type == Task.Type.INDEPENDENT) {
+                listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
+                        .setTaskId(x.id)
+                        .setClientId(x.clientId)
+                        .setTask(ProtocolProtos.Task.newBuilder()
+                                .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
+                                .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
+                                .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
+                                .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
+                                .setN(x.n))
+                        .setResult(x.status == Task.Status.FINISHED ? x.result : 0));
+            } else {
+                listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
+                        .setTaskId(x.id)
+                        .setClientId(x.clientId)
+                        .setTask(ProtocolProtos.Task.newBuilder()
+                                .setA(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.a))
+                                .setB(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.b))
+                                .setP(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.p))
+                                .setM(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.m))
+                                .setN(x.n))
+                        .setResult(x.status == Task.Status.FINISHED ? x.result : 0));
+            }
         }
         WrapperMessage msg = WrapperMessage.newBuilder().setResponse(
                 ServerResponse.newBuilder()
@@ -160,7 +174,7 @@ public class Server {
                         .setListResponse(listTasksResponse)).build();
         synchronized (socket) {
             try {
-                msg.writeTo(socket.getOutputStream());
+                msg.writeDelimitedTo(socket.getOutputStream());
             } catch (IOException e) {
                 System.err.println("Can not write task list response");
                 e.printStackTrace();
