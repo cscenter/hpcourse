@@ -52,24 +52,25 @@ public class Main {
 //                server.submitTask(Task.Type.INDEPENDENT, 1, 1, 1, 1, 1000);
 //            }).start();
 //        }
+        String clientId = "CLIENT_1_ID";
         final long[] id1 = new long[1];
         new Thread(() -> {
-            id1[0] = server.submitTask(Task.Type.INDEPENDENT, 1, 2, 7, 31, 1000); //5
+            id1[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 2, 7, 31, 1000); //5
         }).start();
 
         final long[] id2 = new long[1];
         new Thread(() -> {
-            id2[0] = server.submitTask(Task.Type.INDEPENDENT, 3, 5, 7, 31, 1000); //11
+            id2[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 3, 5, 7, 31, 1000); //11
         }).start();
 
         final long[] id3 = new long[1];
         new Thread(() -> {
-            id3[0] = server.submitTask(Task.Type.INDEPENDENT, 12, 4, 7, 31, 1000); //11
+            id3[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 12, 4, 7, 31, 1000); //11
         }).start();
 
         final long[] id4 = new long[1];
         new Thread(() -> {
-            id4[0] = server.submitTask(Task.Type.INDEPENDENT, 1, 20, 7, 31, 1000); //15
+            id4[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 20, 7, 31, 1000); //15
         }).start();
 
         //long id8 = server.submitTask(Task.Type.DEPENDENT, id4[0], id2[0], id3[0], id1[0], 1000); //3
@@ -100,17 +101,18 @@ public class Main {
 //        for (int i = 0; i < 100; i++) {
 //            server.submitTask(Task.Type.INDEPENDENT, 1, 1, 1, 1, 1000);
 //        }
-        long id1 = server.submitTask(Task.Type.INDEPENDENT, 1, 2, 7, 31, 1000); //5
-        long id2 = server.submitTask(Task.Type.INDEPENDENT, 3, 5, 7, 31, 1000); //11
-        long id3 = server.submitTask(Task.Type.INDEPENDENT, 12, 4, 7, 31, 1000); //11
-        long id4 = server.submitTask(Task.Type.INDEPENDENT, 1, 20, 7, 31, 1000); //15
-        long id5 = server.submitTask(Task.Type.INDEPENDENT, 1, 8, 3, 5, 1000); //4
-        long id6 = server.submitTask(Task.Type.INDEPENDENT, 2, 5, 7, 21, 1000); //5
-        long id7 = server.submitTask(Task.Type.INDEPENDENT, 3, 2, 1, 3, 1000); //1
+        String clientId = "CLIENT_1_ID";
+        long id1 = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 2, 7, 31, 1000); //5
+        long id2 = server.submitTask(Task.Type.INDEPENDENT, clientId, 3, 5, 7, 31, 1000); //11
+        long id3 = server.submitTask(Task.Type.INDEPENDENT, clientId, 12, 4, 7, 31, 1000); //11
+        long id4 = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 20, 7, 31, 1000); //15
+        long id5 = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 8, 3, 5, 1000); //4
+        long id6 = server.submitTask(Task.Type.INDEPENDENT, clientId, 2, 5, 7, 21, 1000); //5
+        long id7 = server.submitTask(Task.Type.INDEPENDENT, clientId, 3, 2, 1, 3, 1000); //1
         System.out.println(id1 + " " + id2 + " " + id3 + " " + id4 + " " + id5 + " " + id6);
-        long id8 = server.submitTask(Task.Type.DEPENDENT, id4, id2, id3, id1, 1000); //3
-        long id9 = server.submitTask(Task.Type.DEPENDENT, id7, id8, id6, id4, 1000); //3
-        long id10 = server.submitTask(Task.Type.DEPENDENT, id9, id5, id8, id4, 1000); //7
+        long id8 = server.submitTask(Task.Type.DEPENDENT, clientId, id4, id2, id3, id1, 1000); //3
+        long id9 = server.submitTask(Task.Type.DEPENDENT, clientId, id7, id8, id6, id4, 1000); //3
+        long id10 = server.submitTask(Task.Type.DEPENDENT, clientId,  id9, id5, id8, id4, 1000); //7
         System.out.println("Subscribe on result of " + id10 + " = " + server.subscribeOnTaskResult(id10));
         System.out.println("Subscribe on result of " + id9 + " = " + server.subscribeOnTaskResult(id9));
         System.out.println("Subscribe on result of " + id3 + " = " + server.subscribeOnTaskResult(id3));
