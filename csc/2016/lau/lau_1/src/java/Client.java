@@ -21,9 +21,10 @@ public class Client {
                     outputStream = s.getOutputStream();
                     // Here test routines
                     // ----------------
-                    sendSubmitIndependentTaskRequest(outputStream, 3, 1, 4, 21, 1000);
+                    sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000);
                     sendSubscribeRequest(s, 0);
-                    while (true);
+                    System.out.println("Client: all tasks finished");
+                    //while (true);
                     // ----------------
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -44,13 +45,14 @@ public class Client {
         requestMsg.writeDelimitedTo(outputStream);
         System.out.println("Client: subscribe msg sent");
 
-//        WrapperMessage responseMsg = WrapperMessage.parseDelimitedFrom(inputStream);
-//        System.out.print("Client: get subscribe response "
-//                + "request id: " + requestMsg.getResponse().getRequestId()
-//                + " result: " + requestMsg.getResponse().getSubscribeResponse().getValue());
+        WrapperMessage responseMsg = WrapperMessage.parseDelimitedFrom(inputStream);
+        System.out.println("Client: get subscribe response"
+                + " request id: " + responseMsg.getResponse().getRequestId()
+                + " result: " + responseMsg.getResponse().getSubscribeResponse().getValue());
     }
 
-    void sendSubmitIndependentTaskRequest(OutputStream outputStream, long a, long b, long p, long m, long n) throws IOException {
+    void sendSubmitIndependentTaskRequest(Socket socket, long a, long b, long p, long m, long n) throws IOException {
+        OutputStream outputStream = socket.getOutputStream();
         System.out.println("Client: sending independent task request");
         WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
                 ServerRequest.newBuilder().setSubmit(
@@ -66,6 +68,12 @@ public class Client {
         ).build();
         msg.writeDelimitedTo(outputStream);
         System.out.println("Client: independent task request sent");
+
+        InputStream inputStream = socket.getInputStream();
+        WrapperMessage responseMsg = WrapperMessage.parseDelimitedFrom(inputStream);
+        System.out.println("Client: get submit task response "
+                + "request id: " + responseMsg.getResponse().getRequestId()
+                + " task id: " + responseMsg.getResponse().getSubmitResponse().getSubmittedTaskId());
     }
 
     void sendSubmitDependentTaskRequest(OutputStream outputStream, int a, int b, int p, int m, int n) throws IOException {

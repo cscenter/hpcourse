@@ -39,14 +39,21 @@ public class Server {
     // TODO: think about overloading
     private void processClient(Socket clientSocket) {
         Thread clientThread = new Thread(() -> {
+            Thread.currentThread().setName("ServerThread");
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
+                    System.out.println("Server: waiting for msg");
                     WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
-                    System.out.println("Server: msg parsed");
-                    new Thread(() -> {
-                        processMessage(msg, clientSocket);
-                    }).start();
+                    if (msg == null) {
+                        System.out.println("Server: finished client");
+                        break;
+                    }
+                    processMessage(msg, clientSocket);
+//                    System.out.println("Server: msg parsed");
+//                    new Thread(() -> {
+//                        processMessage(msg, clientSocket);
+//                    }).start();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -95,7 +102,7 @@ public class Server {
         synchronized (socket) {
             try {
                 System.out.println("Server: sending submit task response");
-                msg.writeTo(socket.getOutputStream());
+                msg.writeDelimitedTo(socket.getOutputStream());
                 System.out.println("Server: submit task response sent");
             } catch (IOException e) {
                 System.err.println("Error writing submit task response to request " + requestId);
