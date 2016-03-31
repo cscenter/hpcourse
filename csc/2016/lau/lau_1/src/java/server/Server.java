@@ -37,42 +37,79 @@ public class Server {
     }
 
     private void processClient(Socket clientSocket) {
-        new Thread(() -> {
+        Thread clientThread = new Thread(() -> {
             System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
-                    processMessage(WrapperMessage.parseFrom(inputStream));
+                    new Thread(() -> {
+                        try {
+                            processMessage(WrapperMessage.parseFrom(inputStream), clientSocket);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }).start();
+        });
+        clientThread.start();
     }
 
-    private void processMessage(WrapperMessage msg) {
+    private void processMessage(WrapperMessage msg, Socket socket) {
         ServerRequest request = msg.getRequest();
         if (request.hasSubmit()) {
-            submitTask(request.getSubmit());
+                processSubmitTaskMessage(request, socket);
         }
 
         if (request.hasSubscribe()) {
-            subscribeOnTaskResult(request.getSubscribe());
+            processSubscribeOnTaskResultMessage(request.getSubscribe());
         }
 
         if (request.hasList()) {
-            getTaskList();
+            processGetTaskListMessage();
         }
     }
 
-    private void submitTask(SubmitTask submitTask) {
+    private void processSubmitTaskMessage(ServerRequest request, Socket socket){
+        SubmitTask submitTask = request.getSubmit();
         Task.Type type = getTaskType(submitTask);
         long a = getTaskParamValue(submitTask.getTask().getA());
         long b = getTaskParamValue(submitTask.getTask().getB());
         long p = getTaskParamValue(submitTask.getTask().getP());
         long m = getTaskParamValue(submitTask.getTask().getM());
         long n = submitTask.getTask().getN();
-        submitTask(type, a, b, p, m, n);
+        // TODO: fix type
+        int taskId = (int)submitTask(type, a, b, p, m, n);
+        sendSubmitTaskResponse(socket, taskId, request.getRequestId());
     }
+
+    private void sendSubmitTaskResponse(Socket socket, int taskId, long requestId) {
+        WrapperMessage msg = WrapperMessage.newBuilder()
+                .setResponse(ServerResponse
+                        .newBuilder()
+                        .setRequestId(requestId)
+                        .setSubmitResponse(SubmitTaskResponse
+                                .newBuilder()
+                                .setSubmittedTaskId(taskId))).build();
+        synchronized (socket) {
+            try {
+                msg.writeTo(socket.getOutputStream());
+            } catch (IOException e) {
+                System.err.println("Error writing submit task response to request " + requestId);
+            }
+        }
+    }
+
+    // TODO:
+    private void processSubscribeOnTaskResultMessage(Subscribe subscribe) {
+    }
+
+    // TODO:
+    private void processGetTaskListMessage() {
+        List<Task> tasks = getTasksList();
+    }
+
 
     long getTaskParamValue(ProtocolProtos.Task.Param param) {
         if (param.hasValue()) {
@@ -97,15 +134,7 @@ public class Server {
         }
     }
 
-    // TODO:
-    private void subscribeOnTaskResult(Subscribe subscribe) {
-    }
-
-    // TODO:
-    private void getTaskList() {
-        List<Task> tasks = getTasksList();
-    }
-
+    // Interface for manual testing
     public long submitTask(Task.Type type, long a, long b, long p, long m, long n) {
         return taskList.addTask(type, a, b, p, m, n);
     }
