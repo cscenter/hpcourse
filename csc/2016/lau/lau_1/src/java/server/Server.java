@@ -65,7 +65,7 @@ public class Server {
     private void processMessage(WrapperMessage msg, Socket socket) {
         ServerRequest request = msg.getRequest();
         if (request.hasSubmit()) {
-                processSubmitTaskMessage(request, socket);
+            processSubmitTaskMessage(request, socket);
         } else
         if (request.hasSubscribe()) {
             processSubscribeOnTaskResultMessage(request, socket);
@@ -143,29 +143,32 @@ public class Server {
         long requestId = request.getRequestId();
         ListTasksResponse.Builder listTasksResponse = ListTasksResponse.newBuilder().setStatus(Status.OK);
         for (Task x : tasks) {
+            ProtocolProtos.Task.Builder taskBuilder;
             if (x.type == Task.Type.INDEPENDENT) {
-                listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
-                        .setTaskId(x.id)
-                        .setClientId(x.clientId)
-                        .setTask(ProtocolProtos.Task.newBuilder()
-                                .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
-                                .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
-                                .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
-                                .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
-                                .setN(x.n))
-                        .setResult(x.status == Task.Status.FINISHED ? x.result : 0));
+                taskBuilder = ProtocolProtos.Task.newBuilder()
+                        .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
+                        .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
+                        .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
+                        .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
+                        .setN(x.n);
             } else {
-                listTasksResponse.addTasks(ListTasksResponse.TaskDescription.newBuilder()
-                        .setTaskId(x.id)
-                        .setClientId(x.clientId)
-                        .setTask(ProtocolProtos.Task.newBuilder()
-                                .setA(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.a))
-                                .setB(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.b))
-                                .setP(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.p))
-                                .setM(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.m))
-                                .setN(x.n))
-                        .setResult(x.status == Task.Status.FINISHED ? x.result : 0));
+                taskBuilder = ProtocolProtos.Task.newBuilder()
+                        .setA(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.a))
+                        .setB(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.b))
+                        .setP(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.p))
+                        .setM(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.m))
+                        .setN(x.n);
             }
+            ListTasksResponse.TaskDescription.Builder taskDescriptionBuilder
+                    = ListTasksResponse.TaskDescription.newBuilder()
+                    .setTaskId(x.id)
+                    .setClientId(x.clientId)
+                    .setTask(taskBuilder);
+            if (x.status == Task.Status.FINISHED) {
+                taskDescriptionBuilder.setResult(x.result);
+            }
+
+            listTasksResponse.addTasks(taskDescriptionBuilder);
         }
         WrapperMessage msg = WrapperMessage.newBuilder().setResponse(
                 ServerResponse.newBuilder()

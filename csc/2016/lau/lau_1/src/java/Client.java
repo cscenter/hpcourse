@@ -142,7 +142,8 @@ public class Client {
                         + " b = " + task.getTask().getB().getDependentTaskId() + " p = " + task.getTask().getP().getDependentTaskId()
                         + " m = " + task.getTask().getM().getDependentTaskId());
             }
-            System.out.println(" n = " + task.getTask().getN() + " res: " + task.getResult());
+            System.out.println(" n = " + task.getTask().getN()
+                    + (task.hasResult() ? " res: " + task.getResult() : " RUNNING"));
         }
     }
 
