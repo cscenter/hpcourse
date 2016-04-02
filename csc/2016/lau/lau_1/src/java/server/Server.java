@@ -11,49 +11,38 @@ import java.util.List;
 
 public class Server {
     private TaskList taskList;
-    int port;
+    private int port;
 
     public Server(int port) throws IOException {
         this.port = port;
         taskList = new TaskList();
-        startListening();
     }
 
     public Server() {
         taskList = new TaskList();
     }
 
-    // TODO: for debug reasons here new Thread. For release should be removed
-    private void startListening() throws IOException {
-        new Thread(() -> {
-            try (ServerSocket socket = new ServerSocket(port)) {
-                System.out.println("Server started");
-                Socket clientSocket = socket.accept();
-                processClient(clientSocket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
+    public void startListening() throws IOException {
+        try (ServerSocket socket = new ServerSocket(port)) {
+            System.out.println("Server started");
+            Socket clientSocket = socket.accept();
+            processClient(clientSocket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void processClient(Socket clientSocket) {
         Thread clientThread = new Thread(() -> {
             Thread.currentThread().setName("ServerThread");
-            System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
-                    System.out.println("Server: waiting for msg");
                     WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
-                    if (msg == null) {
-                        System.out.println("Server: finished client");
-                        break;
+                    if (msg != null) {
+                        new Thread(() -> {
+                            processMessage(msg, clientSocket);
+                        }).start();
                     }
-                    processMessage(msg, clientSocket);
-                    // TODO: fix for multi msg env, ot think about it
-//                    System.out.println("Server: msg parsed");
-//                    new Thread(() -> {
-//                        processMessage(msg, clientSocket);
-//                    }).start();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -89,7 +78,6 @@ public class Server {
         sendSubmitTaskResponse(socket, taskId, request.getRequestId());
     }
 
-    // TODO: figure out enum values like OK and ERROR
     private void sendSubmitTaskResponse(Socket socket, int taskId, long requestId) {
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(ServerResponse
@@ -101,9 +89,7 @@ public class Server {
                                 .setSubmittedTaskId(taskId))).build();
         synchronized (socket) {
             try {
-                System.out.println("Server: sending submit task response");
                 msg.writeDelimitedTo(socket.getOutputStream());
-                System.out.println("Server: submit task response sent");
             } catch (IOException e) {
                 System.err.println("Error writing submit task response to request " + requestId);
                 e.printStackTrace();
@@ -111,11 +97,8 @@ public class Server {
         }
     }
 
-    // TODO: Add error checking by Status
     private void processSubscribeOnTaskResultMessage(ServerRequest request, Socket socket) {
         long value = subscribeOnTaskResult(request.getSubscribe().getTaskId());
-        System.out.println("Server: got result of subscribing on task: "
-                + request.getSubscribe().getTaskId() + " + res: " + value);
         long requestId = request.getRequestId();
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(
@@ -127,9 +110,7 @@ public class Server {
                                         .setValue(value))).build();
         synchronized (socket) {
             try {
-                System.out.println("Server: sending subscribe response");
                 msg.writeDelimitedTo(socket.getOutputStream());
-                System.out.println("Server: subscribe response sent");
             } catch (IOException e) {
                 System.err.println("Could not write subscribe response on request id " + requestId);
                 e.printStackTrace();
@@ -137,7 +118,6 @@ public class Server {
         }
     }
 
-    // TODO: add error checking Status
     private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
         long requestId = request.getRequestId();
@@ -184,8 +164,7 @@ public class Server {
         }
     }
 
-
-    long getTaskParamValue(ProtocolProtos.Task.Param param) {
+    private long getTaskParamValue(ProtocolProtos.Task.Param param) {
         if (param.hasValue()) {
             return param.getValue();
         }
@@ -196,7 +175,7 @@ public class Server {
         throw new IllegalArgumentException("Param has unset value");
     }
 
-    Task.Type getTaskType(SubmitTask submitTask) {
+    private Task.Type getTaskType(SubmitTask submitTask) {
         if (submitTask.getTask().getA().getParamValueCase().getNumber() == 0) {
             throw new IllegalArgumentException("Task type unset");
         }
@@ -208,13 +187,11 @@ public class Server {
         }
     }
 
-    // Interface for manual testing
     public int submitTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
         return taskList.addTask(type, clientId, a, b, p, m, n);
     }
 
     public long subscribeOnTaskResult(long taskId) {
-        System.out.println("Server: subscribing on taskId: " + taskId);
         return taskList.subscribeOnTaskResult(taskId);
     }
 

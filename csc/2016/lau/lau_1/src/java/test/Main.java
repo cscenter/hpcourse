@@ -1,15 +1,17 @@
+package test;
+
 import server.*;
 
 import java.io.IOException;
 
 public class Main {
-    static int port = 5276;
+    private static int port = 5276;
     public static void main(String[] args) {
         testNetwork();
         //printTestResults();
     }
 
-    static void calculateTask(long a, long b, long p, long m, long n) {
+    private static void calculateTask(long a, long b, long p, long m, long n) {
         System.out.print("Task with params a = " + a + " b = " + b + " p = " + p + " m = " + m + " n = " + n);
         while (n-- > 0) {
             b = (a * p + b) % m;
@@ -18,14 +20,23 @@ public class Main {
         System.out.println(" res = " + a);
     }
 
-    static void testNetwork() {
-        try {
-            Server server = new Server(port);
-            Client client = new Client();
+    private static void testNetwork() {
+        Thread serverThread =
+            new Thread(() -> {
+                try {
+                    new Server(port).startListening();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+
+        Thread clientThread = new Thread(() -> {
+            SynchronousClient client = new SynchronousClient();
             client.runTests("127.0.0.1", port);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        });
+
+        serverThread.start();
+        clientThread.start();
     }
 
     static void printTestResults() {
@@ -45,6 +56,10 @@ public class Main {
         calculateTask(1, 3, 5, 15, 1000);  //3
         calculateTask(3, 4, 3, 15, 1000);  //7
         calculateTask(8, 5, 7, 3, 1000);  //2
+        calculateTask(8, 3, 7, 5, 1000);  //?
+        calculateTask(8, 5, 3, 7, 1000);  //1
+        calculateTask(5, 3, 7, 8, 1000);  //0
+        calculateTask(8, 3, 7, 5, 1000);  //3
 
         calculateTask(3, 1, 4, 21, 1000001);  //19
         calculateTask(2, 5, 9, 21, 1000001);  //8

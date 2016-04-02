@@ -11,8 +11,8 @@ class TaskList {
         Node next;
     }
 
-    private Node root, end;
-    private int currentTaskId;
+    private volatile Node root, end;
+    private volatile int currentTaskId;
 
     TaskList() {
         root = new Node();
@@ -20,20 +20,20 @@ class TaskList {
         root.next = end;
     }
 
-    // TODO: optimize by think lock
-    synchronized int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
-        Task task = new Task(currentTaskId, type, clientId, a, b, p, m, n);
+    int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
+        int taskId;
+        synchronized (this) {
+            taskId = currentTaskId++;
+        }
+        Task task = new Task(taskId, type, clientId, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
-        Thread thread = new Thread(() -> {
-            if (task.type == Task.Type.INDEPENDENT) {
-                addIndependentTask(task);
-            } else {
-                addDependentTask(task);
-            }
-        });
-        thread.start();
-        return currentTaskId++;
+        if (task.type == Task.Type.INDEPENDENT) {
+            addIndependentTask(task);
+        } else {
+            addDependentTask(task);
+        }
+        return taskId;
     }
 
     long subscribeOnTaskResult(long taskId) {
@@ -96,10 +96,10 @@ class TaskList {
             dependentTasksResults[i] = subscribeOnTaskResult(dependentTaskIds.get(i));
         }
 
-        task.a = dependentTasksResults[0];
-        task.b = dependentTasksResults[1];
-        task.p = dependentTasksResults[2];
-        task.m = dependentTasksResults[3];
+        task.valueA = dependentTasksResults[0];
+        task.valueB = dependentTasksResults[1];
+        task.valueP = dependentTasksResults[2];
+        task.valueM = dependentTasksResults[3];
         task.n = dependentTasksResults[4]; // Redundant?
         addIndependentTask(task);
     }
@@ -118,10 +118,10 @@ class TaskList {
         new Thread(() -> {
             Task task = node.task;
             long n = task.n;
-            long a = task.a;
-            long b = task.b;
-            long p = task.p;
-            long m = task.m;
+            long a = task.valueA;
+            long b = task.valueB;
+            long p = task.valueP;
+            long m = task.valueM;
             while (n-- > 0) {
                 b = (a * p + b) % m;
                 a = b;
