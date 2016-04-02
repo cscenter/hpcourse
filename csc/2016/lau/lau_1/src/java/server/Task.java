@@ -13,6 +13,7 @@ public class Task {
 
     int id;
     long a, b, p, m;
+    long valueA, valueB, valueP, valueM;
     long n;
     long result;
     String clientId;
@@ -29,6 +30,10 @@ public class Task {
         this.p = p;
         this.m = m;
         this.n = n;
+        this.valueA = a;
+        this.valueB = b;
+        this.valueP = p;
+        this.valueM = m;
         status = Status.RUNNING;
         System.out.println("Created task " + toString());
     }

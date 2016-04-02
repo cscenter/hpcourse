@@ -96,10 +96,10 @@ class TaskList {
             dependentTasksResults[i] = subscribeOnTaskResult(dependentTaskIds.get(i));
         }
 
-        task.a = dependentTasksResults[0];
-        task.b = dependentTasksResults[1];
-        task.p = dependentTasksResults[2];
-        task.m = dependentTasksResults[3];
+        task.valueA = dependentTasksResults[0];
+        task.valueB = dependentTasksResults[1];
+        task.valueP = dependentTasksResults[2];
+        task.valueM = dependentTasksResults[3];
         task.n = dependentTasksResults[4]; // Redundant?
         addIndependentTask(task);
     }
@@ -118,10 +118,10 @@ class TaskList {
         new Thread(() -> {
             Task task = node.task;
             long n = task.n;
-            long a = task.a;
-            long b = task.b;
-            long p = task.p;
-            long m = task.m;
+            long a = task.valueA;
+            long b = task.valueB;
+            long p = task.valueP;
+            long m = task.valueM;
             while (n-- > 0) {
                 b = (a * p + b) % m;
                 a = b;
