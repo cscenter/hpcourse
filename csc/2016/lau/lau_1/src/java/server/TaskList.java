@@ -11,8 +11,8 @@ class TaskList {
         Node next;
     }
 
-    private Node root, end;
-    private int currentTaskId;
+    private volatile Node root, end;
+    private volatile int currentTaskId;
 
     TaskList() {
         root = new Node();
@@ -21,19 +21,20 @@ class TaskList {
     }
 
     // TODO: optimize by think lock
-    synchronized int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
-        Task task = new Task(currentTaskId, type, clientId, a, b, p, m, n);
+    int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
+        int taskId;
+        synchronized (this) {
+            taskId = currentTaskId++;
+        }
+        Task task = new Task(taskId, type, clientId, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
-        Thread thread = new Thread(() -> {
-            if (task.type == Task.Type.INDEPENDENT) {
-                addIndependentTask(task);
-            } else {
-                addDependentTask(task);
-            }
-        });
-        thread.start();
-        return currentTaskId++;
+        if (task.type == Task.Type.INDEPENDENT) {
+            addIndependentTask(task);
+        } else {
+            addDependentTask(task);
+        }
+        return taskId;
     }
 
     long subscribeOnTaskResult(long taskId) {
