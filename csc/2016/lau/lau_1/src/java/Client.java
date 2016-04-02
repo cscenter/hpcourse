@@ -13,37 +13,34 @@ public class Client {
 
     // TODO: may be redundant start in new thread
     void runTests(String addr, int port) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try (Socket s = new Socket(addr, port)) {
-                    System.out.println("Client: connected");
-                    // Here test routines
-                    // ----------------
-                    int id1 = sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000); //8
-                    int id2 = sendSubmitIndependentTaskRequest(s, 2, 5, 7, 21, 1000); //5
-                    int id3 = sendSubmitIndependentTaskRequest(s, 3, 4, 3, 15, 1000); //7
-                    int id4 = sendSubmitIndependentTaskRequest(s, 1, 3, 5, 15, 1000); //3
-                    int id5 = sendSubmitDependentTaskRequest(s, id1, id2, id3, id4, 1000); // 2
-                    sendSubscribeRequest(s, id1);
-                    sendSubscribeRequest(s, id2);
-                    sendSubscribeRequest(s, id3);
-                    sendSubscribeRequest(s, id4);
-                    sendSubscribeRequest(s, id5);
-                    int id6 = sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000001); //19
-                    int id7 = sendSubmitIndependentTaskRequest(s, 2, 5, 9, 21, 1000001); //8
-                    int id8 = sendSubmitIndependentTaskRequest(s, 1, 8, 6, 31, 1000001); //9
-                    int id9 = sendSubmitIndependentTaskRequest(s, 7, 3, 5, 101, 1000001); //38
-                    int id10 = sendSubmitDependentTaskRequest(s, id6, id7, id8, id9, 10000001); //34
-                    sendTaskListRequest(s);
-                    sendSubscribeRequest(s, id7);
-                    sendTaskListRequest(s);
-                    System.out.println("Client: all tasks finished");
-                    //while (true);
-                    // ----------------
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+        new Thread(() -> {
+            try (Socket s = new Socket(addr, port)) {
+                System.out.println("Client: connected");
+                // Here test routines
+                // ----------------
+                int id1 = sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000); //8
+                int id2 = sendSubmitIndependentTaskRequest(s, 2, 5, 7, 21, 1000); //5
+                int id3 = sendSubmitIndependentTaskRequest(s, 3, 4, 3, 15, 1000); //7
+                int id4 = sendSubmitIndependentTaskRequest(s, 1, 3, 5, 15, 1000); //3
+                int id5 = sendSubmitDependentTaskRequest(s, id1, id2, id3, id4, 1000); // 2
+                sendSubscribeRequest(s, id1);
+                sendSubscribeRequest(s, id2);
+                sendSubscribeRequest(s, id3);
+                sendSubscribeRequest(s, id4);
+                sendSubscribeRequest(s, id5);
+                int id6 = sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000001); //19
+                int id7 = sendSubmitIndependentTaskRequest(s, 2, 5, 9, 21, 1000001); //8
+                int id8 = sendSubmitIndependentTaskRequest(s, 1, 8, 6, 31, 1000001); //9
+                int id9 = sendSubmitIndependentTaskRequest(s, 7, 3, 5, 101, 1000001); //38
+                int id10 = sendSubmitDependentTaskRequest(s, id6, id7, id8, id9, 10000001); //34
+                sendTaskListRequest(s);
+                sendSubscribeRequest(s, id7);
+                sendTaskListRequest(s);
+                System.out.println("Client: all tasks finished");
+                //while (true);
+                // ----------------
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }).start();
     }
