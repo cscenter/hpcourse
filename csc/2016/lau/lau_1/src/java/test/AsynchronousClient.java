@@ -10,7 +10,7 @@ import java.net.Socket;
 import java.util.List;
 
 public class AsynchronousClient {
-    private String id = "AsynchronousClientID";
+    private String id = "AClientID";
     private long currentRequestId;
 
     public void runTests(String addr, int port) {

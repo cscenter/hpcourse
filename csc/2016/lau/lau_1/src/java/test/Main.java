@@ -28,7 +28,7 @@ public class Main {
 
     private static void startClient(int port) {
         new Thread(() -> {
-            SynchronousClient client = new SynchronousClient();
+            AsynchronousClient client = new AsynchronousClient();
             client.runTests("127.0.0.1", port);
         }).start();
     }
