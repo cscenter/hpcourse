@@ -45,6 +45,10 @@ public class Main {
         calculateTask(1, 3, 5, 15, 1000);  //3
         calculateTask(3, 4, 3, 15, 1000);  //7
         calculateTask(8, 5, 7, 3, 1000);  //2
+        calculateTask(8, 3, 7, 5, 1000);  //?
+        calculateTask(8, 5, 3, 7, 1000);  //1
+        calculateTask(5, 3, 7, 8, 1000);  //0
+        calculateTask(8, 3, 7, 5, 1000);  //3
 
         calculateTask(3, 1, 4, 21, 1000001);  //19
         calculateTask(2, 5, 9, 21, 1000001);  //8

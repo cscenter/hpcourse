@@ -11,7 +11,7 @@ import java.util.List;
 
 public class Server {
     private TaskList taskList;
-    int port;
+    private int port;
 
     public Server(int port) throws IOException {
         this.port = port;
@@ -39,21 +39,14 @@ public class Server {
     private void processClient(Socket clientSocket) {
         Thread clientThread = new Thread(() -> {
             Thread.currentThread().setName("ServerThread");
-            System.out.println("Server: got client");
             try (InputStream inputStream = clientSocket.getInputStream()) {
                 while (true) {
-                    System.out.println("Server: waiting for msg");
                     WrapperMessage msg = WrapperMessage.parseDelimitedFrom(inputStream);
-                    if (msg == null) {
-                        System.out.println("Server: finished client");
-                        break;
+                    if (msg != null) {
+                        new Thread(() -> {
+                            processMessage(msg, clientSocket);
+                        }).start();
                     }
-                    processMessage(msg, clientSocket);
-                    // TODO: fix for multi msg env, ot think about it
-//                    System.out.println("Server: msg parsed");
-//                    new Thread(() -> {
-//                        processMessage(msg, clientSocket);
-//                    }).start();
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -101,9 +94,7 @@ public class Server {
                                 .setSubmittedTaskId(taskId))).build();
         synchronized (socket) {
             try {
-                System.out.println("Server: sending submit task response");
                 msg.writeDelimitedTo(socket.getOutputStream());
-                System.out.println("Server: submit task response sent");
             } catch (IOException e) {
                 System.err.println("Error writing submit task response to request " + requestId);
                 e.printStackTrace();
