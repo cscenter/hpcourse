@@ -13,7 +13,6 @@ public class AsynchronousClient {
     private String id = "AsynchronousClientID";
     private long currentRequestId;
 
-    // TODO: may be redundant start in new thread
     public void runTests(String addr, int port) {
         try (Socket s = new Socket(addr, port)) {
             System.out.println("Client: connected");
