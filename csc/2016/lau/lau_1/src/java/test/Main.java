@@ -11,32 +11,26 @@ public class Main {
         //printTestResults();
     }
 
-    private static void calculateTask(long a, long b, long p, long m, long n) {
-        System.out.print("Task with params a = " + a + " b = " + b + " p = " + p + " m = " + m + " n = " + n);
-        while (n-- > 0) {
-            b = (a * p + b) % m;
-            a = b;
-        }
-        System.out.println(" res = " + a);
+    private static void testNetwork() {
+        startServer(port);
+        startClient(port);
     }
 
-    private static void testNetwork() {
-        Thread serverThread =
-            new Thread(() -> {
-                try {
-                    new Server(port).startListening();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
+    private static void startServer(int port) {
+        new Thread(() -> {
+            try {
+                new Server(port).startListening();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
 
-        Thread clientThread = new Thread(() -> {
+    private static void startClient(int port) {
+        new Thread(() -> {
             SynchronousClient client = new SynchronousClient();
             client.runTests("127.0.0.1", port);
-        });
-
-        serverThread.start();
-        clientThread.start();
+        }).start();
     }
 
     static void printTestResults() {
@@ -66,6 +60,15 @@ public class Main {
         calculateTask(1, 8, 6, 31, 1000001);   //9
         calculateTask(7, 3, 5, 101, 1000001);  //38
         calculateTask(19, 8, 9, 38, 10000001);  //34
+    }
+
+    private static void calculateTask(long a, long b, long p, long m, long n) {
+        System.out.print("Task with params a = " + a + " b = " + b + " p = " + p + " m = " + m + " n = " + n);
+        while (n-- > 0) {
+            b = (a * p + b) % m;
+            a = b;
+        }
+        System.out.println(" res = " + a);
     }
 
     static void testTasksParallel() {
