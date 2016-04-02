@@ -5,13 +5,13 @@ import server.*;
 import java.io.IOException;
 
 public class Main {
-    static int port = 5276;
+    private static int port = 5276;
     public static void main(String[] args) {
         testNetwork();
         //printTestResults();
     }
 
-    static void calculateTask(long a, long b, long p, long m, long n) {
+    private static void calculateTask(long a, long b, long p, long m, long n) {
         System.out.print("Task with params a = " + a + " b = " + b + " p = " + p + " m = " + m + " n = " + n);
         while (n-- > 0) {
             b = (a * p + b) % m;
@@ -20,14 +20,23 @@ public class Main {
         System.out.println(" res = " + a);
     }
 
-    static void testNetwork() {
-        try {
-            Server server = new Server(port);
+    private static void testNetwork() {
+        Thread serverThread =
+            new Thread(() -> {
+                try {
+                    new Server(port).startListening();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+
+        Thread clientThread = new Thread(() -> {
             SynchronousClient client = new SynchronousClient();
             client.runTests("127.0.0.1", port);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        });
+
+        serverThread.start();
+        clientThread.start();
     }
 
     static void printTestResults() {

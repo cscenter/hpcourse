@@ -16,24 +16,20 @@ public class Server {
     public Server(int port) throws IOException {
         this.port = port;
         taskList = new TaskList();
-        startListening();
     }
 
     public Server() {
         taskList = new TaskList();
     }
 
-    // TODO: for debug reasons here new Thread. For release should be removed
-    private void startListening() throws IOException {
-        new Thread(() -> {
-            try (ServerSocket socket = new ServerSocket(port)) {
-                System.out.println("Server started");
-                Socket clientSocket = socket.accept();
-                processClient(clientSocket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
+    public void startListening() throws IOException {
+        try (ServerSocket socket = new ServerSocket(port)) {
+            System.out.println("Server started");
+            Socket clientSocket = socket.accept();
+            processClient(clientSocket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void processClient(Socket clientSocket) {
@@ -168,8 +164,7 @@ public class Server {
         }
     }
 
-
-    long getTaskParamValue(ProtocolProtos.Task.Param param) {
+    private long getTaskParamValue(ProtocolProtos.Task.Param param) {
         if (param.hasValue()) {
             return param.getValue();
         }
@@ -180,7 +175,7 @@ public class Server {
         throw new IllegalArgumentException("Param has unset value");
     }
 
-    Task.Type getTaskType(SubmitTask submitTask) {
+    private Task.Type getTaskType(SubmitTask submitTask) {
         if (submitTask.getTask().getA().getParamValueCase().getNumber() == 0) {
             throw new IllegalArgumentException("Task type unset");
         }

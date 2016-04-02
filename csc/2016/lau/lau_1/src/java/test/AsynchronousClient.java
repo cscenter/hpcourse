@@ -10,50 +10,48 @@ import java.net.Socket;
 import java.util.List;
 
 public class AsynchronousClient {
-    String id = "AsynchronousClientID";
+    private String id = "AsynchronousClientID";
     private long currentRequestId;
 
     // TODO: may be redundant start in new thread
     public void runTests(String addr, int port) {
-        new Thread(() -> {
-            try (Socket s = new Socket(addr, port)) {
-                System.out.println("Client: connected");
-                // Here test routines
-                // ----------------
-                Thread responseProcessingThread = new Thread(() -> {
-                    while (true) {
-                        try {
-                            processResponse(s.getInputStream());
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+        try (Socket s = new Socket(addr, port)) {
+            System.out.println("Client: connected");
+            // Here test routines
+            // ----------------
+            Thread responseProcessingThread = new Thread(() -> {
+                while (true) {
+                    try {
+                        processResponse(s.getInputStream());
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                });
-                responseProcessingThread.start();
+                }
+            });
+            responseProcessingThread.start();
 
-                sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000); //8
-                sendSubmitIndependentTaskRequest(s, 2, 5, 7, 21, 1000); //5
-                sendSubmitIndependentTaskRequest(s, 3, 4, 3, 15, 1000); //7
-                sendSubmitIndependentTaskRequest(s, 1, 3, 5, 15, 1000); //3
-                sendSubmitDependentTaskRequest(s, 0, 1, 2, 3, 1000); // 2
-                sendSubscribeRequest(s, 1);
-                try {
-                    Thread.currentThread().sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                sendTaskListRequest(s);
-                System.out.println("Client: all tasks finished");
-                try {
-                    responseProcessingThread.join();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                // ----------------
-            } catch (IOException e) {
+            sendSubmitIndependentTaskRequest(s, 3, 1, 4, 21, 1000); //8
+            sendSubmitIndependentTaskRequest(s, 2, 5, 7, 21, 1000); //5
+            sendSubmitIndependentTaskRequest(s, 3, 4, 3, 15, 1000); //7
+            sendSubmitIndependentTaskRequest(s, 1, 3, 5, 15, 1000); //3
+            sendSubmitDependentTaskRequest(s, 0, 1, 2, 3, 1000); // 2
+            sendSubscribeRequest(s, 1);
+            try {
+                Thread.currentThread().sleep(100);
+            } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }).start();
+            sendTaskListRequest(s);
+            System.out.println("Client: all tasks finished");
+            try {
+                responseProcessingThread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            // ----------------
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void sendSubscribeRequest(Socket socket, int taskId) throws IOException {
@@ -120,7 +118,6 @@ public class AsynchronousClient {
             if (!msg.hasResponse()) {
                 throw new IllegalArgumentException("Client: received message is not response");
             }
-
             processResponseMessage(msg);
         } catch (IOException e) {
             e.printStackTrace();
