@@ -20,7 +20,6 @@ class TaskList {
         root.next = end;
     }
 
-    // TODO: optimize by think lock
     int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
         int taskId;
         synchronized (this) {

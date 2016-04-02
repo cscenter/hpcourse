@@ -1,3 +1,5 @@
+package test;
+
 import server.*;
 
 import java.io.IOException;
@@ -21,7 +23,7 @@ public class Main {
     static void testNetwork() {
         try {
             Server server = new Server(port);
-            Client client = new Client();
+            SynchronousClient client = new SynchronousClient();
             client.runTests("127.0.0.1", port);
         } catch (IOException e) {
             e.printStackTrace();
