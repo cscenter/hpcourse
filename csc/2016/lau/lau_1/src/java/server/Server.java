@@ -82,7 +82,6 @@ public class Server {
         sendSubmitTaskResponse(socket, taskId, request.getRequestId());
     }
 
-    // TODO: figure out enum values like OK and ERROR
     private void sendSubmitTaskResponse(Socket socket, int taskId, long requestId) {
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(ServerResponse
@@ -102,11 +101,8 @@ public class Server {
         }
     }
 
-    // TODO: Add error checking by Status
     private void processSubscribeOnTaskResultMessage(ServerRequest request, Socket socket) {
         long value = subscribeOnTaskResult(request.getSubscribe().getTaskId());
-        System.out.println("Server: got result of subscribing on task: "
-                + request.getSubscribe().getTaskId() + " + res: " + value);
         long requestId = request.getRequestId();
         WrapperMessage msg = WrapperMessage.newBuilder()
                 .setResponse(
@@ -118,9 +114,7 @@ public class Server {
                                         .setValue(value))).build();
         synchronized (socket) {
             try {
-                System.out.println("Server: sending subscribe response");
                 msg.writeDelimitedTo(socket.getOutputStream());
-                System.out.println("Server: subscribe response sent");
             } catch (IOException e) {
                 System.err.println("Could not write subscribe response on request id " + requestId);
                 e.printStackTrace();
@@ -128,7 +122,6 @@ public class Server {
         }
     }
 
-    // TODO: add error checking Status
     private void processGetTaskListMessage(ServerRequest request, Socket socket) {
         List<Task> tasks = getTasksList();
         long requestId = request.getRequestId();
@@ -199,13 +192,11 @@ public class Server {
         }
     }
 
-    // Interface for manual testing
     public int submitTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
         return taskList.addTask(type, clientId, a, b, p, m, n);
     }
 
     public long subscribeOnTaskResult(long taskId) {
-        System.out.println("Server: subscribing on taskId: " + taskId);
         return taskList.subscribeOnTaskResult(taskId);
     }
 
