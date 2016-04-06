@@ -2,6 +2,7 @@ package server.thread;
 
 import server.storage.Counter;
 import server.storage.TaskStorage;
+import server.storage.TaskWrapper;
 
 import static communication.Protocol.*;
 
@@ -36,8 +37,11 @@ public class TaskStarter extends Thread {
             threads.add(new Subscriber(socket, request.getRequestId(), storage, request.getSubscribe().getTaskId()));
         }
         if (request.hasSubmit()) {
-            threads.add(new Calculator(socket, request.getRequestId(), request.getSubmit().getTask(),
-                    storage, COUNTER.next()));
+            int taskId = COUNTER.next();
+            Calculator calculator = new Calculator(socket, request.getRequestId(), request.getSubmit().getTask(),
+                    storage, COUNTER.next());
+            storage.add(taskId, request.getClientId(), calculator);
+            threads.add(calculator);
         }
         if (request.hasList()) {
             threads.add(new StatusResponser(socket, request.getRequestId(), storage));
