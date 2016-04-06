@@ -13,7 +13,7 @@ public class Subscriber extends AbstractServerThread<SubscribeResponse> {
 
     private final int taskId;
 
-    public Subscriber(Socket socket, int requestId, TaskStorage storage, int taskId) {
+    public Subscriber(Socket socket, long requestId, TaskStorage storage, int taskId) {
         super(socket, requestId, storage, ServerResponse.Builder::setSubscribeResponse);
         this.taskId = taskId;
     }

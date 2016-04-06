@@ -1,6 +1,7 @@
 package server;
 
 import server.storage.TaskStorage;
+import server.thread.*;
 
 import static communication.Protocol.*;
 
@@ -17,8 +18,6 @@ public class Server extends Thread {
 
     private static final Logger log = Logger.getLogger(Server.class.getName());
 
-    private static long id = 0;
-
     private final int port;
     private final TaskStorage storage;
 
@@ -31,7 +30,7 @@ public class Server extends Thread {
     public void run() {
         try {
             ServerSocket serverSocket = new ServerSocket(port);
-            //noinspection ???
+            //noinspection InfiniteLoopStatement
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 processClientSocket(clientSocket);
@@ -48,10 +47,10 @@ public class Server extends Thread {
         int result = stream.read(buffer);
         if (result == -1) throw new IOException("Can't read data from client socket");
         ServerRequest request = ServerRequest.PARSER.parseFrom(buffer);
-        processRequest(request);
+        new TaskStarter(socket, request, storage).start();
     }
 
-    private void processRequest(ServerRequest request) {
+    public static void main(String[] args) {
 
     }
 }

@@ -21,8 +21,8 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
     private Status status;
     private long result;
 
-    public Calculator(Socket socket, int clientId, Task task, TaskStorage storage, int taskId) {
-        super(socket, clientId, storage, ServerResponse.Builder::setSubmitResponse);
+    public Calculator(Socket socket, long requestId, Task task, TaskStorage storage, int taskId) {
+        super(socket, requestId, storage, ServerResponse.Builder::setSubmitResponse);
         this.task = task;
         this.taskId = taskId;
 

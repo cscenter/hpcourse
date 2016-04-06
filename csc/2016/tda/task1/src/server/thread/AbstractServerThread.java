@@ -13,15 +13,15 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-class AbstractServerThread<T> extends Thread {
+public class AbstractServerThread<T> extends Thread {
     private static final Logger log = Logger.getLogger(AbstractServerThread.class.getName());
 
     private final Socket socket;
-    private final int requestId;
+    private final long requestId;
     private final TaskStorage storage;
     private final BiConsumer<ServerResponse.Builder, T> responseConsumer;
 
-    AbstractServerThread(Socket socket, int requestId, TaskStorage storage, BiConsumer<ServerResponse.Builder, T> responseConsumer) {
+    AbstractServerThread(Socket socket, long requestId, TaskStorage storage, BiConsumer<ServerResponse.Builder, T> responseConsumer) {
         this.socket = socket;
         this.requestId = requestId;
         this.storage = storage;

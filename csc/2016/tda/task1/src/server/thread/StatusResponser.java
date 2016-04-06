@@ -18,7 +18,7 @@ public class StatusResponser extends AbstractServerThread<ListTasksResponse> {
 
     private static final Logger log = Logger.getLogger(StatusResponser.class.getName());
 
-    public StatusResponser(Socket socket, int requestId, TaskStorage storage) {
+    public StatusResponser(Socket socket, long requestId, TaskStorage storage) {
         super(socket, requestId, storage, ServerResponse.Builder::setListResponse);
     }
 
