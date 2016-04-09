@@ -32,12 +32,15 @@ class TaskExecutorService {
     private fun handle(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
         var _task: Task? = null
 
+        val clientId: String = request.clientId
+        val requestId: Long = request.requestId
+
         if (request.hasSubmit()) {
-            _task = CalculateTask(request)
+            _task = CalculateTask(clientId, requestId, request.submit)
         } else if (request.hasSubscribe()) {
-            _task = SubscribeTask(request)
+            _task = SubscribeTask(clientId, requestId, request.subscribe)
         } else if (request.hasList()) {
-            _task = ListTask(request)
+            _task = ListTask(clientId, requestId, request.list)
         }
         //TODO: do not trow an exception
         val task = _task ?: throw RuntimeException("Meaningless task received: task type is not set")

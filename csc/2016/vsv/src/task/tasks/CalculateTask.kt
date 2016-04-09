@@ -3,7 +3,7 @@ package task.tasks
 import communication.CommunicationProtos
 
 
-class CalculateTask(request: CommunicationProtos.ServerRequest) : Task {
+class CalculateTask(clientId: String, requestId: Long, request: CommunicationProtos.SubmitTask) : Task {
     override val requestId: String
         get() = throw UnsupportedOperationException()
 

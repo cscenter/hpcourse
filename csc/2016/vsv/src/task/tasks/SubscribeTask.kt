@@ -2,7 +2,7 @@ package task.tasks
 
 import communication.CommunicationProtos
 
-class SubscribeTask(request: CommunicationProtos.ServerRequest) : Task {
+class SubscribeTask(clientId: String, requestId: Long, request: CommunicationProtos.Subscribe) : Task {
     override val requestId: String
         get() = throw UnsupportedOperationException()
 
