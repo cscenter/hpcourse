@@ -46,9 +46,9 @@ class TaskExecutorService {
         val task = _task ?: throw RuntimeException("Meaningless task received: task type is not set")
         task.register()
         val response = task.execute()
-        println("${task.requestId} has finished")
-        return response
 
+        println("${task.requestId} has finished")
+        return response.toServerResponse()
     }
 
     private fun invokeInNewThread(action: () -> Unit) {

@@ -11,7 +11,7 @@ class CalculateTask(clientId: String, requestId: Long, request: CommunicationPro
         throw UnsupportedOperationException()
     }
 
-    override fun execute(): CommunicationProtos.ServerResponse {
+    override fun execute(): TaskResponse {
         throw UnsupportedOperationException()
     }
 
