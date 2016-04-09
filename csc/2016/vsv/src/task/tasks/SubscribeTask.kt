@@ -17,9 +17,4 @@ class SubscribeTask(clientId: String, requestId: Long, request: CommunicationPro
     override fun isReady(): Boolean {
         throw UnsupportedOperationException()
     }
-
-    override fun getType(): TaskType {
-        throw UnsupportedOperationException()
-    }
-
 }

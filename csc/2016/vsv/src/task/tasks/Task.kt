@@ -8,7 +8,6 @@ interface Task {
     fun register()
     fun execute(): TaskResponse
     fun isReady(): Boolean
-    fun getType(): TaskType
 }
 
 interface TaskResponse {
