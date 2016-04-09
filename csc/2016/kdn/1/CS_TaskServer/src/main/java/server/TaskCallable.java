@@ -1,12 +1,12 @@
 package server;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicInteger;
+import concurrent.MyAtomicInteger;
+import concurrent.MyCallable;
 
 /**
  * Created by dkorolev on 4/2/2016.
  */
-public class TaskCallable implements Callable<Long> {
+public class TaskCallable implements MyCallable<Long> {
     private static final int PARAMETERS_COUNT = 5;
     public static enum ParamType {
         A, B, P, M, N
@@ -14,7 +14,7 @@ public class TaskCallable implements Callable<Long> {
 
     public final int taskId;
 
-    private AtomicInteger countSet;
+    private MyAtomicInteger countSet;
     private Long a;
     private Long b;
     private Long p;
@@ -23,7 +23,7 @@ public class TaskCallable implements Callable<Long> {
 
     public TaskCallable(int taskId) {
         this.taskId = taskId;
-        countSet = new AtomicInteger();
+        countSet = new MyAtomicInteger();
     }
 
     @Override

@@ -1,16 +1,18 @@
 package server;
 
 import communication.Protocol;
+import concurrent.MyCallable;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
-import java.util.List;
 import java.util.Map;
 
 /**
  * Created by dkorolev on 4/2/2016.
  */
-public class MyServerRunnable implements Runnable {
+public class MyServerRunnable implements MyCallable {
     private final Socket socket;
     private final TaskManager taskManager;
 
@@ -20,7 +22,7 @@ public class MyServerRunnable implements Runnable {
     }
 
     @Override
-    public void run() {
+    public Object call() {
         try (InputStream in = socket.getInputStream();
              OutputStream out = socket.getOutputStream()) {
             Protocol.WrapperMessage requestMessage = Protocol.WrapperMessage.parseDelimitedFrom(in);
@@ -84,5 +86,7 @@ public class MyServerRunnable implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        return null;
     }
 }

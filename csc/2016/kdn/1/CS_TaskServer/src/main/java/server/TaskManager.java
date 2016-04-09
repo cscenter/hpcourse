@@ -1,39 +1,38 @@
 package server;
 
 import communication.Protocol;
+import concurrent.*;
 
 import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by dkorolev on 4/2/2016.
  */
 public class TaskManager {
 
-    final AtomicInteger taskIdProducer;
-    final AtomicInteger checkingForResultsIndicator;
+    final MyAtomicInteger taskIdProducer;
+    final MyAtomicInteger checkingForResultsIndicator;
     final Map<Integer, TaskDescFull> resultMap;
     final Map<Integer, List<TaskSubscriber>> taskSubscribers;
-    final Map<Integer, Future<Long>> futureResults;
-    final ExecutorService executorService;
-    final ScheduledExecutorService checkingForResults;
+    final Map<Integer, AsyncResult<Long>> futureResults;
+    final MyExecutorService executorService;
+    final MyScheduledEvent checkingForResults;
 
     public TaskManager(int nThreads, int delayInSeconds) {
-        taskIdProducer = new AtomicInteger();
-        checkingForResultsIndicator = new AtomicInteger();
+        taskIdProducer = new MyAtomicInteger();
+        checkingForResultsIndicator = new MyAtomicInteger();
         resultMap = new HashMap<>();
         taskSubscribers = new HashMap<>();
         futureResults = new HashMap<>();
-        executorService = Executors.newFixedThreadPool(nThreads);
-        checkingForResults = Executors.newSingleThreadScheduledExecutor();
-        checkingForResults.scheduleWithFixedDelay(() -> {
+        executorService = MyExecutorService.newFixedThreadPool(nThreads);
+        checkingForResults = new MyScheduledEvent(() -> {
             try {
                 checkForResults();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }, delayInSeconds, delayInSeconds, TimeUnit.SECONDS);
+        }, delayInSeconds);
+        checkingForResults.start();
     }
 
     public int submitTask(TaskDescFull taskDesc) {
@@ -76,11 +75,9 @@ public class TaskManager {
     public void stop() {
         try {
             //System.out.println("TaskManager finishing");
-            executorService.shutdown();
-            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+            executorService.awaitTerminationSkipQueried();
             //System.out.println("TaskManager executorService finished");
-            checkingForResults.shutdown();
-            checkingForResults.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+            checkingForResults.stop();
             //System.out.println("TaskManager checkingForResults finished");
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -98,14 +95,14 @@ public class TaskManager {
         //only one thread should execute this method at once
         if (checkingForResultsIndicator.getAndIncrement() == 0) {
             try {
-                Map<Integer, Future<Long>> futureResults = getFutureResultMapSnapshot();
+                Map<Integer, AsyncResult<Long>> futureResults = getFutureResultMapSnapshot();
                 Map<Integer, Long> localResultMap = new HashMap<>();
-                for (Map.Entry<Integer, Future<Long>> futureEntry : futureResults.entrySet()) {
+                for (Map.Entry<Integer, AsyncResult<Long>> futureEntry : futureResults.entrySet()) {
                     if (futureEntry.getValue().isDone()) {
                         Long result;
                         try {
-                            result = futureEntry.getValue().get();
-                        } catch (ExecutionException e) {
+                            result = futureEntry.getValue().getResult();
+                        } catch (MyExecutionException e) {
                             result = null;
                             //better to log id
                             e.printStackTrace();
@@ -151,20 +148,20 @@ public class TaskManager {
     }
 
     private void submit(List<TaskSubscriber> subscribers) {
-        Map<Integer, Future<Long>> localFutureResults = new HashMap<>(subscribers.size());
+        Map<Integer, AsyncResult<Long>> localFutureResults = new HashMap<>(subscribers.size());
         for (TaskSubscriber subscriber : subscribers) {
-            Future<Long> futureResult = executorService.submit(subscriber.taskCallable);
+            AsyncResult<Long> futureResult = executorService.submit(subscriber.taskCallable);
             localFutureResults.put(subscriber.taskCallable.taskId, futureResult);
         }
         synchronized (futureResults) {
-            for (Map.Entry<Integer, Future<Long>> futureEntry : localFutureResults.entrySet()) {
+            for (Map.Entry<Integer, AsyncResult<Long>> futureEntry : localFutureResults.entrySet()) {
                 futureResults.put(futureEntry.getKey(), futureEntry.getValue());
             }
         }
     }
 
     private void submit(TaskCallable taskCallable) {
-        Future<Long> futureResult = executorService.submit(taskCallable);
+        AsyncResult<Long> futureResult = executorService.submit(taskCallable);
         synchronized (futureResults) {
             futureResults.put(taskCallable.taskId, futureResult);
         }
@@ -199,8 +196,8 @@ public class TaskManager {
         return resultMap;
     }
 
-    private Map<Integer, Future<Long>> getFutureResultMapSnapshot() {
-        Map<Integer, Future<Long>> futureResults = new HashMap<>(2 * this.futureResults.size());
+    private Map<Integer, AsyncResult<Long>> getFutureResultMapSnapshot() {
+        Map<Integer, AsyncResult<Long>> futureResults = new HashMap<>(2 * this.futureResults.size());
         synchronized (this.resultMap) {
             futureResults.putAll(this.futureResults);
         }
