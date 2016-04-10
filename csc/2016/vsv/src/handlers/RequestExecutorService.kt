@@ -125,7 +125,11 @@ class RequestExecutorService {
         return CommunicationProtos.ServerRequest.parseFrom(data)
     }
 
-    private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) = osm.write(response.toByteArray())
+    private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) {
+        val data = response.toByteArray()
+        osm.write(data.size)
+        osm.write(data)
+    }
 
     private fun getNextId(): Int {
         synchronized(lastId, {
