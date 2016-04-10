@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import static communication.Protocol.*;
 
 /**
+ * Base class for task execution
  * @author Dmitriy Tseyler
  */
 class AbstractServerThread<T> extends Thread {
@@ -19,12 +20,15 @@ class AbstractServerThread<T> extends Thread {
     private final Socket socket;
     private final long requestId;
     private final TaskStorage storage;
+    private final String clientId;
     private final BiConsumer<ServerResponse.Builder, T> responseConsumer;
 
-    AbstractServerThread(Socket socket, long requestId, TaskStorage storage, BiConsumer<ServerResponse.Builder, T> responseConsumer) {
+    AbstractServerThread(Socket socket, long requestId, TaskStorage storage, String clientId,
+                         BiConsumer<ServerResponse.Builder, T> responseConsumer) {
         this.socket = socket;
         this.requestId = requestId;
         this.storage = storage;
+        this.clientId = clientId;
         this.responseConsumer = responseConsumer;
     }
 
@@ -43,5 +47,9 @@ class AbstractServerThread<T> extends Thread {
 
     TaskStorage getStorage() {
         return storage;
+    }
+
+    String getClientId() {
+        return clientId;
     }
 }

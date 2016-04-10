@@ -13,6 +13,7 @@ import java.net.Socket;
 import java.util.logging.Logger;
 
 /**
+ * Base class of server. Listens socket and creates tasks.
  * @author Dmitriy Tseyler
  */
 public class Server extends Thread {

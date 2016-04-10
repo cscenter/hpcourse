@@ -1,7 +1,6 @@
 package server.thread;
 
 import server.storage.TaskStorage;
-import server.storage.TaskWrapper;
 
 import java.net.Socket;
 import java.util.ArrayList;
@@ -12,14 +11,15 @@ import java.util.logging.Logger;
 import static communication.Protocol.*;
 
 /**
+ * Thread for list task
  * @author Dmitriy Tseyler
  */
 class StatusResponser extends AbstractServerThread<ListTasksResponse> {
 
     private static final Logger log = Logger.getLogger(StatusResponser.class.getName());
 
-    StatusResponser(Socket socket, long requestId, TaskStorage storage) {
-        super(socket, requestId, storage, ServerResponse.Builder::setListResponse);
+    StatusResponser(Socket socket, long requestId, String clientId, TaskStorage storage) {
+        super(socket, requestId, storage, clientId, ServerResponse.Builder::setListResponse);
     }
 
     @Override
@@ -29,12 +29,12 @@ class StatusResponser extends AbstractServerThread<ListTasksResponse> {
         builder.setStatus(Status.OK);
         List<ListTasksResponse.TaskDescription> resultList = new ArrayList<>();
         try {
-            for (Map.Entry<Integer, TaskWrapper> entry : storage) {
-                Calculator calculator = entry.getValue().getCalculator();
+            for (Map.Entry<Integer, Calculator> entry : storage) {
+                Calculator calculator = entry.getValue();
                 ListTasksResponse.TaskDescription.Builder descriptionBuilder = ListTasksResponse.TaskDescription
                         .newBuilder()
                         .setTaskId(entry.getKey())
-                        .setClientId(entry.getValue().getClientId())
+                        .setClientId(calculator.getClientId())
                         .setTask(calculator.getTask());
                 if (!calculator.isAlive() && calculator.getStatus() == Status.OK) {
                     descriptionBuilder.setResult(calculator.getValue());

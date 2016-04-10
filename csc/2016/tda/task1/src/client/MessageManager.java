@@ -10,7 +10,7 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-public enum MessageManager {
+enum MessageManager {
     SUBMIT(0) {
         @Override
         public GeneratedMessage generate(MessageParams<?> params) {

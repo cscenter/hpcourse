@@ -9,6 +9,7 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
+ * Thread for submit task
  * @author Dmitriy Tseyler
  */
 public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
@@ -21,8 +22,8 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
     private Status status;
     private long result;
 
-    Calculator(Socket socket, long requestId, Task task, TaskStorage storage, int taskId) {
-        super(socket, requestId, storage, ServerResponse.Builder::setSubmitResponse);
+    Calculator(Socket socket, long requestId, Task task, TaskStorage storage, int taskId, String clientId) {
+        super(socket, requestId, storage, clientId, ServerResponse.Builder::setSubmitResponse);
         this.task = task;
         this.taskId = taskId;
 
@@ -74,6 +75,7 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
         Task.Param param = supplier.get();
         if (param.hasValue()) return param.getValue();
 
+        // prevent deadlock
         if (param.getDependentTaskId() > taskId) throw new InterruptedException("Can't wait task with larger id");
 
         Calculator calculator = getStorage().getCalculator(param.getDependentTaskId());

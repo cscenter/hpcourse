@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
+ * Starts all tasks from requests
  * @author Dmitriy Tseyler
  */
 public class TaskStarter extends Thread {
@@ -33,17 +34,17 @@ public class TaskStarter extends Thread {
     public void run() {
         List<AbstractServerThread<?>> threads = new ArrayList<>();
         if (request.hasSubscribe()) {
-            threads.add(new Subscriber(socket, request.getRequestId(), storage, request.getSubscribe().getTaskId()));
+            threads.add(new Subscriber(socket, request.getRequestId(), request.getClientId(), storage, request.getSubscribe().getTaskId()));
         }
         if (request.hasSubmit()) {
             int taskId = COUNTER.next();
             Calculator calculator = new Calculator(socket, request.getRequestId(), request.getSubmit().getTask(),
-                    storage, taskId);
-            storage.add(taskId, request.getClientId(), calculator);
+                    storage, taskId, request.getClientId());
+            storage.add(taskId, calculator);
             threads.add(calculator);
         }
         if (request.hasList()) {
-            threads.add(new StatusResponser(socket, request.getRequestId(), storage));
+            threads.add(new StatusResponser(socket, request.getRequestId(), request.getClientId(), storage));
         }
         threads.forEach(Thread::start);
         try {
