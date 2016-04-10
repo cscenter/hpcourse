@@ -1,6 +1,6 @@
 package server
 
-import task.TaskExecutorService
+import task.RequestExecutorService
 import java.io.IOException
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class Server {
 
     private val running = AtomicBoolean(false)
-    private val executorService = TaskExecutorService()
+    private val executorService = RequestExecutorService()
 
     fun start(port: Int = 4774) {
         running.set(true)

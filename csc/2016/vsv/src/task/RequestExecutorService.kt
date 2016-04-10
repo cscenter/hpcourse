@@ -1,15 +1,18 @@
 package task
 
 import communication.CommunicationProtos
-import task.tasks.CalculateTask
-import task.tasks.ListTask
-import task.tasks.SubscribeTask
-import task.tasks.Task
+import task.requests.CalculateRequestExecutor
+import task.requests.ListRequestExecutor
+import task.requests.RequestExecutor
+import task.requests.SubscribeRequestExecutor
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
+import java.util.*
 
-class TaskExecutorService {
+class RequestExecutorService {
+
+    private val tasks: MutableMap<CommunicationProtos.ServerRequest, Long?> = HashMap()
 
     fun execute(clientSocket: Socket) {
         invokeInNewThread {
@@ -30,25 +33,22 @@ class TaskExecutorService {
     }
 
     private fun handle(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
-        var _task: Task? = null
-
-        val clientId: String = request.clientId
-        val requestId: Long = request.requestId
+        var _executor: RequestExecutor? = null
 
         if (request.hasSubmit()) {
-            _task = CalculateTask(clientId, requestId, request.submit)
+            _executor = CalculateRequestExecutor()
         } else if (request.hasSubscribe()) {
-            _task = SubscribeTask(clientId, requestId, request.subscribe)
+            _executor = SubscribeRequestExecutor()
         } else if (request.hasList()) {
-            _task = ListTask(clientId, requestId, request.list)
+            _executor = ListRequestExecutor(tasks)
         }
-        //TODO: do not trow an exception
-        val task = _task ?: throw RuntimeException("Meaningless task received: task type is not set")
-        task.register()
-        val response = task.execute()
 
-        println("${task.requestId} has finished")
-        return response.toServerResponse()
+        //TODO: handle error properly, send response
+        val executor: RequestExecutor = _executor ?: throw RuntimeException("something is wrong")
+        val response = executor.execute(request)
+
+        println("${request.requestId} has finished")
+        return response
     }
 
     private fun invokeInNewThread(action: () -> Unit) {
