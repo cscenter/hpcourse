@@ -38,13 +38,13 @@ class RequestExecutorService {
 
         if (request.hasSubmit()) {
             println("Submit request received")
-            _response = handleSubmit()
+            _response = handleSubmit(request)
         } else if (request.hasSubscribe()) {
             println("Subscribe request received")
-            _response = TaskResultToResponseBuilder.fromSubscribeTask(request.requestId, handleSubscribe(request.subscribe))
+            _response = TaskResultToResponseBuilder.fromSubscribeTask(request.requestId, handleSubscribe(request))
         } else if (request.hasList()) {
             println("List request received")
-            _response = TaskResultToResponseBuilder.fromListTask(request.requestId, handleList(request.list))
+            _response = TaskResultToResponseBuilder.fromListTask(request.requestId, handleList(request))
         }
 
         val response: CommunicationProtos.ServerResponse = _response ?: return buildErrorResponse(request)
@@ -59,11 +59,16 @@ class RequestExecutorService {
                 .build()
     }
 
-    private fun handleSubmit(): CommunicationProtos.ServerResponse {
+    private fun handleSubmit(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
+        val id = getNextId()
+        receivedTasks[id] = request
+
+        val handler = SubmitRequestHandler()
         throw UnsupportedOperationException()
     }
 
-    private fun handleSubscribe(request: CommunicationProtos.Subscribe): CommunicationProtos.SubscribeResponse {
+    private fun handleSubscribe(_request: CommunicationProtos.ServerRequest): CommunicationProtos.SubscribeResponse {
+        val request = _request.subscribe
         val monitor: Object = locks.get(request.taskId) ?: return buildSubscribeRequestError()
         println("Get the monitor lock")
         synchronized(monitor, {
@@ -86,10 +91,10 @@ class RequestExecutorService {
                 .build()
     }
 
-    private fun handleList(request: CommunicationProtos.ListTasks): CommunicationProtos.ListTasksResponse {
+    private fun handleList(request: CommunicationProtos.ServerRequest): CommunicationProtos.ListTasksResponse {
         //strange thing happened with handlers idea
-        val executor = ListRequestHandler(receivedTasks, completedTasks)
-        return executor.execute(request)
+        val handler = ListRequestHandler(receivedTasks, completedTasks)
+        return handler.handle(request.list)
     }
 
     private fun buildSubmitError(taskId: Int): CommunicationProtos.SubmitTaskResponse {

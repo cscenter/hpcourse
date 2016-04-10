@@ -5,7 +5,7 @@ import communication.CommunicationProtos
 class ListRequestHandler(private val myReceivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest>,
                          private val myCompletedTasks: MutableMap<Int, Long>) {
 
-    fun execute(request: CommunicationProtos.ListTasks): CommunicationProtos.ListTasksResponse {
+    fun handle(request: CommunicationProtos.ListTasks): CommunicationProtos.ListTasksResponse {
         return listTask(myReceivedTasks, myCompletedTasks)
     }
 
