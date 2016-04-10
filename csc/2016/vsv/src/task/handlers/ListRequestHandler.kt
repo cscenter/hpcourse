@@ -1,16 +1,16 @@
-package task.handlers.requests
+package task.handlers
 
 import communication.CommunicationProtos
 
-class ListRequestExecutor(val myReceivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest>,
-                          val myCompletedTasks: MutableMap<Int, Long>) : RequestExecutor {
+class ListRequestHandler(private val myReceivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest>,
+                         private val myCompletedTasks: MutableMap<Int, Long>) {
 
-    override fun execute(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
-        return TaskResultToResponseBuilder.fromListTask(request.requestId, listTask(myReceivedTasks, myCompletedTasks))
+    fun execute(request: CommunicationProtos.ListTasks): CommunicationProtos.ListTasksResponse {
+        return listTask(myReceivedTasks, myCompletedTasks)
     }
 
-    fun listTask(receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest>,
-                 completedTasks: MutableMap<Int, Long>): CommunicationProtos.ListTasksResponse {
+    private fun listTask(receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest>,
+                         completedTasks: MutableMap<Int, Long>): CommunicationProtos.ListTasksResponse {
         val tasksResponseBuilder = CommunicationProtos.ListTasksResponse.newBuilder();
         synchronized(receivedTasks, {
             for ((id, request) in receivedTasks) {

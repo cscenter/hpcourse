@@ -44,7 +44,7 @@ class RequestExecutorService {
             _response = TaskResultToResponseBuilder.fromSubscribeTask(request.requestId, handleSubscribe(request.subscribe))
         } else if (request.hasList()) {
             println("List request received")
-            _response = handleList()
+            _response = TaskResultToResponseBuilder.fromListTask(request.requestId, handleList(request.list))
         }
 
         val response: CommunicationProtos.ServerResponse = _response ?: return buildErrorResponse(request)
@@ -86,8 +86,10 @@ class RequestExecutorService {
                 .build()
     }
 
-    private fun handleList(): CommunicationProtos.ServerResponse {
-        throw throw UnsupportedOperationException()
+    private fun handleList(request: CommunicationProtos.ListTasks): CommunicationProtos.ListTasksResponse {
+        //strange thing happened with handlers idea
+        val executor = ListRequestHandler(receivedTasks, completedTasks)
+        return executor.execute(request)
     }
 
     private fun buildSubmitError(taskId: Int): CommunicationProtos.SubmitTaskResponse {
