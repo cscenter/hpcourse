@@ -21,7 +21,7 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
     private Status status;
     private long result;
 
-    public Calculator(Socket socket, long requestId, Task task, TaskStorage storage, int taskId) {
+    Calculator(Socket socket, long requestId, Task task, TaskStorage storage, int taskId) {
         super(socket, requestId, storage, ServerResponse.Builder::setSubmitResponse);
         this.task = task;
         this.taskId = taskId;
@@ -37,11 +37,11 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
             long p = get(task::getP);
             long m = get(task::getM);
             long n = task.getN();
-            result = calculate(a, b, p, m, n);
             response(SubmitTaskResponse.newBuilder()
                     .setStatus(status)
                     .setSubmittedTaskId(taskId)
                     .build());
+            result = calculate(a, b, p, m, n);
         } catch (InterruptedException e) {
             status = Status.ERROR;
             log.warning("Can't calculate task: " + e.getMessage());
@@ -73,6 +73,8 @@ public class Calculator extends AbstractServerThread<SubmitTaskResponse> {
     private long get(Supplier<Task.Param> supplier) throws InterruptedException {
         Task.Param param = supplier.get();
         if (param.hasValue()) return param.getValue();
+
+        if (param.getDependentTaskId() > taskId) throw new InterruptedException("Can't wait task with larger id");
 
         Calculator calculator = getStorage().getCalculator(param.getDependentTaskId());
         Status status = calculator.getStatus();

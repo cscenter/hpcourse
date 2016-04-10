@@ -13,4 +13,8 @@ public class Counter {
     public synchronized int next() {
         return ++value;
     }
+
+    public synchronized int current() {
+        return value;
+    }
 }

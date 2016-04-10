@@ -80,6 +80,7 @@ public enum MessageManager {
             StringBuilder sb = new StringBuilder();
             sb.append("\tList task response\n");
             sb.append(String.format("\tStatus: %s\n", listTasksResponse.getStatus()));
+            sb.append("\n");
             for (ListTasksResponse.TaskDescription taskDescription : listTasksResponse.getTasksList()) {
                 sb.append(String.format("\tTask id: %s\n", taskDescription.getTaskId()));
                 sb.append(String.format("\tClient id: %s\n", taskDescription.getClientId()));

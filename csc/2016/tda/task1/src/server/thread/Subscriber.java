@@ -9,11 +9,11 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-public class Subscriber extends AbstractServerThread<SubscribeResponse> {
+class Subscriber extends AbstractServerThread<SubscribeResponse> {
 
     private final int taskId;
 
-    public Subscriber(Socket socket, long requestId, TaskStorage storage, int taskId) {
+    Subscriber(Socket socket, long requestId, TaskStorage storage, int taskId) {
         super(socket, requestId, storage, ServerResponse.Builder::setSubscribeResponse);
         this.taskId = taskId;
     }

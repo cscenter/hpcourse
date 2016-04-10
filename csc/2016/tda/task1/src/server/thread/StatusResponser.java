@@ -14,11 +14,11 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-public class StatusResponser extends AbstractServerThread<ListTasksResponse> {
+class StatusResponser extends AbstractServerThread<ListTasksResponse> {
 
     private static final Logger log = Logger.getLogger(StatusResponser.class.getName());
 
-    public StatusResponser(Socket socket, long requestId, TaskStorage storage) {
+    StatusResponser(Socket socket, long requestId, TaskStorage storage) {
         super(socket, requestId, storage, ServerResponse.Builder::setListResponse);
     }
 

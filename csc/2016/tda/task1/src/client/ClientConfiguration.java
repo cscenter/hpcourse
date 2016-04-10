@@ -8,13 +8,13 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-public class ClientConfiguration {
+class ClientConfiguration {
     private final int type;
     private final MessageParams<?> params;
     private final long requestId;
     private final String clientId;
 
-    public ClientConfiguration(int type, MessageParams<?> params, long requestId, String clientId) {
+    ClientConfiguration(int type, MessageParams<?> params, long requestId, String clientId) {
         this.type = type;
         this.params = params;
         this.requestId = requestId;

@@ -23,7 +23,7 @@ public class Server extends Thread {
     private final String host;
     private final TaskStorage storage;
 
-    public Server(String host, int port) {
+    private Server(String host, int port) {
         this.port = port;
         this.host = host;
 

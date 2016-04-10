@@ -22,13 +22,6 @@ public class TaskStorage implements Iterable<Map.Entry<Integer, TaskWrapper>> {
         return threads.get(id).getCalculator();
     }
 
-    public synchronized TaskWrapper getWrapper(int id) throws InterruptedException {
-        while (!threads.containsKey(id)) {
-            wait();
-        }
-        return threads.get(id);
-    }
-
     public synchronized void add(int taskId, String clientId, Calculator calculator) {
         threads.put(taskId, new TaskWrapper(calculator, clientId));
         notifyAll();

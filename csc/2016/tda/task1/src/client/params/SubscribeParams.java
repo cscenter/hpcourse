@@ -1,7 +1,5 @@
 package client.params;
 
-import communication.Protocol;
-
 import static communication.Protocol.*;
 
 /**

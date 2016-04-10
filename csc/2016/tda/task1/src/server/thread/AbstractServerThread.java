@@ -13,7 +13,7 @@ import static communication.Protocol.*;
 /**
  * @author Dmitriy Tseyler
  */
-public class AbstractServerThread<T> extends Thread {
+class AbstractServerThread<T> extends Thread {
     private static final Logger log = Logger.getLogger(AbstractServerThread.class.getName());
 
     private final Socket socket;

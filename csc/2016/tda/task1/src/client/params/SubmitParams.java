@@ -2,8 +2,6 @@ package client.params;
 
 import static communication.Protocol.*;
 
-import static communication.Protocol.*;
-
 /**
  * @author Dmitriy Tseyler
  */

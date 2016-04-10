@@ -6,7 +6,7 @@ import server.Server;
 /**
  * @author Dmitriy Tseyler
  */
-public class Tester {
+class Tester {
     public static void main(String[] args) {
         String[] arguments = new String[] {"localhost", "8080"};
         Server.main(arguments);

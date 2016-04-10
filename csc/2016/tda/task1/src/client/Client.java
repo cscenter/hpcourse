@@ -4,6 +4,7 @@ package client;
 import client.params.Parameter;
 import client.params.SubmitParams;
 import client.params.SubscribeParams;
+import server.storage.Counter;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -17,35 +18,34 @@ import static communication.Protocol.*;
 public class Client extends Thread {
     private static final Logger log = Logger.getLogger(Client.class.getName());
 
+    private static final Counter COUNTER = new Counter();
+
     private static final long ITERATIONS = 1_000_000L;
 
     private static final Parameter PARAMETER_1 = new Parameter(60, false);
     private static final Parameter PARAMETER_2 = new Parameter(100, false);
     private static final Parameter PARAMETER_3 = new Parameter(20, false);
     private static final Parameter PARAMETER_4 = new Parameter(51, false);
-    private static final Parameter PARAMETER_1_DEPENDS = new Parameter(1, false);
-    private static final Parameter PARAMETER_2_DEPENDS = new Parameter(2, false);
-    private static final Parameter PARAMETER_3_DEPENDS = new Parameter(3, false);
 
     private static final SubmitParams SUBMIT_PARAMS_1 = new SubmitParams(PARAMETER_1, PARAMETER_2, PARAMETER_3,
             PARAMETER_4, ITERATIONS);
-    private static final SubmitParams SUBMIT_PARAMS_2 = new SubmitParams(PARAMETER_1, PARAMETER_2, PARAMETER_3,
-            PARAMETER_1_DEPENDS, ITERATIONS);
-    private static final SubmitParams SUBMIT_PARAMS_3 = new SubmitParams(PARAMETER_1, PARAMETER_2_DEPENDS, PARAMETER_3,
+    private static final SubmitParams SUBMIT_PARAMS_2 = new SubmitParams(PARAMETER_2, PARAMETER_1, PARAMETER_3,
             PARAMETER_4, ITERATIONS);
-    private static final SubmitParams SUBMIT_PARAMS_4 = new SubmitParams(PARAMETER_1, PARAMETER_2_DEPENDS,
-            PARAMETER_3_DEPENDS, PARAMETER_4, ITERATIONS);
+    private static final SubmitParams SUBMIT_PARAMS_3 = new SubmitParams(PARAMETER_1, PARAMETER_3, PARAMETER_3,
+            PARAMETER_1, ITERATIONS);
+    private static final SubmitParams SUBMIT_PARAMS_4 = new SubmitParams(PARAMETER_1, PARAMETER_1,
+            PARAMETER_4, PARAMETER_3, ITERATIONS);
 
     private static final ClientConfiguration[] CONFIGURATIONS = {
-            new ClientConfiguration(0, SUBMIT_PARAMS_1, 1, "ClientOne"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_2, 2, "ClientTwo"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_3, 3, "ClientThree"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_4, 4, "ClientFour"),
-            new ClientConfiguration(1, new SubscribeParams(1), 5, "ClientOneSubscribe"),
-            new ClientConfiguration(1, new SubscribeParams(2), 6, "ClientTwoSubscribe"),
-            new ClientConfiguration(1, new SubscribeParams(3), 7, "ClientThreeSubscribe"),
-            new ClientConfiguration(1, new SubscribeParams(4), 8, "ClientFourSubscribe"),
-            new ClientConfiguration(2, null, 8, "ClientList")};
+            new ClientConfiguration(0, SUBMIT_PARAMS_1, COUNTER.next(), "ClientOne"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_2, COUNTER.next(), "ClientTwo"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_3, COUNTER.next(), "ClientThree"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_4, COUNTER.next(), "ClientFour"),
+            new ClientConfiguration(1, new SubscribeParams(1), COUNTER.next(), "Client 1 subscribe"),
+            new ClientConfiguration(1, new SubscribeParams(2), COUNTER.next(), "Client 2 subscribe"),
+            new ClientConfiguration(1, new SubscribeParams(3), COUNTER.next(), "Client 3 subscribe"),
+            new ClientConfiguration(1, new SubscribeParams(4), COUNTER.next(), "Client 4 subscribe"),
+            new ClientConfiguration(2, null, COUNTER.next(), "ClientList")};
 
     private final String host;
     private final int port;
@@ -53,7 +53,7 @@ public class Client extends Thread {
 
     private Socket socket;
 
-    public Client(String host, int port, ClientConfiguration configuration) {
+    private Client(String host, int port, ClientConfiguration configuration) {
         this.host = host;
         this.port = port;
         this.configuration = configuration;
@@ -82,10 +82,18 @@ public class Client extends Thread {
             int result = socket.getInputStream().read(buffer);
             if (result == -1) throw new IOException("Can't read response");
             ServerResponse response = ServerResponse.parseFrom(buffer);
+            if (response.hasSubmitResponse() && COUNTER.current() < 14) {
+                int taskId = response.getSubmitResponse().getSubmittedTaskId();
+                new Client(host, port, new ClientConfiguration(0, new SubmitParams(PARAMETER_1,
+                        new Parameter(taskId, true), PARAMETER_3, PARAMETER_4, ITERATIONS), COUNTER.next(), "Generated"))
+                .start();
+            }
             String text = configuration.toText(response);
-            System.out.println("==============================");
-            System.out.println(text);
-            System.out.println("==============================");
+            synchronized (System.out) {
+                System.out.println("==============================");
+                System.out.println(text);
+                System.out.println("==============================");
+            }
             socket.close();
         } catch (IOException e) {
             log.warning("Error on waiting response: " + e.getMessage());
