@@ -7,6 +7,7 @@ import static communication.Protocol.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.logging.Logger;
@@ -19,17 +20,20 @@ public class Server extends Thread {
     private static final Logger log = Logger.getLogger(Server.class.getName());
 
     private final int port;
+    private final String host;
     private final TaskStorage storage;
 
-    public Server(int port) {
+    public Server(String host, int port) {
         this.port = port;
+        this.host = host;
+
         storage = new TaskStorage();
     }
 
     @Override
     public void run() {
         try {
-            ServerSocket serverSocket = new ServerSocket(port);
+            ServerSocket serverSocket = new ServerSocket(port, 0, InetAddress.getByName(host));
             //noinspection InfiniteLoopStatement
             while (true) {
                 Socket clientSocket = serverSocket.accept();
@@ -51,6 +55,9 @@ public class Server extends Thread {
     }
 
     public static void main(String[] args) {
+        if (args.length != 2)
+            throw new IllegalArgumentException("Must be host and port in arguments");
 
+        new Server(args[0], Integer.valueOf(args[1])).start();
     }
 }

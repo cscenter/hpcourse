@@ -39,7 +39,7 @@ public class TaskStarter extends Thread {
         if (request.hasSubmit()) {
             int taskId = COUNTER.next();
             Calculator calculator = new Calculator(socket, request.getRequestId(), request.getSubmit().getTask(),
-                    storage, COUNTER.next());
+                    storage, taskId);
             storage.add(taskId, request.getClientId(), calculator);
             threads.add(calculator);
         }
