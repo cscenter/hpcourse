@@ -50,7 +50,7 @@ public class Client extends Thread {
         if (messageType.equals("SubmitTask")) task = makeSubmitTask();
         if (messageType.equals("Subscribe")) task = makeSubscribeTask(10);
         if (messageType.equals("ListTasks")) task = makeListTasks();
-        send(makeServerRequest(task));
+        sendServerRequest(makeServerRequest(task));
         ServerResponse response = getServerResponse();
 //        Раскомментировать, если интересует результат ответов
 //        printResponse(response);
@@ -93,22 +93,21 @@ public class Client extends Thread {
 
     private ServerResponse getServerResponse() {
         try {
-            int size = socket.getInputStream().read();
-            System.out.println("Size = " + size);
-            byte buf[] = new byte[size];
-            socket.getInputStream().read(buf);
-            return ServerResponse.parseFrom(buf);
+//            int size = socket.getInputStream().read();
+//            System.out.println("Size = " + size);
+//            byte buf[] = new byte[size];
+//            socket.getInputStream().read(buf);
+            return ServerResponse.parseDelimitedFrom(socket.getInputStream());
         } catch (IOException e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    private void send(ServerRequest request) {
+    private void sendServerRequest(ServerRequest request) {
         try {
             socket = new Socket(serverHost, serverPort);
-            socket.getOutputStream().write(request.getSerializedSize());
-            request.writeTo(socket.getOutputStream());
+            request.writeDelimitedTo(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
         }

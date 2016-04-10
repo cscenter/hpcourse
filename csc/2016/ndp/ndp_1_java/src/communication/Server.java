@@ -78,10 +78,7 @@ public class Server extends Thread {
 
     private ServerRequest getServerRequest() throws IOException {
 //        Читает запрос с сокета и возращает его
-        int size = socket.getInputStream().read();
-        byte buf[] = new byte[size];
-        socket.getInputStream().read(buf);
-        return ServerRequest.parseFrom(buf);
+        return ServerRequest.parseDelimitedFrom(socket.getInputStream());
     }
 
     abstract class MessageThread extends Thread {
@@ -105,8 +102,7 @@ public class Server extends Thread {
             try {
                 OutputStream out = socket.getOutputStream();
                 System.out.println("Size = " + response.getSerializedSize());
-                out.write(response.getSerializedSize());
-                response.writeTo(out);
+                response.writeDelimitedTo(out);
             } catch (IOException e) {
                 e.printStackTrace();
             }
