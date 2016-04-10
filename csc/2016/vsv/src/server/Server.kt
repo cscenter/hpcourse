@@ -10,7 +10,7 @@ class Server {
     private val running = AtomicBoolean(false)
     private val executorService = RequestExecutorService()
 
-    fun start(port: Int = 4774) {
+    fun start(port: Int) {
         running.set(true)
         println("Server statring on port $port ")
 
