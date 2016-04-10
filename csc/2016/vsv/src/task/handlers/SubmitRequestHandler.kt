@@ -1,9 +1,10 @@
-package task.handlers.requests
+package task.handlers
 
 import communication.CommunicationProtos
+import task.handlers.requests.RequestExecutor
 
 
-class CalculateRequestExecutor() : RequestExecutor {
+class SubmitRequestHandler() : RequestExecutor {
     override fun execute(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
         throw UnsupportedOperationException()
     }
