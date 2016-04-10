@@ -1,10 +1,10 @@
-package task
+package task.handlers
 
 import communication.CommunicationProtos
-import task.requests.CalculateRequestExecutor
-import task.requests.ListRequestExecutor
-import task.requests.RequestExecutor
-import task.requests.SubscribeRequestExecutor
+import task.handlers.requests.CalculateRequestExecutor
+import task.handlers.requests.ListRequestExecutor
+import task.handlers.requests.RequestExecutor
+import task.handlers.requests.SubscribeRequestExecutor
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
