@@ -32,7 +32,7 @@ class SubmitRequestHandler(private val taskId: Int, private val waitDependentTas
             val n: Long = request.task.n
             return Task(a, b, p, m, n)
         } catch(e: RuntimeException) {
-            println("Failed wait dependent paramenters")
+            println("Failed to wait dependent parameters")
             return null
         }
     }
