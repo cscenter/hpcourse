@@ -118,7 +118,12 @@ class RequestExecutorService {
         task.start()
     }
 
-    private fun getRequest(ism: InputStream) = CommunicationProtos.ServerRequest.parseFrom(ism)
+    private fun getRequest(ism: InputStream): CommunicationProtos.ServerRequest {
+        val size = ism.read()
+        val data = ByteArray(size)
+        ism.read(data)
+        return CommunicationProtos.ServerRequest.parseFrom(data)
+    }
 
     private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) = osm.write(response.toByteArray())
 
