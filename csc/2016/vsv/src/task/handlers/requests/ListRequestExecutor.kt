@@ -15,14 +15,16 @@ class ListRequestExecutor(val myReceivedTasks: MutableMap<Int, CommunicationProt
         synchronized(receivedTasks, {
             for ((id, request) in receivedTasks) {
                 val result = if (completedTasks.containsKey(id)) completedTasks.get(id) else null
-                tasksResponseBuilder.addTasks(getTaskDesctiption(id, request, result))
+                tasksResponseBuilder.addTasks(getTaskDescription(id, request, result))
             }
         })
         tasksResponseBuilder.setStatus(CommunicationProtos.Status.OK)
         return tasksResponseBuilder.build()
     }
 
-    private fun getTaskDesctiption(id: Int, req: CommunicationProtos.ServerRequest, result: Long?): CommunicationProtos.ListTasksResponse.TaskDescription {
+    private fun getTaskDescription(id: Int,
+                                   req: CommunicationProtos.ServerRequest,
+                                   result: Long?): CommunicationProtos.ListTasksResponse.TaskDescription {
         val description = CommunicationProtos.ListTasksResponse.TaskDescription.newBuilder()
                 .setClientId(req.clientId)
                 .setTaskId(id)

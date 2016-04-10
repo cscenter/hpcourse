@@ -1,10 +1,6 @@
 package task.handlers
 
 import communication.CommunicationProtos
-import task.handlers.requests.CalculateRequestExecutor
-import task.handlers.requests.ListRequestExecutor
-import task.handlers.requests.RequestExecutor
-import task.handlers.requests.SubscribeRequestExecutor
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -36,26 +32,41 @@ class RequestExecutorService {
     }
 
     private fun handleRequest(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
-        var _executor: RequestExecutor? = null
+        var _response: CommunicationProtos.ServerResponse? = null
 
         if (request.hasSubmit()) {
-            _executor = CalculateRequestExecutor()
+            println("Submit request received")
+            _response = handleSubmit()
         } else if (request.hasSubscribe()) {
-            _executor = SubscribeRequestExecutor()
+            println("Subscribe request received")
+            _response = handleSubscribe()
         } else if (request.hasList()) {
-            _executor = ListRequestExecutor(receivedTasks, completedTasks)
+            println("List request received")
+            _response = handleList()
         }
 
-        //TODO: handle error properly, send response
-        val executor: RequestExecutor = _executor ?: return buildErrorResponse(request)
-        val response = executor.execute(request)
+        val response: CommunicationProtos.ServerResponse = _response ?: return buildErrorResponse(request)
 
-        println("${request.requestId} has finished")
+        println("Complete ${request.requestId}  hadnling")
         return response
     }
 
     private fun buildErrorResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
+        return CommunicationProtos.ServerResponse.newBuilder()
+                .setRequestId(request.requestId)
+                .build()
+    }
+
+    private fun handleSubmit(): CommunicationProtos.ServerResponse {
         throw UnsupportedOperationException()
+    }
+
+    private fun handleSubscribe(): CommunicationProtos.ServerResponse {
+        throw UnsupportedOperationException()
+    }
+
+    private fun handleList(): CommunicationProtos.ServerResponse {
+        throw throw UnsupportedOperationException()
     }
 
     private fun buildSubmitError(taskId: Int): CommunicationProtos.SubmitTaskResponse {
