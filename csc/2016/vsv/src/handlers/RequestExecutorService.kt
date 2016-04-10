@@ -1,7 +1,7 @@
-package task.handlers
+package handlers
 
 import communication.CommunicationProtos
-import task.handlers.requests.TaskResultToResponseBuilder
+import handlers.requests.TaskResultToResponseBuilder
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -11,7 +11,7 @@ class RequestExecutorService {
 
     private val receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest> = LinkedHashMap()
     private val completedTasks: MutableMap<Int, Long> = LinkedHashMap()
-    private val locks: MutableMap<Int, Object> = LinkedHashMap()
+    private val runningTasksLock: MutableMap<Int, Object> = LinkedHashMap()
 
     private var lastId: Int = 0
 
@@ -69,7 +69,7 @@ class RequestExecutorService {
 
     private fun handleSubscribe(_request: CommunicationProtos.ServerRequest): CommunicationProtos.SubscribeResponse {
         val request = _request.subscribe
-        val monitor: Object = locks.get(request.taskId) ?: return buildSubscribeRequestError()
+        val monitor: Object = runningTasksLock.get(request.taskId) ?: return buildSubscribeRequestError()
         println("Get the monitor lock")
         synchronized(monitor, {
             if (!completedTasks.containsKey(request.taskId)) {

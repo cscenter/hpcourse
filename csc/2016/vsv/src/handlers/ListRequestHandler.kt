@@ -1,4 +1,4 @@
-package task.handlers
+package handlers
 
 import communication.CommunicationProtos
 
