@@ -12,7 +12,10 @@ import java.util.*
 
 class RequestExecutorService {
 
-    private val tasks: MutableMap<CommunicationProtos.ServerRequest, Long?> = HashMap()
+    private val receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest> = LinkedHashMap()
+    private val completedTasks: MutableMap<Int, Long> = LinkedHashMap()
+
+    private var lastId: Int = 0
 
     fun execute(clientSocket: Socket) {
         invokeInNewThread {
@@ -25,14 +28,14 @@ class RequestExecutorService {
                 Thread.currentThread().interrupt()
             }
 
-            val response = handle(request)
+            val response = handleRequest(request)
             clientSocket.outputStream.use {
                 sendResponse(it, response)
             }
         }
     }
 
-    private fun handle(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
+    private fun handleRequest(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
         var _executor: RequestExecutor? = null
 
         if (request.hasSubmit()) {
@@ -40,16 +43,28 @@ class RequestExecutorService {
         } else if (request.hasSubscribe()) {
             _executor = SubscribeRequestExecutor()
         } else if (request.hasList()) {
-            _executor = ListRequestExecutor(tasks)
+            _executor = ListRequestExecutor(receivedTasks, completedTasks)
         }
 
         //TODO: handle error properly, send response
-        val executor: RequestExecutor = _executor ?: throw RuntimeException("something is wrong")
+        val executor: RequestExecutor = _executor ?: return buildErrorResponse(request)
         val response = executor.execute(request)
 
         println("${request.requestId} has finished")
         return response
     }
+
+    private fun buildErrorResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
+        throw UnsupportedOperationException()
+    }
+
+    private fun buildSubmitError(taskId: Int): CommunicationProtos.SubmitTaskResponse {
+        return CommunicationProtos.SubmitTaskResponse.newBuilder()
+                .setSubmittedTaskId(taskId)
+                .setStatus(CommunicationProtos.Status.ERROR)
+                .build()
+    }
+
 
     private fun invokeInNewThread(action: () -> Unit) {
         val task = Thread(Runnable { action() })
@@ -59,4 +74,10 @@ class RequestExecutorService {
     private fun getRequest(ism: InputStream) = CommunicationProtos.ServerRequest.parseFrom(ism)
 
     private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) = osm.write(response.toByteArray())
+
+    private fun getNextId(): Int {
+        synchronized(lastId, {
+            return ++lastId
+        })
+    }
 }
