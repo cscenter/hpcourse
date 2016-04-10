@@ -1,6 +1,7 @@
 package task.handlers
 
 import communication.CommunicationProtos
+import task.handlers.requests.TaskResultToResponseBuilder
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -10,6 +11,7 @@ class RequestExecutorService {
 
     private val receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest> = LinkedHashMap()
     private val completedTasks: MutableMap<Int, Long> = LinkedHashMap()
+    private val locks: MutableMap<Int, Object> = LinkedHashMap()
 
     private var lastId: Int = 0
 
@@ -39,7 +41,7 @@ class RequestExecutorService {
             _response = handleSubmit()
         } else if (request.hasSubscribe()) {
             println("Subscribe request received")
-            _response = handleSubscribe()
+            _response = TaskResultToResponseBuilder.fromSubscribeTask(request.requestId, handleSubscribe(request.subscribe))
         } else if (request.hasList()) {
             println("List request received")
             _response = handleList()
@@ -61,8 +63,27 @@ class RequestExecutorService {
         throw UnsupportedOperationException()
     }
 
-    private fun handleSubscribe(): CommunicationProtos.ServerResponse {
-        throw UnsupportedOperationException()
+    private fun handleSubscribe(request: CommunicationProtos.Subscribe): CommunicationProtos.SubscribeResponse {
+        val monitor: Object = locks.get(request.taskId) ?: return buildSubscribeRequestError()
+        println("Get the monitor lock")
+        synchronized(monitor, {
+            if (!completedTasks.containsKey(request.taskId)) {
+                println("Wait for task: ${request.taskId} ")
+                monitor.wait()
+            }
+        })
+        assert(completedTasks.containsKey(request.taskId), { "Result didn't apeared but subsriber was awake" })
+        val result: Long = completedTasks[request.taskId] ?: return buildSubscribeRequestError()
+        return CommunicationProtos.SubscribeResponse.newBuilder()
+                .setValue(result)
+                .setStatus(CommunicationProtos.Status.OK)
+                .build()
+    }
+
+    private fun buildSubscribeRequestError(): CommunicationProtos.SubscribeResponse {
+        return CommunicationProtos.SubscribeResponse.newBuilder()
+                .setStatus(CommunicationProtos.Status.ERROR)
+                .build()
     }
 
     private fun handleList(): CommunicationProtos.ServerResponse {
