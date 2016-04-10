@@ -38,7 +38,7 @@ class RequestExecutorService {
 
         if (request.hasSubmit()) {
             println("Submit request received")
-            _response = handleSubmit(request)
+            _response = TaskResultToResponseBuilder.fromSubmitTask(request.requestId, handleSubmit(request))
         } else if (request.hasSubscribe()) {
             println("Subscribe request received")
             _response = TaskResultToResponseBuilder.fromSubscribeTask(request.requestId, handleSubscribe(request))
@@ -59,26 +59,41 @@ class RequestExecutorService {
                 .build()
     }
 
-    private fun handleSubmit(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
+    private fun handleSubmit(request: CommunicationProtos.ServerRequest): CommunicationProtos.SubmitTaskResponse {
         val id = getNextId()
-        receivedTasks[id] = request
 
-        val handler = SubmitRequestHandler()
-        throw UnsupportedOperationException()
+        invokeInNewThread {
+            //register task, create lock
+            val monitor = Object()
+            synchronized(receivedTasks) {
+                receivedTasks[id] = request
+                runningTasksLock[id] = Object()
+            }
+
+            val handler = SubmitRequestHandler(id, { id -> waitAndGet(id) })
+            val taskResult = handler.handle(request.submit)
+
+            if (taskResult != null) {
+                completedTasks.put(id, taskResult)
+            }
+
+            synchronized(monitor, {
+                println("Notify all waiting for $id")
+                monitor.notifyAll()
+            })
+            runningTasksLock.remove(id)
+        }
+
+        return CommunicationProtos.SubmitTaskResponse.newBuilder()
+                .setSubmittedTaskId(id)
+                .setStatus(CommunicationProtos.Status.OK)
+                .build()
     }
 
     private fun handleSubscribe(_request: CommunicationProtos.ServerRequest): CommunicationProtos.SubscribeResponse {
         val request = _request.subscribe
-        val monitor: Object = runningTasksLock.get(request.taskId) ?: return buildSubscribeRequestError()
         println("Get the monitor lock")
-        synchronized(monitor, {
-            if (!completedTasks.containsKey(request.taskId)) {
-                println("Wait for task: ${request.taskId} ")
-                monitor.wait()
-            }
-        })
-        assert(completedTasks.containsKey(request.taskId), { "Result didn't apeared but subsriber was awake" })
-        val result: Long = completedTasks[request.taskId] ?: return buildSubscribeRequestError()
+        val result: Long = waitAndGet(request.taskId) ?: return buildSubscribeRequestError()
         return CommunicationProtos.SubscribeResponse.newBuilder()
                 .setValue(result)
                 .setStatus(CommunicationProtos.Status.OK)
@@ -97,13 +112,6 @@ class RequestExecutorService {
         return handler.handle(request.list)
     }
 
-    private fun buildSubmitError(taskId: Int): CommunicationProtos.SubmitTaskResponse {
-        return CommunicationProtos.SubmitTaskResponse.newBuilder()
-                .setSubmittedTaskId(taskId)
-                .setStatus(CommunicationProtos.Status.ERROR)
-                .build()
-    }
-
 
     private fun invokeInNewThread(action: () -> Unit) {
         val task = Thread(Runnable { action() })
@@ -118,5 +126,17 @@ class RequestExecutorService {
         synchronized(lastId, {
             return ++lastId
         })
+    }
+
+    private fun waitAndGet(taskId: Int): Long? {
+        val monitor: Object = runningTasksLock.get(taskId) ?: return null
+        synchronized(monitor, {
+            if (!completedTasks.containsKey(taskId)) {
+                monitor.wait()
+            }
+        })
+        assert(completedTasks.containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
+        val result: Long = completedTasks[taskId] ?: return null
+        return result
     }
 }
