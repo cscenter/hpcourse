@@ -198,7 +198,7 @@ public class TaskManager {
 
     private Map<Integer, AsyncResult<Long>> getFutureResultMapSnapshot() {
         Map<Integer, AsyncResult<Long>> futureResults = new HashMap<>(2 * this.futureResults.size());
-        synchronized (this.resultMap) {
+        synchronized (this.futureResults) {
             futureResults.putAll(this.futureResults);
         }
         return futureResults;

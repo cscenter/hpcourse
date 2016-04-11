@@ -21,11 +21,13 @@ public class MyExecutorService {
             Thread thread = new Thread(() -> {
                 try {
                     while (running) {
-                        AsyncResult callable;
+                        AsyncResult callable = null;
                         synchronized (queue) {
-                            if (queue.size() == 0)
-                                queue.wait();
-                            callable = queue.poll();
+                            if (running) {
+                                if (queue.size() == 0)
+                                    queue.wait();
+                                callable = queue.poll();
+                            }
                         }
                         if (callable != null) {
                             try {

@@ -203,4 +203,17 @@ public class LoadClientServerTests {
 
         myServer.stop();
     }
+
+    @Test
+    public void OneServer_SubmitLongStop_Stopped() throws InterruptedException {
+        MyServer myServer = new MyServer(8887, 10, 100, 2);
+        myServer.start();
+        Thread.sleep(1000);
+        MyClient myClient = new MyClient("1", "localhost", 8887);
+        Protocol.Task task1 = getLongTask();
+        for (int i = 0; i < 1000; i++) {
+            myClient.submitTask(task1);
+        }
+        myServer.stop();
+    }
 }
