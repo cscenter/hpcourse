@@ -19,12 +19,7 @@ class RequestExecutorService {
         invokeInNewThread {
 
             val request = getRequest(clientSocket.inputStream)
-            clientSocket.inputStream.close()
-
-            if (request.isInitialized) {
-                println("Error on parse request")
-                Thread.currentThread().interrupt()
-            }
+            // clientSocket.inputStream.close()
 
             val response = handleRequest(request)
             clientSocket.outputStream.use {

@@ -8,7 +8,7 @@ import java.net.Socket
 /**
  * @author Sergey Voytovich (voytovich.sergeey@gmail.com) on 10.04.16
  */
-class TaskWorker(val port: Int, val clientId: String) {
+class TaskWorker(private val port: Int, private val clientId: String) {
 
     private val localhost = "localhost"
     private var requestId: Long = 0
@@ -22,7 +22,11 @@ class TaskWorker(val port: Int, val clientId: String) {
         return response.listResponse
     }
 
-    fun submit(a: Parameter, b: Parameter, p: Parameter, m: Parameter, n: Long): CommunicationProtos.SubmitTaskResponse {
+    fun submit(a: CommunicationProtos.Task.Param,
+               b: CommunicationProtos.Task.Param,
+               p: CommunicationProtos.Task.Param,
+               m: CommunicationProtos.Task.Param,
+               n: Long): CommunicationProtos.SubmitTaskResponse {
         val taskRequest = CommunicationProtos.Task.newBuilder()
                 .setA(toParam(a))
                 .setB(toParam(b))
@@ -30,7 +34,7 @@ class TaskWorker(val port: Int, val clientId: String) {
                 .setM(toParam(m))
                 .setN(n)
                 .build()
-        val request = CommunicationProtos.ServerRequest.newBuilder()
+        val request = getRequestBuilder()
                 .setSubmit(CommunicationProtos.SubmitTask.newBuilder().setTask(taskRequest))
                 .build()
 
@@ -52,13 +56,14 @@ class TaskWorker(val port: Int, val clientId: String) {
     private fun writeRequestAndGetResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
         //TODO: close then
         val socket = Socket(localhost, port);
+        socket.outputStream.write(request.serializedSize)
         request.writeTo(socket.outputStream);
         val response = getResponse(socket.inputStream)
         return response
     }
 
-    fun toParam(p: Parameter): CommunicationProtos.Task.Param {
-        if (p.isDependentTaskId) {
+    fun toParam(p: CommunicationProtos.Task.Param): CommunicationProtos.Task.Param {
+        if (p.hasDependentTaskId()) {
             return CommunicationProtos.Task.Param.newBuilder()
                     .setDependentTaskId(p.value.toInt())
                     .build()
@@ -86,5 +91,3 @@ class TaskWorker(val port: Int, val clientId: String) {
         return ++requestId
     }
 }
-
-data class Parameter(val value: Long, val isDependentTaskId: Boolean)

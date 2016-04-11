@@ -18,9 +18,8 @@ class Server {
             ServerSocket(port).use {
                 while (running.get()) {
                     try {
-                        it.accept().use {
-                            executorService.execute(it)
-                        }
+                        val socket = it.accept()
+                        executorService.execute(socket)
                     } catch (e: IOException) {
                         print("Cannot accept client socket, ${e.cause}, ${e.message}")
                     }
