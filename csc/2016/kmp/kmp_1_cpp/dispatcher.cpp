@@ -1,4 +1,3 @@
-#include <iostream>
 #include <functional>
 
 #include "dispatcher.h"
@@ -19,9 +18,7 @@ Dispatcher::~Dispatcher()
 void Dispatcher::handle_connection(int sockfd)
 {
   bool connect = true;
-  std::cout << "handle_connection 1" << std::endl;
   SocketRW * socket_rw = new SocketRW(sockfd);
-  std::cout << "handle_connection 2" << std::endl;
   communication::WrapperMessage msg;
   
 	while (connect)
@@ -31,26 +28,18 @@ void Dispatcher::handle_connection(int sockfd)
       if (is_submit_task(msg))
       {
         submit_task(msg, socket_rw);
-        std::cout << "Submitted" << std::endl;
       }
       else if (is_task_list(msg))
       {
-        std::cout << "Task list message" << std::endl;
         list_tasks(msg, socket_rw);
       }
       else if (is_subscribe(msg))
       {
-        std::cout << "Subscribe message" << std::endl;
         subscribe(msg, socket_rw);
-      }
-      else
-      {
-        std::cout << "Unknown message type" << std::endl;
       }
     }
     else
     {
-      std::cout << "Client dropped the connection" << std::endl;
       connect = false;
     }
 	}
@@ -63,8 +52,6 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
 {
   m_mut.lock();
   
-  std::cout << "subscribe_callback on task id " << task_id << std::endl;
-  
   if (m_socks_to_ids.find(task_id) != m_socks_to_ids.end())
   {
     communication::SubscribeResponse * response = communication::SubscribeResponse().New();
@@ -75,21 +62,15 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
     msg.mutable_response()->set_request_id(request_id);
     msg.mutable_response()->set_allocated_subscriberesponse(response);
     
-    std::cout << "subscribe_callback ByteSize " << msg.ByteSize() << std::endl;
-    
     std::vector<SocketRW *> & socks = m_socks_to_ids[task_id];
     for (std::vector<SocketRW *>::iterator sock = socks.begin(); 
     sock != socks.end(); 
     ++sock)
     {
-      std::cout << "write subscribe to socket" << std::endl;
       (*sock)->write(msg);
-      
-      std::cout << "wrote to socket" << std::endl;
     }
     
     m_socks_to_ids.erase(task_id);
-    std::cout << "id " << task_id << " ERASED from map" << std::endl;
   }
   
   m_mut.unlock();
@@ -98,12 +79,6 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
 bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW * socket_rw)
 {
   communication::SubmitTask const & submitTask = msg_in.request().submit();
-    
-  std::cout << "a = " << submitTask.task().a().value() << std::endl;
-  std::cout << "b = " << submitTask.task().b().value() << std::endl;
-  std::cout << "p = " << submitTask.task().p().value() << std::endl;
-  std::cout << "m = " << submitTask.task().m().value() << std::endl;
-  std::cout << "n = " << submitTask.task().n() << std::endl;
   
   unsigned int task_id = m_worker.handle_submit_task(submitTask, msg_in.request().client_id(), msg_in.request().request_id());
   
@@ -156,8 +131,6 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
   unsigned int task_id = subscribe.taskid();
   bool status = m_worker.subscribe(subscribe.taskid(), result_set, result);
   
-  std::cout << "id: " << task_id << std::endl;
-  
   if (status)
   {
     if (result_set)
@@ -174,7 +147,6 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
     else
     {
       m_socks_to_ids[task_id].push_back(socket_rw);
-      std::cout << "id " << task_id << " ADDED to map" << std::endl;
       res = true;
     }
   }

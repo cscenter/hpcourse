@@ -1,4 +1,3 @@
-#include <iostream>
 #include <strings.h>
 
 #include <unistd.h>
