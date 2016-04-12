@@ -53,7 +53,7 @@ public class Client extends Thread {
         sendServerRequest(makeServerRequest(task));
         ServerResponse response = getServerResponse();
 //        Раскомментировать, если интересует результат ответов
-//        printResponse(response);
+        printResponse(response);
         try {
             socket.close();
         } catch (IOException e) {
@@ -93,11 +93,11 @@ public class Client extends Thread {
 
     private ServerResponse getServerResponse() {
         try {
-//            int size = socket.getInputStream().read();
-//            System.out.println("Size = " + size);
-//            byte buf[] = new byte[size];
-//            socket.getInputStream().read(buf);
-            return ServerResponse.parseDelimitedFrom(socket.getInputStream());
+            WrapperMessage wrapperMessage = WrapperMessage.parseDelimitedFrom(socket.getInputStream());
+            if (!wrapperMessage.hasResponse()) {
+                throw new IOException("Message doesn't contains Response");
+            }
+            return wrapperMessage.getResponse();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -107,7 +107,9 @@ public class Client extends Thread {
     private void sendServerRequest(ServerRequest request) {
         try {
             socket = new Socket(serverHost, serverPort);
-            request.writeDelimitedTo(socket.getOutputStream());
+            WrapperMessage.Builder builder = WrapperMessage.newBuilder();
+            builder.setRequest(request);
+            builder.build().writeDelimitedTo(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
         }

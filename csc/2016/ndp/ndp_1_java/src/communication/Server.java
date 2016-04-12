@@ -78,7 +78,11 @@ public class Server extends Thread {
 
     private ServerRequest getServerRequest() throws IOException {
 //        Читает запрос с сокета и возращает его
-        return ServerRequest.parseDelimitedFrom(socket.getInputStream());
+        WrapperMessage wrapperMessage = WrapperMessage.parseDelimitedFrom(socket.getInputStream());
+        if (!wrapperMessage.hasRequest()) {
+            throw new IOException("Message doesn't contains Request");
+        }
+        return wrapperMessage.getRequest();
     }
 
     abstract class MessageThread extends Thread {
@@ -97,12 +101,12 @@ public class Server extends Thread {
             if (message instanceof SubmitTaskResponse) builder.setSubmitResponse((SubmitTaskResponse) message);
             if (message instanceof SubscribeResponse) builder.setSubscribeResponse((SubscribeResponse) message);
             if (message instanceof ListTasksResponse) builder.setListResponse((ListTasksResponse) message);
-            ServerResponse response = builder.build();
 //            Отправляет на сокет сообщение response
             try {
                 OutputStream out = socket.getOutputStream();
-                System.out.println("Size = " + response.getSerializedSize());
-                response.writeDelimitedTo(out);
+                WrapperMessage.Builder wrapperMessageBuilder = WrapperMessage.newBuilder();
+                wrapperMessageBuilder.setResponse(builder);
+                wrapperMessageBuilder.build().writeDelimitedTo(out);
             } catch (IOException e) {
                 e.printStackTrace();
             }
