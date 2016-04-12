@@ -26,7 +26,8 @@ class RequestHandler implements Callable<Protocol.ServerResponse> {
             Protocol.SubmitTaskResponse.Builder submitResponse = Protocol.SubmitTaskResponse.newBuilder();
             submitResponse.setSubmittedTaskId(id).setStatus(Protocol.Status.OK);
             responseBuilder.setSubmitResponse(submitResponse);
-        } else if (request.hasSubscribe()) {
+        }
+        if (request.hasSubscribe()) {
             Protocol.Subscribe subscribe = request.getSubscribe();
             int id = subscribe.getTaskId();
             long result = taskManager.getResult(id);
@@ -34,7 +35,8 @@ class RequestHandler implements Callable<Protocol.ServerResponse> {
             Protocol.SubscribeResponse.Builder builder = Protocol.SubscribeResponse.newBuilder();
             builder.setStatus(Protocol.Status.OK).setValue(result);
             responseBuilder.setSubscribeResponse(builder);
-        } else if (request.hasList()) {
+        }
+        if (request.hasList()) {
             Protocol.ListTasksResponse.Builder builder = Protocol.ListTasksResponse.newBuilder();
 
             for (Integer id : taskManager.getRunningTasks()) {
@@ -44,9 +46,6 @@ class RequestHandler implements Callable<Protocol.ServerResponse> {
                         .setTask(taskManager.getTask(id));
                 builder.addTasks(taskDescBuilder);
             }
-
-        } else {
-            throw new IOException("Invalid request");
         }
         return responseBuilder.build();
     }
