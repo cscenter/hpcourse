@@ -37,9 +37,9 @@ class TaskList {
         while (true) {
             Node currentNode = root.next;
             while (currentNode != end) {
-                synchronized (currentNode) {
-                    Task task = currentNode.task;
-                    if (task.id == taskId) {
+                Task task = currentNode.task;
+                if (task.id == taskId) {
+                    synchronized (currentNode) {
                         try {
                             while (task.status != Task.Status.FINISHED) {
                                 currentNode.wait();
@@ -49,8 +49,8 @@ class TaskList {
                             e.printStackTrace();
                         }
                     }
-                    currentNode = currentNode.next;
                 }
+                currentNode = currentNode.next;
             }
         }
     }
