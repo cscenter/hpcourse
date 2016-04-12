@@ -134,13 +134,12 @@ public class Server extends Thread {
         @Override
         public void run() {
             try {
+                sendResponse();
                 initializeVariables();
                 if (status == Status.OK)
                     calculate();
             } catch (InterruptedException e) {
                 status = Status.ERROR;
-            } finally {
-                sendResponse();
             }
         }
 
