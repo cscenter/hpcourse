@@ -6,6 +6,7 @@ import com.google.protobuf.CodedInputStream;
 
 import java.net.*;
 import java.io.*;
+import java.util.concurrent.Callable;
 
 class ServerThread extends Thread {
     private final Socket socket;
@@ -33,46 +34,19 @@ class ServerThread extends Thread {
                 throw new IOException("Failed to read message bytes");
             }
 
-            ServerRequest request = ServerRequest.parseFrom(data);
-            ServerResponse.Builder responseBuilder = ServerResponse.newBuilder();
-            responseBuilder.setRequestId(request.getRequestId());
+            WrapperMessage inputMessage = WrapperMessage.parseFrom(data);
+            if (!inputMessage.hasRequest())
+                throw new IOException("Message does not contain request");
 
-            if (request.hasSubmit()) {
-                Task task = request.getSubmit().getTask();
-                int id = taskManager.addTask(task);
+            ServerRequest request = inputMessage.getRequest();
+            ServerResponse response = new RequestHandler(request, taskManager).call();
 
-                SubmitTaskResponse.Builder submitResponse = SubmitTaskResponse.newBuilder();
-                submitResponse.setSubmittedTaskId(id).setStatus(Status.OK);
-                responseBuilder.setSubmitResponse(submitResponse);
-            } else if (request.hasSubscribe()) {
-                Subscribe subscribe = request.getSubscribe();
-                int id = subscribe.getTaskId();
-                long result = taskManager.getResult(id);
-
-                SubscribeResponse.Builder builder = SubscribeResponse.newBuilder();
-                builder.setStatus(Status.OK).setValue(result);
-                responseBuilder.setSubscribeResponse(builder);
-            } else if (request.hasList()) {
-                ListTasksResponse.Builder builder = ListTasksResponse.newBuilder();
-
-                for (Integer id : taskManager.getRunningTasks()) {
-                    ListTasksResponse.TaskDescription.Builder taskDescBuilder = ListTasksResponse.TaskDescription.newBuilder();
-                    taskDescBuilder.setClientId(request.getClientId())
-                            .setTaskId(id)
-                            .setTask(taskManager.getTask(id));
-                    builder.addTasks(taskDescBuilder);
-                }
-
-            } else {
-                throw new IOException("Invalid request");
-            }
-
-            WrapperMessage message = WrapperMessage.newBuilder().setResponse(responseBuilder.build()).build();
+            WrapperMessage message = WrapperMessage.newBuilder().setResponse(response).build();
             CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(output);
             codedOutputStream.writeRawVarint32(message.getSerializedSize());
             message.writeTo(codedOutputStream);
             socket.close();
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
