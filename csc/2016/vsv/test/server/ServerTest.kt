@@ -15,9 +15,7 @@ import util.client.TaskWorker
 class ServerTest {
 
     companion object {
-
         val port = 4774
-
         @ClassRule
         @JvmField
         val server = ServerResource(port)
@@ -27,7 +25,6 @@ class ServerTest {
     fun separate_tests_outputs() {
         println("------------------------------")
     }
-
 
     @Test
     fun submit_task_test() {
@@ -59,12 +56,26 @@ class ServerTest {
         Assert.assertTrue(response.status == CommunicationProtos.Status.OK)
     }
 
-    /*@Test
-    fun dependent_task_task() {
+    @Test
+    fun dependent_task_test() {
         val client = TaskWorker(port, "first-client")
-        val submitResponse = client.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong())
-        client.submit(param(100), param(15), param(23), dependentTask(submitResponse.submittedTaskId), Integer.MAX_VALUE.toLong())
-    }*/
+        val firstSubmit = client.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong() / 4)
+        val secondSubmit = client.submit(param(100), param(15), param(23), dependentTask(firstSubmit.submittedTaskId), 10)
+        val secondTaskResult = client.subscribe(secondSubmit.submittedTaskId).value
+        val firstTaskResult = client.subscribe(firstSubmit.submittedTaskId).value
+        Assert.assertEquals(secondTaskResult, calculate(100, 15, 23, firstTaskResult, 10))
+    }
+
+    @Test(timeout = 1000)
+    fun long_running_task_not_stops_work_test() {
+        val client = TaskWorker(port, "first-client")
+        client.submit(param(100), param(15), param(23), param(11), Long.MAX_VALUE)
+
+        val id = client.submit(param(100), param(15), param(23), param(11), 10).submittedTaskId
+        val result = client.subscribe(id)
+        Assert.assertTrue(result.status == CommunicationProtos.Status.OK)
+    }
+
 
     fun param(p: Long): CommunicationProtos.Task.Param {
         return CommunicationProtos.Task.Param.newBuilder()
@@ -90,5 +101,4 @@ class ServerTest {
         }
         return a
     }
-
 }

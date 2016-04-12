@@ -23,8 +23,8 @@ class RequestExecutorService {
             // clientSocket.inputStream.close()
 
             val response = handleRequest(request)
-            clientSocket.outputStream.use {
-                sendResponse(it, response)
+            if (!clientSocket.isClosed) {
+                sendResponse(clientSocket.outputStream, response)
             }
         }
     }
@@ -133,7 +133,9 @@ class RequestExecutorService {
     private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) {
         val data = response.toByteArray()
         osm.write(data.size)
+        osm.flush()
         osm.write(data)
+        osm.flush()
     }
 
     private fun getNextId(): Int {
@@ -147,9 +149,9 @@ class RequestExecutorService {
         val monitor: Object = runningTasksLock[taskId] ?: return null
         synchronized(monitor, {
             println("Subscribe locked on $taskId monitor")
-                println("Subscribe starting to wait for $taskId")
-                monitor.wait()
-                println("Subscribe awake to get  $taskId result")
+            println("Subscribe starting to wait for $taskId")
+            monitor.wait()
+            println("Subscribe awake to get  $taskId result")
         })
         assert(completedTasks.containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
         val result: Long = completedTasks[taskId] ?: return null
