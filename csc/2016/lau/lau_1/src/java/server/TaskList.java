@@ -3,28 +3,29 @@ package server;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class TaskList {
     private class Node {
-        boolean isLocked;
+        AtomicBoolean isLocked = new AtomicBoolean(false);
         Task task;
         Node next;
     }
 
-    private volatile Node root, end;
-    private volatile int currentTaskId;
+    private Node root, end;
+    private AtomicInteger currentTaskId;
 
     TaskList() {
         root = new Node();
         end = new Node();
         root.next = end;
+        currentTaskId = new AtomicInteger(0);
     }
 
     int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
         int taskId;
-        synchronized (this) {
-            taskId = currentTaskId++;
-        }
+        taskId = currentTaskId.getAndAdd(1);
         Task task = new Task(taskId, type, clientId, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
@@ -78,7 +79,7 @@ class TaskList {
         Node currentNode = root;
 
         while (currentNode.next != end) {
-            if (!currentNode.isLocked) {
+            if (!currentNode.isLocked.get()) {
                 insertNode(currentNode, newNode);
                 return;
             }
@@ -105,13 +106,13 @@ class TaskList {
     }
 
     void insertNode(Node currentNode, Node newNode) {
-        currentNode.isLocked = true;
+        currentNode.isLocked.set(true);
         synchronized (currentNode) {
             newNode.next = currentNode.next;
             currentNode.next = newNode;
         }
+        currentNode.isLocked.set(false);
         startTask(newNode);
-        currentNode.isLocked = false;
     }
 
     private void startTask(Node node) {
