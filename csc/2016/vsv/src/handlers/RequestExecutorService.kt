@@ -141,15 +141,15 @@ class RequestExecutorService {
     }
 
     private fun waitAndGet(taskId: Int): Long? {
+        if (completedTasks.containsKey(taskId)) {
+            return completedTasks[taskId]
+        }
         val monitor: Object = runningTasksLock[taskId] ?: return null
         synchronized(monitor, {
             println("Subscribe locked on $taskId monitor")
-            if (!completedTasks.containsKey(taskId)) {
                 println("Subscribe starting to wait for $taskId")
                 monitor.wait()
                 println("Subscribe awake to get  $taskId result")
-
-            }
         })
         assert(completedTasks.containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
         val result: Long = completedTasks[taskId] ?: return null
