@@ -12,7 +12,7 @@ class TaskList {
         Node next;
     }
 
-    private Node root, end;
+    private final Node root, end;
     private AtomicInteger currentTaskId;
 
     TaskList() {
@@ -69,7 +69,7 @@ class TaskList {
         return result;
     }
 
-    void addTask(Task task) {
+    private void addTask(final Task task) {
         Node newNode = new Node();
         newNode.task = task;
         Node currentNode = root;
@@ -84,7 +84,7 @@ class TaskList {
         insertNode(currentNode, newNode);
     }
 
-    void prepareTask(Task task) {
+    private void prepareTask(Task task) {
         for (int i = 0; i < task.params.length; i++) {
             if (task.params[i].type == TaskParam.Type.TASK_ID) {
                 task.params[i].value = subscribeOnTaskResult(task.params[i].dependentTaskId);
@@ -92,7 +92,7 @@ class TaskList {
         }
     }
 
-    void insertNode(Node currentNode, Node newNode) {
+    private void insertNode(final Node currentNode, final Node newNode) {
         currentNode.isLocked.set(true);
         synchronized (currentNode) {
             newNode.next = currentNode.next;
@@ -102,7 +102,7 @@ class TaskList {
         startTask(newNode);
     }
 
-    private void startTask(Node node) {
+    private void startTask(final Node node) {
         new Thread(() -> {
             Task task = node.task;
             long n = task.n;

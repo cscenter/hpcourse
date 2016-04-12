@@ -7,8 +7,8 @@ import java.io.IOException;
 public class Main {
     private static int port = 5276;
     public static void main(String[] args) {
-        testNetwork();
-        //printTestResults();
+        //testNetwork();
+        printTestResults();
         //testTasksParallel();
     }
 
@@ -56,6 +56,7 @@ public class Main {
         calculateTask(8, 3, 7, 5, 1000);  //3
         calculateTask(8, 5, 3, 7, 1000);  //1
         calculateTask(8, 3, 5, 7, 1000);  //6
+        calculateTask(5, 7, 3, 8, 1000);  //0
 
         calculateTask(3, 1, 4, 21, 1000001);  //19
         calculateTask(2, 5, 9, 21, 1000001);  //8
