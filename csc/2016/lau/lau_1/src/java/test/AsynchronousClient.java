@@ -2,6 +2,7 @@ package test;
 
 import communication.ProtocolProtos;
 import communication.ProtocolProtos.*;
+import server.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -101,6 +102,34 @@ public class AsynchronousClient {
         System.out.println("Client: dependent task request sent");
     }
 
+    private void sendSubmitTaskRequest(Socket socket, TaskParam a, TaskParam b, TaskParam p, TaskParam m, int n) throws IOException {
+        System.out.println("Client: sending dependent task request");
+        WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
+                ServerRequest.newBuilder().setSubmit(
+                        SubmitTask.newBuilder().setTask(
+                                ProtocolProtos.Task.newBuilder()
+                                        .setA(getParamBuilder(a))
+                                        .setB(getParamBuilder(b))
+                                        .setP(getParamBuilder(p))
+                                        .setM(getParamBuilder(m))
+                                        .setN(n)))
+                        .setClientId(id)
+                        .setRequestId(getCurrentRequestId())
+        ).build();
+        msg.writeDelimitedTo(socket.getOutputStream());
+        System.out.println("Client: dependent task request sent");
+    }
+
+    private ProtocolProtos.Task.Param.Builder getParamBuilder(TaskParam param) {
+        if (param.getType() == TaskParam.Type.VALUE) {
+            return ProtocolProtos.Task.Param.newBuilder().setValue(param.getValue());
+        } else if (param.getType() == TaskParam.Type.TASK_ID){
+            return ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(param.getDependentTaskId());
+        } else {
+            throw new IllegalArgumentException("Malformed task param " + param.toString());
+        }
+    }
+
     private void sendTaskListRequest(Socket socket) throws IOException {
         WrapperMessage requestMsg = WrapperMessage.newBuilder().setRequest(ServerRequest.newBuilder()
                 .setClientId(id)
@@ -145,19 +174,25 @@ public class AsynchronousClient {
         List<ListTasksResponse.TaskDescription> tasks = responseMsg.getResponse().getListResponse().getTasksList();
         System.out.println("Client: GET task list response");
         for (ListTasksResponse.TaskDescription task : tasks) {
-            if (task.getTask().getA().hasValue()) {
-                System.out.print("  Independent task id: " + task.getTaskId() + " params: a = " + task.getTask().getA().getValue()
-                        + " b = " + task.getTask().getB().getValue() + " p = " + task.getTask().getP().getValue()
-                        + " m = " + task.getTask().getM().getValue());
-            } else {
-                System.out.print("  Dependent task id: " + task.getTaskId() + " params: a = " + task.getTask().getA().getDependentTaskId()
-                        + " b = " + task.getTask().getB().getDependentTaskId() + " p = " + task.getTask().getP().getDependentTaskId()
-                        + " m = " + task.getTask().getM().getDependentTaskId());
-            }
+            System.out.print("  Task id: " + task.getTaskId() + " params: ");
+            printParam(task.getTask().getA());
+            printParam(task.getTask().getB());
+            printParam(task.getTask().getP());
+            printParam(task.getTask().getM());
             System.out.println(" n = " + task.getTask().getN()
                     + (task.hasResult() ? " res: " + task.getResult() : " RUNNING"));
         }
         System.out.println("Client: end of tasks list");
+    }
+
+    private void printParam(communication.ProtocolProtos.Task.Param param) {
+        if (param.hasValue()) {
+            System.out.print("VALUE: " + param.getValue() + " ");
+        } else if (param.hasDependentTaskId()) {
+            System.out.print("VALUE: " + param.getDependentTaskId() + " ");
+        } else {
+            throw new IllegalStateException("Malformed task parameter");
+        }
     }
 
     private void processSubmitResponse(WrapperMessage responseMsg) {

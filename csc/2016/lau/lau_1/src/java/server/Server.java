@@ -163,8 +163,10 @@ public class Server {
     private ProtocolProtos.Task.Param.Builder getParamBuilder(TaskParam param) {
         if (param.type == TaskParam.Type.VALUE) {
             return ProtocolProtos.Task.Param.newBuilder().setValue(param.value);
-        } else {
+        } else if (param.type == TaskParam.Type.TASK_ID) {
             return ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(param.dependentTaskId);
+        } else {
+            throw new IllegalArgumentException("Illegal param " + param.toString());
         }
     }
 
