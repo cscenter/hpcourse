@@ -3,7 +3,6 @@ package communication;
 import com.google.protobuf.GeneratedMessage;
 import javafx.util.Pair;
 import util.SynchronizedHashMap;
-import util.SynchronizedInteger;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,6 +12,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static communication.Protocol.*;
 
@@ -20,7 +20,7 @@ public class Server extends Thread {
 
     private static SynchronizedHashMap<Integer, TaskThread> taskMap = new SynchronizedHashMap<>(); //  <subTaskId, task_thread>
     private static SynchronizedHashMap<Integer, String> clientMap = new SynchronizedHashMap<>(); // <task_id, client_id>
-    private static SynchronizedInteger taskIdCounter = new SynchronizedInteger();
+    private static AtomicInteger taskIdCounter = new AtomicInteger();
 
 
     public static void main(String[] args) throws IOException {
@@ -121,7 +121,7 @@ public class Server extends Thread {
             super(socket, requestId);
             this.status = Status.OK;
             this.task = task;
-            this.taskId = taskIdCounter.inc();
+            this.taskId = taskIdCounter.incrementAndGet();
             clientMap.put(this.taskId, clientId);
             taskMap.put(this.taskId, this);
             start();
