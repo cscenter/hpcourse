@@ -62,7 +62,7 @@ public class Server {
         if (request.hasList()) {
             processGetTaskListMessage(request, socket);
         } else {
-            throw new IllegalArgumentException("Server: Malformed request");
+            throw new IllegalArgumentException("Server: received malformed request");
         }
     }
 
