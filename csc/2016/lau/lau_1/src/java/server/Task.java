@@ -1,11 +1,8 @@
 package server;
 
-public class Task {
-    public enum Type {
-        DEPENDENT,
-        INDEPENDENT
-    }
+import java.util.Arrays;
 
+public class Task {
     public enum Status {
         RUNNING,
         FINISHED
@@ -13,27 +10,26 @@ public class Task {
 
     int id;
     long a, b, p, m;
-    long valueA, valueB, valueP, valueM;
+    TaskParam[] params = new TaskParam[4];
     long n;
     long result;
     String clientId;
 
-    Type type;
     Status status;
 
-    Task(int id, Type type, String clientId, long a, long b, long p, long m, long n) {
+    Task(int id, String clientId, TaskParam a, TaskParam b, TaskParam p, TaskParam m, long n) {
         this.id = id;
-        this.type = type;
         this.clientId = clientId;
-        this.a = a;
-        this.b = b;
-        this.p = p;
-        this.m = m;
+        // TODO: code duplicate
+        this.a = a.value;
+        this.b = b.value;
+        this.p = p.value;
+        this.m = m.value;
         this.n = n;
-        this.valueA = a;
-        this.valueB = b;
-        this.valueP = p;
-        this.valueM = m;
+        params[0] = a;
+        params[1] = b;
+        params[2] = p;
+        params[3] = m;
         status = Status.RUNNING;
         System.out.println("Created task " + toString());
     }
@@ -41,7 +37,29 @@ public class Task {
     @Override
     public String toString() {
         return "Task id: " + id + " client id: " + clientId + " state: " + status.toString()
-                + " type: " + type.toString() + " params: "
-                + a + " " + b + " " + p + " " + m + " " + n + " result: " + result;
+                + " params: " + Arrays.toString(params) +
+                " result: " + result;
+    }
+}
+
+class TaskParam {
+    enum Type {
+        VALUE,
+        TASK_ID
+    }
+
+    long value;
+    int dependentTaskId;
+    Type type;
+
+    public TaskParam(Type type, long value) {
+        this.value = value;
+        this.dependentTaskId = (int)value;
+        this.type = type;
+    }
+
+    @Override
+    public String toString() {
+        return type.toString() + " : " + (type == Type.VALUE ? value : dependentTaskId);
     }
 }

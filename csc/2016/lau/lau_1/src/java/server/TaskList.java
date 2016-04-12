@@ -1,7 +1,6 @@
 package server;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,21 +22,18 @@ class TaskList {
         currentTaskId = new AtomicInteger(0);
     }
 
-    int addTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
+    int addTask(String clientId, TaskParam a, TaskParam b, TaskParam p, TaskParam m, long n) {
         int taskId;
         taskId = currentTaskId.getAndAdd(1);
-        Task task = new Task(taskId, type, clientId, a, b, p, m, n);
+        Task task = new Task(taskId, clientId, a, b, p, m, n);
         System.out.println("TaskList: submitting task " + task.toString());
 
-        if (task.type == Task.Type.INDEPENDENT) {
-            addIndependentTask(task);
-        } else {
-            addDependentTask(task);
-        }
+        prepareTask(task);
+        addTask(task);
         return taskId;
     }
 
-    long subscribeOnTaskResult(long taskId) {
+    long subscribeOnTaskResult(int taskId) {
         while (true) {
             Node currentNode = root.next;
             while (currentNode != end) {
@@ -73,7 +69,7 @@ class TaskList {
         return result;
     }
 
-    void addIndependentTask(Task task) {
+    void addTask(Task task) {
         Node newNode = new Node();
         newNode.task = task;
         Node currentNode = root;
@@ -88,21 +84,12 @@ class TaskList {
         insertNode(currentNode, newNode);
     }
 
-    void addDependentTask(Task task) {
-        List<Long> dependentTaskIds = Arrays.asList(task.a, task.b, task.p, task.m);
-        long[] dependentTasksResults = new long[dependentTaskIds.size() + 1];
-        dependentTasksResults[dependentTasksResults.length - 1] = task.n;
-
-        for (int i = 0; i < dependentTaskIds.size(); i++) {
-            dependentTasksResults[i] = subscribeOnTaskResult(dependentTaskIds.get(i));
+    void prepareTask(Task task) {
+        for (int i = 0; i < task.params.length; i++) {
+            if (task.params[i].type == TaskParam.Type.TASK_ID) {
+                task.params[i].value = subscribeOnTaskResult(task.params[i].dependentTaskId);
+            }
         }
-
-        task.valueA = dependentTasksResults[0];
-        task.valueB = dependentTasksResults[1];
-        task.valueP = dependentTasksResults[2];
-        task.valueM = dependentTasksResults[3];
-        task.n = dependentTasksResults[4]; // Redundant?
-        addIndependentTask(task);
     }
 
     void insertNode(Node currentNode, Node newNode) {
@@ -119,10 +106,10 @@ class TaskList {
         new Thread(() -> {
             Task task = node.task;
             long n = task.n;
-            long a = task.valueA;
-            long b = task.valueB;
-            long p = task.valueP;
-            long m = task.valueM;
+            long a = task.params[0].value;
+            long b = task.params[1].value;
+            long p = task.params[2].value;
+            long m = task.params[3].value;
             while (n-- > 0) {
                 b = (a * p + b) % m;
                 a = b;

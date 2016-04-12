@@ -68,14 +68,18 @@ public class Server {
 
     private void processSubmitTaskMessage(ServerRequest request, Socket socket){
         SubmitTask submitTask = request.getSubmit();
-        Task.Type type = getTaskType(submitTask);
-        long a = getTaskParamValue(submitTask.getTask().getA());
-        long b = getTaskParamValue(submitTask.getTask().getB());
-        long p = getTaskParamValue(submitTask.getTask().getP());
-        long m = getTaskParamValue(submitTask.getTask().getM());
+        TaskParam a = createParam(submitTask.getTask().getA());
+        TaskParam b = createParam(submitTask.getTask().getB());
+        TaskParam p = createParam(submitTask.getTask().getP());
+        TaskParam m = createParam(submitTask.getTask().getM());
+
         long n = submitTask.getTask().getN();
-        int taskId = submitTask(type, request.getClientId(), a, b, p, m, n);
+        int taskId = submitTask(request.getClientId(), a, b, p, m, n);
         sendSubmitTaskResponse(socket, taskId, request.getRequestId());
+    }
+
+    private TaskParam createParam(ProtocolProtos.Task.Param param) {
+        return new TaskParam(getParamType(param), getTaskParamValue(param));
     }
 
     private void sendSubmitTaskResponse(Socket socket, int taskId, long requestId) {
@@ -123,22 +127,14 @@ public class Server {
         long requestId = request.getRequestId();
         ListTasksResponse.Builder listTasksResponse = ListTasksResponse.newBuilder().setStatus(Status.OK);
         for (Task x : tasks) {
-            ProtocolProtos.Task.Builder taskBuilder;
-            if (x.type == Task.Type.INDEPENDENT) {
-                taskBuilder = ProtocolProtos.Task.newBuilder()
-                        .setA(ProtocolProtos.Task.Param.newBuilder().setValue(x.a))
-                        .setB(ProtocolProtos.Task.Param.newBuilder().setValue(x.b))
-                        .setP(ProtocolProtos.Task.Param.newBuilder().setValue(x.p))
-                        .setM(ProtocolProtos.Task.Param.newBuilder().setValue(x.m))
-                        .setN(x.n);
-            } else {
-                taskBuilder = ProtocolProtos.Task.newBuilder()
-                        .setA(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.a))
-                        .setB(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.b))
-                        .setP(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.p))
-                        .setM(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId((int)x.m))
-                        .setN(x.n);
-            }
+            ProtocolProtos.Task.Builder taskBuilder =
+                    ProtocolProtos.Task.newBuilder()
+                    .setA(getParamBuilder(x.params[0]))
+                    .setB(getParamBuilder(x.params[1]))
+                    .setP(getParamBuilder(x.params[2]))
+                    .setM(getParamBuilder(x.params[3]))
+                    .setN(x.n);
+
             ListTasksResponse.TaskDescription.Builder taskDescriptionBuilder
                     = ListTasksResponse.TaskDescription.newBuilder()
                     .setTaskId(x.id)
@@ -164,6 +160,14 @@ public class Server {
         }
     }
 
+    private ProtocolProtos.Task.Param.Builder getParamBuilder(TaskParam param) {
+        if (param.type == TaskParam.Type.VALUE) {
+            return ProtocolProtos.Task.Param.newBuilder().setValue(param.value);
+        } else {
+            return ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(param.dependentTaskId);
+        }
+    }
+
     private long getTaskParamValue(ProtocolProtos.Task.Param param) {
         if (param.hasValue()) {
             return param.getValue();
@@ -175,23 +179,23 @@ public class Server {
         throw new IllegalArgumentException("Param has unset value");
     }
 
-    private Task.Type getTaskType(SubmitTask submitTask) {
-        if (submitTask.getTask().getA().getParamValueCase().getNumber() == 0) {
+    private TaskParam.Type getParamType(ProtocolProtos.Task.Param param) {
+        if (param.getParamValueCase().getNumber() == 0) {
             throw new IllegalArgumentException("Task type unset");
         }
 
-        if (submitTask.getTask().getA().getParamValueCase().getNumber() == 1) {
-            return Task.Type.INDEPENDENT;
+        if (param.getParamValueCase().getNumber() == 1) {
+            return TaskParam.Type.VALUE;
         } else {
-            return Task.Type.DEPENDENT;
+            return TaskParam.Type.TASK_ID;
         }
     }
 
-    public int submitTask(Task.Type type, String clientId, long a, long b, long p, long m, long n) {
-        return taskList.addTask(type, clientId, a, b, p, m, n);
+    public int submitTask(String clientId, TaskParam a, TaskParam b, TaskParam p, TaskParam m, long n) {
+        return taskList.addTask(clientId, a, b, p, m, n);
     }
 
-    public long subscribeOnTaskResult(long taskId) {
+    public long subscribeOnTaskResult(int taskId) {
         return taskList.subscribeOnTaskResult(taskId);
     }
 

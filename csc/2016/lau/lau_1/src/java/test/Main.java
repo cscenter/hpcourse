@@ -78,6 +78,7 @@ public class Main {
 //                server.submitTask(Task.Type.INDEPENDENT, 1, 1, 1, 1, 1000);
 //            }).start();
 //        }
+        /*
         String clientId = "CLIENT_1_ID";
         final long[] id1 = new long[1];
         new Thread(() -> {
@@ -97,7 +98,7 @@ public class Main {
         final long[] id4 = new long[1];
         new Thread(() -> {
             id4[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 20, 7, 31, 1000); //15
-        }).start();
+        }).start();*/
 
         //long id8 = server.submitTask(Task.Type.DEPENDENT, id4[0], id2[0], id3[0], id1[0], 1000); //3
 
@@ -112,6 +113,8 @@ public class Main {
 //        System.out.println("Subscribe on result of " + id9 + " = " + server.subscribeOnTaskResult(id9));
         /*while (id3[0] == 0) {
         }*/
+
+        /*
         new Thread(() -> {
             try {
                 Thread.currentThread().sleep(10);
@@ -119,7 +122,7 @@ public class Main {
                 e.printStackTrace();
             }
             System.out.println("Subscribe on result of " + id3[0] + " = " + server.subscribeOnTaskResult(id3[0]));
-        }).start();
+        }).start();*/
     }
 
     static void testTasks() {
@@ -127,6 +130,7 @@ public class Main {
 //        for (int i = 0; i < 100; i++) {
 //            server.submitTask(Task.Type.INDEPENDENT, 1, 1, 1, 1, 1000);
 //        }
+        /*
         String clientId = "CLIENT_1_ID";
         long id1 = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 2, 7, 31, 1000); //5
         long id2 = server.submitTask(Task.Type.INDEPENDENT, clientId, 3, 5, 7, 31, 1000); //11
@@ -150,6 +154,6 @@ public class Main {
         }
         for (Task x : server.getTasksList()) {
             System.out.println(x.toString());
-        }
+        }*/
     }
 }
