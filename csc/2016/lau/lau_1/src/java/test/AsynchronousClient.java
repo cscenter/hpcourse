@@ -67,42 +67,28 @@ public class AsynchronousClient {
     }
 
     private void sendSubmitIndependentTaskRequest(Socket socket, long a, long b, long p, long m, long n) throws IOException {
-        System.out.println("Client: sending independent task request");
-        WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
-                ServerRequest.newBuilder().setSubmit(
-                        SubmitTask.newBuilder().setTask(
-                                ProtocolProtos.Task.newBuilder()
-                                        .setA(ProtocolProtos.Task.Param.newBuilder().setValue(a))
-                                        .setB(ProtocolProtos.Task.Param.newBuilder().setValue(b))
-                                        .setP(ProtocolProtos.Task.Param.newBuilder().setValue(p))
-                                        .setM(ProtocolProtos.Task.Param.newBuilder().setValue(m))
-                                        .setN(n)))
-                        .setClientId(id)
-                        .setRequestId(getCurrentRequestId())
-        ).build();
-        msg.writeDelimitedTo(socket.getOutputStream());
-        System.out.println("Client: independent task request sent");
+        System.out.println("Client: sending fully independent task request");
+        sendSubmitTaskRequest(socket,
+                new TaskParam(TaskParam.Type.VALUE, a),
+                new TaskParam(TaskParam.Type.VALUE, b),
+                new TaskParam(TaskParam.Type.VALUE, p),
+                new TaskParam(TaskParam.Type.VALUE, m),
+                n);
+        System.out.println("Client: fully independent task request sent");
     }
 
     private void sendSubmitDependentTaskRequest(Socket socket, int a, int b, int p, int m, int n) throws IOException {
-        System.out.println("Client: sending dependent task request");
-        WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
-                ServerRequest.newBuilder().setSubmit(
-                        SubmitTask.newBuilder().setTask(
-                                ProtocolProtos.Task.newBuilder()
-                                        .setA(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(a))
-                                        .setB(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(b))
-                                        .setP(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(p))
-                                        .setM(ProtocolProtos.Task.Param.newBuilder().setDependentTaskId(m))
-                                        .setN(n)))
-                        .setClientId(id)
-                        .setRequestId(getCurrentRequestId())
-        ).build();
-        msg.writeDelimitedTo(socket.getOutputStream());
-        System.out.println("Client: dependent task request sent");
+        System.out.println("Client: sending fully dependent task request");
+        sendSubmitTaskRequest(socket,
+                new TaskParam(TaskParam.Type.TASK_ID, a),
+                new TaskParam(TaskParam.Type.TASK_ID, b),
+                new TaskParam(TaskParam.Type.TASK_ID, p),
+                new TaskParam(TaskParam.Type.TASK_ID, m),
+                n);
+        System.out.println("Client: fully dependent task request sent");
     }
 
-    private void sendSubmitTaskRequest(Socket socket, TaskParam a, TaskParam b, TaskParam p, TaskParam m, int n) throws IOException {
+    private void sendSubmitTaskRequest(Socket socket, TaskParam a, TaskParam b, TaskParam p, TaskParam m, long n) throws IOException {
         System.out.println("Client: sending dependent task request");
         WrapperMessage msg = WrapperMessage.newBuilder().setRequest(
                 ServerRequest.newBuilder().setSubmit(
@@ -189,7 +175,7 @@ public class AsynchronousClient {
         if (param.hasValue()) {
             System.out.print("VALUE: " + param.getValue() + " ");
         } else if (param.hasDependentTaskId()) {
-            System.out.print("VALUE: " + param.getDependentTaskId() + " ");
+            System.out.print("TASK_ID: " + param.getDependentTaskId() + " ");
         } else {
             throw new IllegalStateException("Malformed task parameter");
         }

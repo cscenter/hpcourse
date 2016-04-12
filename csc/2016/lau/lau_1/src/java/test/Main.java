@@ -7,9 +7,9 @@ import java.io.IOException;
 public class Main {
     private static int port = 5276;
     public static void main(String[] args) {
-        //testNetwork();
+        testNetwork();
         //printTestResults();
-        testTasksParallel();
+        //testTasksParallel();
     }
 
     private static void testNetwork() {
@@ -206,25 +206,11 @@ public class Main {
         testResult(server, id9, 3);
         testResult(server, id10, 7);
         testResult(server, id11, 5);
-        System.out.println("Subscribe on result of " + id1 + " = " + server.subscribeOnTaskResult(id1));
-        System.out.println("Subscribe on result of " + id2 + " = " + server.subscribeOnTaskResult(id2));
-        System.out.println("Subscribe on result of " + id3 + " = " + server.subscribeOnTaskResult(id3));
-        System.out.println("Subscribe on result of " + id4 + " = " + server.subscribeOnTaskResult(id4));
-        System.out.println("Subscribe on result of " + id5 + " = " + server.subscribeOnTaskResult(id5));
-        System.out.println("Subscribe on result of " + id9 + " = " + server.subscribeOnTaskResult(id9));
-        System.out.println("Subscribe on result of " + id10 + " = " + server.subscribeOnTaskResult(id10));
-        /*while (id3[0] == 0) {
-        }*/
 
-        /*
-        new Thread(() -> {
-            try {
-                Thread.currentThread().sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            System.out.println("Subscribe on result of " + id3[0] + " = " + server.subscribeOnTaskResult(id3[0]));
-        }).start();*/
+        for (Task task : server.getTasksList()) {
+            System.out.println(task);
+        }
+
     }
 
     private static void testResult(Server server, int taskId, long result) {
