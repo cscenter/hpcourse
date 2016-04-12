@@ -21,7 +21,6 @@ public class SynchronizedHashMap<K, V> {
                 throw new RuntimeException(String.format("Map does not contains key %s", key.toString()));
             }
             value = map.get(key);
-            map.notify();
         }
         return value;
     }
@@ -32,7 +31,6 @@ public class SynchronizedHashMap<K, V> {
         }
         synchronized (map) {
             map.put(key, value);
-            map.notify();
         }
     }
 
