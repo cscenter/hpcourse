@@ -51,6 +51,21 @@ class ServerTest {
         Assert.assertEquals(response.status, CommunicationProtos.Status.OK)
     }
 
+    @Test(timeout = 100000)
+    fun subscribe_test() {
+        val client = TaskWorker(port, "first-client")
+        val submitResponse = client.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong() / 4)
+        val response = client.subscribe(submitResponse.submittedTaskId)
+        Assert.assertTrue(response.status == CommunicationProtos.Status.OK)
+    }
+
+    /*@Test
+    fun dependent_task_task() {
+        val client = TaskWorker(port, "first-client")
+        val submitResponse = client.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong())
+        client.submit(param(100), param(15), param(23), dependentTask(submitResponse.submittedTaskId), Integer.MAX_VALUE.toLong())
+    }*/
+
     fun param(p: Long): CommunicationProtos.Task.Param {
         return CommunicationProtos.Task.Param.newBuilder()
                 .setValue(p)

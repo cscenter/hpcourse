@@ -46,7 +46,7 @@ class TaskWorker(private val port: Int, private val clientId: String) {
         val subscribeRequest: CommunicationProtos.Subscribe = CommunicationProtos.Subscribe.newBuilder()
                 .setTaskId(taskId)
                 .build()
-        val request = CommunicationProtos.ServerRequest.newBuilder()
+        val request = getRequestBuilder()
                 .setSubscribe(subscribeRequest)
                 .build()
         val response = writeRequestAndGetResponse(request)
