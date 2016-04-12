@@ -51,10 +51,11 @@ public class Main {
         calculateTask(1, 3, 5, 15, 1000);  //3
         calculateTask(3, 4, 3, 15, 1000);  //7
         calculateTask(8, 5, 7, 3, 1000);  //2
-        calculateTask(8, 3, 7, 5, 1000);  //?
         calculateTask(8, 5, 3, 7, 1000);  //1
         calculateTask(5, 3, 7, 8, 1000);  //0
         calculateTask(8, 3, 7, 5, 1000);  //3
+        calculateTask(8, 5, 3, 7, 1000);  //1
+        calculateTask(8, 3, 5, 7, 1000);  //6
 
         calculateTask(3, 1, 4, 21, 1000001);  //19
         calculateTask(2, 5, 9, 21, 1000001);  //8
@@ -79,30 +80,6 @@ public class Main {
 //                server.submitTask(Task.Type.INDEPENDENT, 1, 1, 1, 1, 1000);
 //            }).start();
 //        }
-        /*
-        String clientId = "CLIENT_1_ID";
-        final long[] id1 = new long[1];
-        new Thread(() -> {
-            id1[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 2, 7, 31, 1000); //5
-        }).start();
-
-        final long[] id2 = new long[1];
-        new Thread(() -> {
-            id2[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 3, 5, 7, 31, 1000); //11
-        }).start();
-
-        final long[] id3 = new long[1];
-        new Thread(() -> {
-            id3[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 12, 4, 7, 31, 1000); //11
-        }).start();
-
-        final long[] id4 = new long[1];
-        new Thread(() -> {
-            id4[0] = server.submitTask(Task.Type.INDEPENDENT, clientId, 1, 20, 7, 31, 1000); //15
-        }).start();*/
-
-        //long id8 = server.submitTask(Task.Type.DEPENDENT, id4[0], id2[0], id3[0], id1[0], 1000); //3
-
 
         String clientId = "ClientTest1";
 
@@ -194,7 +171,6 @@ public class Main {
                 new TaskParam(TaskParam.Type.VALUE, 21),
                 1000); //5
 
-        //System.out.println(id1 + " " + id2 + " " + id3 + " " + id4 + " " + id5 + " " + id6);
         testResult(server, id1, 5);
         testResult(server, id2, 11);
         testResult(server, id3, 11);
