@@ -17,8 +17,8 @@ public class SynchronizedHashMap<K, V> {
         }
         final V value;
         synchronized (map) {
-            while (!map.containsKey(key)) {
-                map.wait();
+            if (!map.containsKey(key)) {
+                throw new RuntimeException(String.format("Map does not contains key %s", key.toString()));
             }
             value = map.get(key);
             map.notify();
