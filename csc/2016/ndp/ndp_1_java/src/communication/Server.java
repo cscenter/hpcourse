@@ -32,7 +32,7 @@ public class Server extends Thread {
             port = Integer.parseInt(args[1]);
         } else {
             host = "localhost";
-            port = 15;
+            port = 7999;
         }
         ServerSocket socket = new ServerSocket(port, 0, InetAddress.getByName(host));
         while (true) {

@@ -21,7 +21,7 @@ public class Client extends Thread {
             serverPort = Integer.parseInt(args[1]);
         } else {
             serverHost = "localhost";
-            serverPort = 15;
+            serverPort = 7999;
         }
 
         new Client("first", 10, "SubmitTask");
