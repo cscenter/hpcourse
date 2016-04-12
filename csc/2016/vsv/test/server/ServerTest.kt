@@ -1,6 +1,7 @@
 package server
 
 import communication.CommunicationProtos
+import org.junit.After
 import org.junit.Assert
 import org.junit.ClassRule
 import org.junit.Test
@@ -22,15 +23,32 @@ class ServerTest {
         val server = ServerResource(port)
     }
 
+    @After
+    fun separate_tests_outputs() {
+        println("------------------------------")
+    }
+
 
     @Test
     fun submit_task_test() {
-        println("haha")
         val client = TaskWorker(port, "first-client")
-        client.submit(param(100), param(15), param(23), param(1111), 100)
+        val str = client.submit(param(100), param(15), param(23), param(11), 10)
+        Thread.sleep(1000)
         val response = client.list()
         Assert.assertEquals(response.status, CommunicationProtos.Status.OK)
-        Assert.assertEquals(response.tasksList[0].result, calculate(100, 15, 23, 1111, 100))
+        for (task in response.tasksList) {
+            if (str.submittedTaskId == task.taskId) {
+                Assert.assertEquals(calculate(100, 15, 23, 11, 10), task.result)
+            }
+        }
+    }
+
+    @Test(timeout = 1000)
+    fun list_running_task_test() {
+        val client = TaskWorker(port, "first-client")
+        client.submit(param(100), param(15), param(23), param(11), Long.MAX_VALUE)
+        val response = client.list()
+        Assert.assertEquals(response.status, CommunicationProtos.Status.OK)
     }
 
     fun param(p: Long): CommunicationProtos.Task.Param {
