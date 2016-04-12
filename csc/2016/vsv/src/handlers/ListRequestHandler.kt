@@ -13,11 +13,13 @@ class ListRequestHandler(private val myReceivedTasks: MutableMap<Int, Communicat
                          completedTasks: MutableMap<Int, Long>): CommunicationProtos.ListTasksResponse {
         val tasksResponseBuilder = CommunicationProtos.ListTasksResponse.newBuilder();
         synchronized(receivedTasks, {
+            println("List command blocked received task list")
             for ((id, request) in receivedTasks) {
                 val result = if (completedTasks.containsKey(id)) completedTasks.get(id) else null
                 tasksResponseBuilder.addTasks(getTaskDescription(id, request, result))
             }
         })
+        println("List command released  received task list lock")
         tasksResponseBuilder.setStatus(CommunicationProtos.Status.OK)
         return tasksResponseBuilder.build()
     }

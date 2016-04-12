@@ -6,6 +6,7 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
 
 class RequestExecutorService {
 
@@ -13,7 +14,7 @@ class RequestExecutorService {
     private val completedTasks: MutableMap<Int, Long> = LinkedHashMap()
     private val runningTasksLock: MutableMap<Int, Object> = LinkedHashMap()
 
-    private var lastId: Int = 0
+    private var lastId = AtomicInteger(0)
 
     fun execute(clientSocket: Socket) {
         invokeInNewThread {
@@ -58,25 +59,34 @@ class RequestExecutorService {
         val id = getNextId()
 
         invokeInNewThread {
+            println("Start calculation $id")
             //register task, create lock
             val monitor = Object()
             synchronized(receivedTasks) {
+                println("Submit task blocked received task")
                 receivedTasks[id] = request
                 runningTasksLock[id] = Object()
             }
+            println("Submit task released received task")
+
 
             val handler = SubmitRequestHandler(id, { id -> waitAndGet(id) })
             val taskResult = handler.handle(request.submit)
-
+            println("Got result for $id - $taskResult")
             if (taskResult != null) {
+                println("Write result in completed task list")
                 completedTasks.put(id, taskResult)
             }
 
             synchronized(monitor, {
+                println("Submit task blocked monitor for $id task")
                 println("Notify all waiting for $id")
                 monitor.notifyAll()
             })
+            println("Submit task released monitor for $id task")
+
             runningTasksLock.remove(id)
+            println("$id calculation has finished")
         }
 
         return CommunicationProtos.SubmitTaskResponse.newBuilder()
@@ -127,9 +137,7 @@ class RequestExecutorService {
     }
 
     private fun getNextId(): Int {
-        synchronized(lastId, {
-            return ++lastId
-        })
+        return lastId.incrementAndGet()
     }
 
     private fun waitAndGet(taskId: Int): Long? {
