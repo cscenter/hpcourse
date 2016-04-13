@@ -8,7 +8,7 @@ import java.util.concurrent.TimeoutException;
  * Created by Helen on 10.04.2016.
  */
 public class Server {
-    private int port = 54321;
+    private int port = 12345;
     private TaskManager taskManager = new TaskManager();
     private boolean executing = true;
     public Server (){}
