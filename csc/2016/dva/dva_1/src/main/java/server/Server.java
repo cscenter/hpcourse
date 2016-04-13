@@ -6,7 +6,7 @@ import java.io.*;
 public class Server {
     public static void main(String[] args) throws IOException {
 
-        int portNumber = 8889;
+        int portNumber = 1234;
         if (args.length == 1) {
             portNumber = Integer.parseInt(args[0]);
         }
