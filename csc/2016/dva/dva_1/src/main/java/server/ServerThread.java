@@ -89,19 +89,25 @@ class ServerThread extends Thread {
         if (request.hasSubmit()) {
             runAndWriteToSocketAsync(() -> {
                 SubmitTaskResponse response = processSubmitTask(request.getSubmit());
-                return ServerResponse.newBuilder().setSubmitResponse(response);
+                return ServerResponse.newBuilder()
+                        .setSubmitResponse(response)
+                        .setRequestId(request.getRequestId());
             });
         }
         if (request.hasSubscribe()) {
             runAndWriteToSocketAsync(() -> {
                 SubscribeResponse response = processSubscribe(request.getSubscribe());
-                return ServerResponse.newBuilder().setSubscribeResponse(response);
+                return ServerResponse.newBuilder()
+                        .setSubscribeResponse(response)
+                        .setRequestId(request.getRequestId());
             });
         }
         if (request.hasList()) {
             runAndWriteToSocketAsync(() -> {
                 ListTasksResponse response = processListTasks(request.getList(), request.getClientId());
-                return ServerResponse.newBuilder().setListResponse(response);
+                return ServerResponse.newBuilder()
+                        .setListResponse(response)
+                        .setRequestId(request.getRequestId());
             });
         }
     }
