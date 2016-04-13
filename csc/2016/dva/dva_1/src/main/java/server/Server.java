@@ -6,12 +6,10 @@ import java.io.*;
 public class Server {
     public static void main(String[] args) throws IOException {
 
-        if (args.length != 1) {
-            System.err.println("Usage: java server.Server <port number>");
-            System.exit(1);
+        int portNumber = 8889;
+        if (args.length == 1) {
+            portNumber = Integer.parseInt(args[0]);
         }
-
-        int portNumber = Integer.parseInt(args[0]);
 
         final TaskManager taskManager = new TaskManager();
 
