@@ -1,7 +1,7 @@
 package handlers
 
 import communication.CommunicationProtos
-import handlers.requests.TaskResultToResponseBuilder
+import handlers.TaskResultToResponseBuilder
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
