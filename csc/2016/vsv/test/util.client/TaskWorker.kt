@@ -55,11 +55,12 @@ class TaskWorker(private val port: Int, private val clientId: String) {
 
     private fun writeRequestAndGetResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
         //TODO: close then
-        val socket = Socket(localhost, port);
-        socket.outputStream.write(request.serializedSize)
-        request.writeTo(socket.outputStream);
-        val response = getResponse(socket.inputStream)
-        return response
+        Socket(localhost, port).use {
+            it.outputStream.write(request.serializedSize)
+            request.writeTo(it.outputStream);
+            val response = getResponse(it.inputStream)
+            return response
+        }
     }
 
     fun toParam(p: CommunicationProtos.Task.Param): CommunicationProtos.Task.Param {

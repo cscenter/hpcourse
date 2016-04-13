@@ -20,7 +20,6 @@ class RequestExecutorService {
         invokeInNewThread {
 
             val request = getRequest(clientSocket.inputStream)
-            // clientSocket.inputStream.close()
 
             val response = handleRequest(request)
             if (!clientSocket.isClosed) {
