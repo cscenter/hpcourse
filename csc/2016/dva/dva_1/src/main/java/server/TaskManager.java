@@ -40,7 +40,7 @@ class TaskManager {
         return id;
     }
 
-    Protocol.Task getTask(int id) {
+    Protocol.Task getTask(int id) throws IllegalArgumentException {
         TaskThread t = getTaskThread(id);
 
         Protocol.Task.Builder builder = Protocol.Task.newBuilder();
@@ -62,7 +62,7 @@ class TaskManager {
     }
 
     // Gets result of task and adds tasks to
-    long getResult(int taskId) {
+    long getResult(int taskId) throws IllegalArgumentException {
         Long result;
         synchronized (results) {
             result = results.get(taskId);
@@ -79,6 +79,18 @@ class TaskManager {
         }
 
         return result;
+    }
+
+    boolean hasResult(int taskId) {
+        synchronized (results) {
+            return results.containsKey(taskId);
+        }
+    }
+
+    Collection<Integer> getAllTasks() {
+        synchronized (tasks) {
+            return tasks.keySet();
+        }
     }
 
     /**

@@ -155,12 +155,14 @@ class ServerThread extends Thread {
     private ListTasksResponse processListTasks(ListTasks listTasks, String clientId) {
         Protocol.ListTasksResponse.Builder response = Protocol.ListTasksResponse.newBuilder();
         try {
-            for (Integer id : taskManager.getRunningTasks()) {
+            for (Integer id : taskManager.getAllTasks()) {
                 Protocol.ListTasksResponse.TaskDescription.Builder taskDescBuilder
                         = Protocol.ListTasksResponse.TaskDescription.newBuilder();
                 taskDescBuilder.setClientId(clientId)
                         .setTaskId(id)
                         .setTask(taskManager.getTask(id));
+                if (taskManager.hasResult(id))
+                    taskDescBuilder.setResult(taskManager.getResult(id));
 
                 response.addTasks(taskDescBuilder);
             }
