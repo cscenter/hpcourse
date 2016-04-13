@@ -1,9 +1,7 @@
 package server;
 
-import com.google.protobuf.CodedOutputStream;
 import communication.Protocol;
 import communication.Protocol.*;
-import com.google.protobuf.CodedInputStream;
 
 import java.net.*;
 import java.io.*;
@@ -28,8 +26,8 @@ class ServerThread extends Thread {
             try {
                 WrapperMessage inputMessage;
                 try (InputStream input = socket.getInputStream()) {
-                    inputMessage = readMessage(input);
-                    if (!inputMessage.hasRequest())
+                    inputMessage = WrapperMessage.parseDelimitedFrom(input);
+                    if (inputMessage.hasRequest())
                         throw new IOException("Message does not contain request");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -59,26 +57,6 @@ class ServerThread extends Thread {
         }
     }
 
-    private static WrapperMessage readMessage(InputStream input) throws IOException {
-        CodedInputStream codedInputStream = CodedInputStream.newInstance(input);
-        int messageSize = codedInputStream.readRawVarint32();
-        if (messageSize <= 0) {
-            throw new IOException("messageSize <= 0");
-        }
-
-        byte[] data = new byte[messageSize];
-        if (input.read(data) < messageSize) {
-            throw new IOException("Failed to read message bytes");
-        }
-        return WrapperMessage.parseFrom(data);
-    }
-
-    private static void writeMessage(WrapperMessage message, OutputStream output) throws IOException {
-        CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(output);
-        codedOutputStream.writeRawVarint32(message.getSerializedSize());
-        message.writeTo(codedOutputStream);
-    }
-
 
     /**
      * Calls {@code supplier} in separate thread and updates {@code activeCounter}.
@@ -92,7 +70,7 @@ class ServerThread extends Thread {
             WrapperMessage message = WrapperMessage.newBuilder().setResponse(supplier.get()).build();
             synchronized (this.writeLock) {
                 try (OutputStream output = socket.getOutputStream()) {
-                    writeMessage(message, output);
+                    message.writeDelimitedTo(output);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
