@@ -10,9 +10,7 @@ public class Main
 {
     public static void main(String[] args) throws IOException, InterruptedException
     {
-        ConnectionsManager srv = new ConnectionsManager(5555);
-        Thread t = new Thread(srv, "--- Task manager");
-        t.start();
-        t.join();
+        Server srv = new Server(5555);
+        srv.start();
     }
 }

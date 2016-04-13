@@ -7,11 +7,14 @@ import communication.Protocol.Task;
 import communication.Protocol.ServerRequest;
 import communication.Protocol.ServerResponse;
 import communication.Protocol.Subscribe;
+import communication.Protocol.SubscribeResponse;
+import communication.Protocol.SubmitTaskResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
@@ -26,14 +29,14 @@ public class TaskManager implements Runnable
 {
     private final Logger logger = LoggerFactory.getLogger(TaskManager.class);
     private ConnectionsManager connectionsManager;
-    private TaskSolverPool solverPool;
+    private TaskSolver solverPool;
 
     private final AtomicInteger idGenerator = new AtomicInteger();
 
     // id -> task
     private final Map<Integer, TaskHolder> tasks = new HashMap<>();
 
-    public TaskManager(ConnectionsManager connectionsManager, TaskSolverPool solverPool)
+    public TaskManager(ConnectionsManager connectionsManager, TaskSolver solverPool)
     {
         this.connectionsManager = connectionsManager;
         this.solverPool = solverPool;
@@ -64,75 +67,136 @@ public class TaskManager implements Runnable
         }
     }
 
+    /**
+     *  Handles message from client. Doesn't support multiple requests in one message.
+     * @param client
+     * @throws IOException
+     */
     private void handleClient(Socket client) throws IOException
     {
         ServerRequest request = ServerRequest.parseFrom(client.getInputStream());
         if(request.hasSubmit())
         {
-            Task task = request.getSubmit().getTask();
-
-            int id = idGenerator.incrementAndGet();
-
-            TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
-            solverPool.solveTask(holder);
+            handleSubmitTask(request, client.getOutputStream());
+            return;
         }
 
         if(request.hasList())
         {
-            ListTasksResponse.Builder listResponse = ListTasksResponse.newBuilder();
-
-            synchronized (tasks)
-            {
-                for (TaskHolder h : tasks.values())
-                {
-                    TaskDescription.Builder td = TaskDescription.newBuilder()
-                            .setTaskId(h.getId())
-                            .setTask(h.getTask());
-
-                    if(h.isDone())
-                        td = td.setResult(h.getResult());
-
-                    listResponse.addTasks(td);
-                }
-            }
-
-            listResponse.setStatus(Protocol.Status.OK);
-
-            ServerResponse response = ServerResponse.newBuilder()
-                    .setListResponse(listResponse)
-                    .build();
-
-
-            response.writeTo(client.getOutputStream());
+            handleListTasks(request, client.getOutputStream());
+            return;
         }
 
         if(request.hasSubscribe())
         {
-            Subscribe subscribe = request.getSubscribe();
-            String name = String.format("Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
+            handleSubscription(request, client.getOutputStream());
+        }
+    }
 
-            //create thread waiting notification for task completion
-            new Thread(() -> {
-                TaskHolder holder;
-                synchronized (tasks)
+    private void handleSubmitTask(ServerRequest request, OutputStream clientOut)
+    {
+        Task task = request.getSubmit().getTask();
+
+        int id = idGenerator.incrementAndGet();
+
+        SubmitTaskResponse.Builder r = SubmitTaskResponse.newBuilder()
+                .setStatus(Protocol.Status.OK)
+                .setSubmittedTaskId(id);
+
+        ServerResponse response = ServerResponse.newBuilder()
+                .setRequestId(request.getRequestId())
+                .setSubmitResponse(r)
+                .build();
+
+        try
+        {
+            response.writeTo(clientOut);
+        } catch (IOException e)
+        {
+            logger.error("Error on SubmitTask response.\n{}", e.getMessage());
+        }
+
+
+        TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
+        solverPool.solveTask(holder);
+    }
+
+    private void handleListTasks(ServerRequest request, OutputStream clientOut)
+    {
+        ListTasksResponse.Builder listResponse = ListTasksResponse.newBuilder();
+
+        synchronized (tasks)
+        {
+            for (TaskHolder h : tasks.values())
+            {
+                TaskDescription.Builder td = TaskDescription.newBuilder()
+                        .setTaskId(h.getId())
+                        .setTask(h.getTask());
+
+                if(h.isDone())
+                    td = td.setResult(h.getResult());
+
+                listResponse.addTasks(td);
+            }
+        }
+
+        listResponse.setStatus(Protocol.Status.OK);
+
+        ServerResponse response = ServerResponse.newBuilder()
+                .setRequestId(request.getRequestId())
+                .setListResponse(listResponse)
+                .build();
+
+        try
+        {
+            response.writeTo(clientOut);
+        } catch (IOException e)
+        {
+            logger.error("Error on listTasks response.\n{}", e.getMessage());
+        }
+    }
+
+    private void handleSubscription(ServerRequest request, OutputStream clientOut)
+    {
+        Subscribe subscribe = request.getSubscribe();
+        String name = String.format("Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
+
+        new Thread(() -> {
+            TaskHolder holder;
+            synchronized (tasks)
+            {
+                holder = tasks.get(subscribe.getTaskId());
+            }
+            synchronized (holder.lock)
+            {
+                try
                 {
-                    holder = tasks.get(subscribe.getTaskId());
-                }
-                synchronized (holder.lock)
+                    //waiting for task completion
+                    holder.lock.wait();
+
+                    SubscribeResponse.Builder s = SubscribeResponse.newBuilder()
+                            .setValue(holder.getResult())
+                            .setStatus(Protocol.Status.OK);
+
+                    ServerResponse response = ServerResponse.newBuilder()
+                            .setRequestId(request.getRequestId())
+                            .setSubscribeResponse(s)
+                            .build();
+
+                    response.writeTo(clientOut);
+
+                } catch (InterruptedException e)
                 {
-                    try
-                    {
-                        holder.wait();
-                    } catch (InterruptedException e)
-                    {
-                        logger.info(
+                    logger.info(
                             "Subscription ({}, {}) interrupted",
                             request.getClientId(),
                             subscribe.getTaskId()
-                        );
-                    }
+                    );
+                } catch (IOException e)
+                {
+                    logger.error("Error on subscription response.\n{}", e.getMessage());
                 }
-            }, name).start();
-        }
+            }
+        }, name).start();
     }
 }

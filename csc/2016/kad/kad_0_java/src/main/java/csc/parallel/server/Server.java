@@ -10,17 +10,18 @@ public class Server
 {
     private ConnectionsManager connectionsManager;
     private TaskManager taskManager;
-    private TaskSolverPool solverPool;
+    private TaskSolver solverPool;
 
     public Server(int port) throws IOException
     {
         connectionsManager = new ConnectionsManager(port);
-        solverPool = new TaskSolverPool();
+        solverPool = new TaskSolver();
         taskManager = new TaskManager(connectionsManager, solverPool);
     }
 
     public void start()
     {
+        // TODO: interruption
         new Thread(connectionsManager).start();
         new Thread(taskManager).start();
     }
