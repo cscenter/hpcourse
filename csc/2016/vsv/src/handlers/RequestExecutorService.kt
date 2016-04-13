@@ -21,7 +21,7 @@ class RequestExecutorService {
 
             val request = getRequest(clientSocket.inputStream)
 
-            val response = handleRequest(request)
+            val response = if (request != null) handleRequest(request) else buildErrorResponse(null)
             if (!clientSocket.isClosed) {
                 sendResponse(clientSocket.outputStream, response)
             }
@@ -48,10 +48,12 @@ class RequestExecutorService {
         return response
     }
 
-    private fun buildErrorResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
-        return CommunicationProtos.ServerResponse.newBuilder()
-                .setRequestId(request.requestId)
-                .build()
+    private fun buildErrorResponse(request: CommunicationProtos.ServerRequest?): CommunicationProtos.ServerResponse {
+        val response = CommunicationProtos.ServerResponse.newBuilder()
+        if (request != null) {
+            response.requestId = request.requestId
+        }
+        return response.build()
     }
 
     private fun handleSubmit(request: CommunicationProtos.ServerRequest): CommunicationProtos.SubmitTaskResponse {
@@ -122,15 +124,23 @@ class RequestExecutorService {
         task.start()
     }
 
-    private fun getRequest(ism: InputStream): CommunicationProtos.ServerRequest {
+    private fun getRequest(ism: InputStream): CommunicationProtos.ServerRequest? {
         val size = ism.read()
         val data = ByteArray(size)
         ism.read(data)
-        return CommunicationProtos.ServerRequest.parseFrom(data)
+
+        val wrappedMessage = CommunicationProtos.WrapperMessage.parseFrom(data)
+        if (!wrappedMessage.hasRequest()) {
+            return null
+        }
+        return wrappedMessage.request
     }
 
     private fun sendResponse(osm: OutputStream, response: CommunicationProtos.ServerResponse) {
-        response.writeDelimitedTo(osm)
+        val wm = CommunicationProtos.WrapperMessage.newBuilder()
+                .setResponse(response)
+                .build()
+        wm.writeDelimitedTo(osm)
     }
 
     private fun getNextId(): Int {
