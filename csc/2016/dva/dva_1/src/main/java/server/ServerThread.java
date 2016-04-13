@@ -6,8 +6,11 @@ import communication.Protocol.*;
 import java.net.*;
 import java.io.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 class ServerThread extends Thread {
+    private static final Logger logger = Logger.getLogger(Server.class.getName());
     private final Socket socket;
     private final TaskManager taskManager;
 
@@ -21,6 +24,7 @@ class ServerThread extends Thread {
 
     @Override
     public void run() {
+        logger.info("ServerThread " + this.getName() + " started");
         while (true) {
             // Read message and start processing
             try {
@@ -30,13 +34,15 @@ class ServerThread extends Thread {
                     if (!inputMessage.hasRequest())
                         throw new IOException("Message does not contain request");
                 } catch (Exception e) {
+                    logger.log(Level.WARNING, this.getName() + " failed to read message", e);
                     e.printStackTrace();
                     break;
                 }
                 ServerRequest request = inputMessage.getRequest();
+                logger.info(this.getName() + " received request " + request.toString());
                 processServerRequestAsync(request);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.log(Level.WARNING, this.getName() + "", e);
             }
         }
 
@@ -65,6 +71,7 @@ class ServerThread extends Thread {
      * @param supplier is supplier of ServerResponse
      */
     private void runAndWriteToSocketAsync(java.util.function.Supplier<ServerResponse.Builder> supplier) {
+        logger.info(this.getName() + " start runAndWriteToSocketAsync()");
         activeCounter.incrementAndGet();
         new Thread(() -> {
             WrapperMessage message = WrapperMessage.newBuilder().setResponse(supplier.get()).build();
@@ -72,7 +79,10 @@ class ServerThread extends Thread {
                 try (OutputStream output = socket.getOutputStream()) {
                     message.writeDelimitedTo(output);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.log(Level.WARNING
+                            , this.getName() + " failed to write response, requestId="
+                                    + message.getResponse().getRequestId()
+                            , e);
                 }
             }
             synchronized (activeCounter) {
