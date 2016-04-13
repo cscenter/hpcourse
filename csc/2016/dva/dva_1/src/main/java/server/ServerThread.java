@@ -17,47 +17,49 @@ class ServerThread extends Thread {
     private final AtomicInteger activeCounter = new AtomicInteger(0);
     private final Object writeLock = new Object();
 
-    ServerThread(Socket socket, TaskManager taskManager) {
+    private final OutputStream output;
+
+    ServerThread(Socket socket, TaskManager taskManager) throws IOException {
         this.socket = socket;
         this.taskManager = taskManager;
+        output = socket.getOutputStream();
     }
 
     @Override
     public void run() {
         logger.info("ServerThread " + this.getName() + " started");
-        while (true) {
-            // Read message and start processing
-            try {
-                WrapperMessage inputMessage;
-                try (InputStream input = socket.getInputStream()) {
-                    inputMessage = WrapperMessage.parseDelimitedFrom(input);
-                    if (!inputMessage.hasRequest())
-                        throw new IOException("Message does not contain request");
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, this.getName() + " failed to read message", e);
-                    e.printStackTrace();
-                    break;
-                }
-                ServerRequest request = inputMessage.getRequest();
-                logger.info(this.getName() + " received request " + request.toString());
-                processServerRequestAsync(request);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, this.getName() + "", e);
-            }
-        }
-
-        // Wait for unfinished tasks
-        synchronized (activeCounter) {
-            while (activeCounter.get() > 0) {
+        try (InputStream input = socket.getInputStream()) {
+            while (true) {
+                // Read message and start processing
                 try {
-                    activeCounter.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    WrapperMessage inputMessage;
+                    try {
+                        inputMessage = WrapperMessage.parseDelimitedFrom(input);
+                        if (!inputMessage.hasRequest())
+                            throw new IOException("Message does not contain request");
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, this.getName() + " failed to read message", e);
+                        e.printStackTrace();
+                        break;
+                    }
+                    ServerRequest request = inputMessage.getRequest();
+                    logger.info(this.getName() + " received request " + request.toString());
+                    processServerRequestAsync(request);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, this.getName() + "", e);
                 }
             }
-        }
-        try {
-            socket.close();
+
+            // Wait for unfinished tasks
+            synchronized (activeCounter) {
+                while (activeCounter.get() > 0) {
+                    try {
+                        activeCounter.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -76,7 +78,7 @@ class ServerThread extends Thread {
         new Thread(() -> {
             WrapperMessage message = WrapperMessage.newBuilder().setResponse(supplier.get()).build();
             synchronized (this.writeLock) {
-                try (OutputStream output = socket.getOutputStream()) {
+                try {
                     message.writeDelimitedTo(output);
                 } catch (IOException e) {
                     logger.log(Level.WARNING
