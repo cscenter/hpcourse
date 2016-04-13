@@ -1,116 +1,138 @@
 package csc.parallel.server;
 
+import communication.Protocol;
+import communication.Protocol.ListTasksResponse;
+import communication.Protocol.ListTasksResponse.TaskDescription;
 import communication.Protocol.Task;
+import communication.Protocol.ServerRequest;
+import communication.Protocol.ServerResponse;
+import communication.Protocol.Subscribe;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * @author Andrey Kokorev
- *         Created on 30.03.2016.
+ *         Created on 13.04.2016.
  */
 public class TaskManager implements Runnable
 {
     private final Logger logger = LoggerFactory.getLogger(TaskManager.class);
-    private long id = 0;
-    private int port;
-    private ServerSocket socket;
-    private final List<Socket> clients = new ArrayList<>();
-    private final Queue<Task> taskQueue = new ArrayDeque<>();
-    // id -> result
-    private final Map<Long, Long> results = new HashMap<>();
+    private ConnectionsManager connectionsManager;
+    private TaskSolverPool solverPool;
 
-    public TaskManager(int port) throws IOException
+    private final AtomicInteger idGenerator = new AtomicInteger();
+
+    // id -> task
+    private final Map<Integer, TaskHolder> tasks = new HashMap<>();
+
+    public TaskManager(ConnectionsManager connectionsManager, TaskSolverPool solverPool)
     {
-        this.port = port;
-    }
-
-    private void listenConnections()
-    {
-        //listening forever
-        while(true)
-        {
-            try
-            {
-                handleClient(socket.accept());
-            } catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void handleClient(Socket client) throws IOException
-    {
-        synchronized (clients)
-        {
-            clients.add(client);
-        }
-
-        Task t = Task.parseFrom(client.getInputStream());
-
-        synchronized (taskQueue)
-        {
-            taskQueue.add(t);
-        }
+        this.connectionsManager = connectionsManager;
+        this.solverPool = solverPool;
     }
 
     @Override
     public void run()
     {
-        logger.info("I'm up");
-        try
-        {
-            socket = new ServerSocket(port);
-            Thread wm = new Thread(new WorkerManager(), "--- Worker manager");
-            wm.start();
+        List<Socket> clients = connectionsManager.getClients();
 
-            listenConnections();
-        } catch (IOException e)
+        while (true)
         {
-            e.printStackTrace();
+            for (Socket client : clients)
+            {
+                try
+                {
+                    if(client.getInputStream().available() == 0)
+                    {
+                        continue;
+                    }
+                    handleClient(client);
+                } catch (IOException e)
+                {
+                    logger.error(e.getMessage());
+                }
+            }
+
         }
     }
 
-    private class WorkerManager implements Runnable
+    private void handleClient(Socket client) throws IOException
     {
-        @Override
-        public void run()
+        ServerRequest request = ServerRequest.parseFrom(client.getInputStream());
+        if(request.hasSubmit())
         {
-            logger.info("I'm up");
+            Task task = request.getSubmit().getTask();
 
-            Task t = null;
-            while(true)
+            int id = idGenerator.incrementAndGet();
+
+            TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
+            solverPool.solveTask(holder);
+        }
+
+        if(request.hasList())
+        {
+            ListTasksResponse.Builder listResponse = ListTasksResponse.newBuilder();
+
+            synchronized (tasks)
             {
-                synchronized (taskQueue)
+                for (TaskHolder h : tasks.values())
                 {
-                    if(!taskQueue.isEmpty())
-                    {
-                        t = taskQueue.poll();
-                    }
+                    TaskDescription.Builder td = TaskDescription.newBuilder()
+                            .setTaskId(h.getId())
+                            .setTask(h.getTask());
+
+                    if(h.isDone())
+                        td = td.setResult(h.getResult());
+
+                    listResponse.addTasks(td);
                 }
-                // nothing to do, wait a bit
-                if(t == null)
+            }
+
+            listResponse.setStatus(Protocol.Status.OK);
+
+            ServerResponse response = ServerResponse.newBuilder()
+                    .setListResponse(listResponse)
+                    .build();
+
+
+            response.writeTo(client.getOutputStream());
+        }
+
+        if(request.hasSubscribe())
+        {
+            Subscribe subscribe = request.getSubscribe();
+            String name = String.format("Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
+
+            //create thread waiting notification for task completion
+            new Thread(() -> {
+                TaskHolder holder;
+                synchronized (tasks)
+                {
+                    holder = tasks.get(subscribe.getTaskId());
+                }
+                synchronized (holder.lock)
                 {
                     try
                     {
-                        Thread.sleep(10);
+                        holder.wait();
                     } catch (InterruptedException e)
                     {
-                        logger.error(e.getMessage());
+                        logger.info(
+                            "Subscription ({}, {}) interrupted",
+                            request.getClientId(),
+                            subscribe.getTaskId()
+                        );
                     }
-                } else
-                {
-                    //TODO: dependencies!!
-                    String name = "--- Worker " + Long.toString(id);
-                    new Thread(new Worker(id++, t, results), name).start();
-                    t = null;
                 }
-            }
+            }, name).start();
         }
     }
 }
