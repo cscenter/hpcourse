@@ -54,7 +54,6 @@ class TaskWorker(private val port: Int, private val clientId: String) {
     }
 
     private fun writeRequestAndGetResponse(request: CommunicationProtos.ServerRequest): CommunicationProtos.ServerResponse {
-        //TODO: close then
         Socket(localhost, port).use {
             it.outputStream.write(request.serializedSize)
             request.writeTo(it.outputStream);
@@ -75,9 +74,6 @@ class TaskWorker(private val port: Int, private val clientId: String) {
     }
 
     private fun getResponse(ism: InputStream): CommunicationProtos.ServerResponse {
-       // val size = ism.read()
-       // val data = ByteArray(size)
-        //ism.read(data)
         return CommunicationProtos.ServerResponse.parseDelimitedFrom(ism)
     }
 
