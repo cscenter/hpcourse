@@ -1,8 +1,11 @@
 package task;
 
+import java.util.logging.Logger;
+
 public class TaskThread extends Thread {
+    private final Logger logger;
     private final Object monitor = new Object();
-    public final int id;
+    final int id;
     public final TaskParam a;
     public final TaskParam b;
     public final TaskParam p;
@@ -20,12 +23,14 @@ public class TaskThread extends Thread {
         this.p = p;
         this.m = m;
         this.n = n;
+
+        logger = Logger.getLogger(TaskThread.class.getName() + id);
     }
 
     @Override
     public void run() {
         synchronized (monitor) {
-            System.out.println(this.getName() + " run started, isReady = " + isReady);
+            logger.finest(this.getName() + " run started");
 
             if (!isReady) {
                 long a = this.a.getValue();
@@ -41,14 +46,14 @@ public class TaskThread extends Thread {
                 result = a;
                 isReady = true;
             }
-            System.out.println(this.getName() + " notifyAll");
+            logger.finest(this.getName() + " notifyAll");
             monitor.notifyAll();
         }
     }
 
     public long getResult() {
         synchronized (monitor) {
-            System.out.println(
+            logger.finest(
                     Thread.currentThread().getName()
                             + " enters "
                             + this.getName()
@@ -56,14 +61,14 @@ public class TaskThread extends Thread {
 
             while (!isReady) {
                 try {
-                    System.out.println(
+                    logger.finest(
                             Thread.currentThread().getName() + " waits for " + monitor);
                     monitor.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-            System.out.println(Thread.currentThread().getName() + " quits " + this.getName() + " getResult()");
+            logger.finest(Thread.currentThread().getName() + " quits " + this.getName() + " getResult()");
             return result;
         }
     }
