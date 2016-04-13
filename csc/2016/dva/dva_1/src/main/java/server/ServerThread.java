@@ -27,7 +27,7 @@ class ServerThread extends Thread {
                 WrapperMessage inputMessage;
                 try (InputStream input = socket.getInputStream()) {
                     inputMessage = WrapperMessage.parseDelimitedFrom(input);
-                    if (inputMessage.hasRequest())
+                    if (!inputMessage.hasRequest())
                         throw new IOException("Message does not contain request");
                 } catch (Exception e) {
                     e.printStackTrace();
