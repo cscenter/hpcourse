@@ -55,11 +55,13 @@ class ServerTest {
 
     @Test
     fun dependent_task_test() {
-        val client = TaskWorker(port, "first-client")
-        val firstSubmit = client.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong() / 4)
-        val secondSubmit = client.submit(param(100), param(15), param(23), dependentTask(firstSubmit.submittedTaskId), 10)
-        val secondTaskResult = client.subscribe(secondSubmit.submittedTaskId).value
-        val firstTaskResult = client.subscribe(firstSubmit.submittedTaskId).value
+        val firstClient = TaskWorker(port, "first-client")
+        val firstSubmit = firstClient.submit(param(100), param(15), param(23), param(11), Integer.MAX_VALUE.toLong() / 4)
+
+        val secondClient = TaskWorker(port, "second-client")
+        val secondSubmit = secondClient.submit(param(100), param(15), param(23), dependentTask(firstSubmit.submittedTaskId), 10)
+        val secondTaskResult = secondClient.subscribe(secondSubmit.submittedTaskId).value
+        val firstTaskResult = firstClient.subscribe(firstSubmit.submittedTaskId).value
         Assert.assertEquals(secondTaskResult, calculate(100, 15, 23, firstTaskResult, 10))
     }
 
