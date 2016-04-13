@@ -36,10 +36,10 @@ public class TaskManager implements Runnable
     // id -> task
     private final Map<Integer, TaskHolder> tasks = new HashMap<>();
 
-    public TaskManager(ConnectionsManager connectionsManager, TaskSolver solverPool)
+    public TaskManager(ConnectionsManager connectionsManager)
     {
         this.connectionsManager = connectionsManager;
-        this.solverPool = solverPool;
+        this.solverPool = new TaskSolver(tasks);
     }
 
     @Override
@@ -172,7 +172,8 @@ public class TaskManager implements Runnable
                 try
                 {
                     //waiting for task completion
-                    holder.lock.wait();
+                    while(!holder.isDone())
+                        holder.lock.wait();
 
                     SubscribeResponse.Builder s = SubscribeResponse.newBuilder()
                             .setValue(holder.getResult())

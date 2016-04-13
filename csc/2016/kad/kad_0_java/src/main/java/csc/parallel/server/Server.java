@@ -10,13 +10,11 @@ public class Server
 {
     private ConnectionsManager connectionsManager;
     private TaskManager taskManager;
-    private TaskSolver solverPool;
 
     public Server(int port) throws IOException
     {
         connectionsManager = new ConnectionsManager(port);
-        solverPool = new TaskSolver();
-        taskManager = new TaskManager(connectionsManager, solverPool);
+        taskManager = new TaskManager(connectionsManager);
     }
 
     public void start()
