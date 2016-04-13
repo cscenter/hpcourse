@@ -74,10 +74,10 @@ class TaskWorker(private val port: Int, private val clientId: String) {
     }
 
     private fun getResponse(ism: InputStream): CommunicationProtos.ServerResponse {
-        val size = ism.read()
-        val data = ByteArray(size)
-        ism.read(data)
-        return CommunicationProtos.ServerResponse.parseFrom(data)
+       // val size = ism.read()
+       // val data = ByteArray(size)
+        //ism.read(data)
+        return CommunicationProtos.ServerResponse.parseDelimitedFrom(ism)
     }
 
 
