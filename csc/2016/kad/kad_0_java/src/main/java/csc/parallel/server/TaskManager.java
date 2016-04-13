@@ -9,6 +9,7 @@ import communication.Protocol.ServerResponse;
 import communication.Protocol.Subscribe;
 import communication.Protocol.SubscribeResponse;
 import communication.Protocol.SubmitTaskResponse;
+import communication.Protocol.WrapperMessage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +75,7 @@ public class TaskManager implements Runnable
      */
     private void handleClient(Socket client) throws IOException
     {
-        ServerRequest request = ServerRequest.parseFrom(client.getInputStream());
+        ServerRequest request = WrapperMessage.parseFrom(client.getInputStream()).getRequest();
         if(request.hasSubmit())
         {
             handleSubmitTask(request, client.getOutputStream());
@@ -110,7 +111,7 @@ public class TaskManager implements Runnable
 
         try
         {
-            response.writeTo(clientOut);
+            wrapAndSend(response, clientOut);
         } catch (IOException e)
         {
             logger.error("Error on SubmitTask response.\n{}", e.getMessage());
@@ -149,7 +150,7 @@ public class TaskManager implements Runnable
 
         try
         {
-            response.writeTo(clientOut);
+            wrapAndSend(response, clientOut);
         } catch (IOException e)
         {
             logger.error("Error on listTasks response.\n{}", e.getMessage());
@@ -184,7 +185,7 @@ public class TaskManager implements Runnable
                             .setSubscribeResponse(s)
                             .build();
 
-                    response.writeTo(clientOut);
+                    wrapAndSend(response, clientOut);
 
                 } catch (InterruptedException e)
                 {
@@ -199,5 +200,11 @@ public class TaskManager implements Runnable
                 }
             }
         }, name).start();
+    }
+
+    private void wrapAndSend(ServerResponse response, OutputStream out) throws IOException
+    {
+        WrapperMessage msg = WrapperMessage.newBuilder().setResponse(response).build();
+        msg.writeTo(out);
     }
 }
