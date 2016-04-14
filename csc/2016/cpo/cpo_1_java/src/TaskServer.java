@@ -1,9 +1,9 @@
-import communication.Protocol;
+import com.sun.javaws.exceptions.InvalidArgumentException;
+import sync.Semaphore;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,6 +18,7 @@ public class TaskServer {
     final static int PORT = 7979;
     final static AtomicInteger taskID = new AtomicInteger(0);
     final static ConcurrentHashMap<Integer, CalcThread> taskThreads = new ConcurrentHashMap<>();
+    final static Semaphore calcThreadsLock = new Semaphore(Runtime.getRuntime().availableProcessors() + 1);
 
     public static void main(String[] args) {
         try {
@@ -47,7 +48,9 @@ class ServerThread extends Thread {
         while(true) {
             ServerRequest req;
             try {
-                req = WrapperMessage.parseFrom(socket.getInputStream()).getRequest();
+                //req = WrapperMessage.parseFrom(socket.getInputStream()).getRequest();
+                req = WrapperMessage.parseDelimitedFrom(socket.getInputStream()).getRequest();
+                System.out.println("Got the request!!!");
             } catch (IOException e) {
                 //respondSubmitError();
                 try {
@@ -127,16 +130,20 @@ class ManagerThread extends Thread {
 
     private void registerTask(ServerRequest req) {
         Task task = req.getSubmit().getTask();
-
+        boolean status = true;
         int taskID = TaskServer.taskID.getAndIncrement();
-        TaskServer.taskThreads.put(taskID, new CalcThread(task, req.getClientId()));
-        WrapperMessage wm = prepareSubmitTaskResponse(req, taskID);
+        try {
+            TaskServer.taskThreads.put(taskID, new CalcThread(task, req.getClientId()));
+        } catch (InvalidArgumentException e) {
+            status = false;
+        }
+        WrapperMessage wm = prepareSubmitTaskResponse(req, taskID, status);
         sendToClient(wm);
     }
 
-    private WrapperMessage prepareSubmitTaskResponse(ServerRequest req, int taskID) {
+    private WrapperMessage prepareSubmitTaskResponse(ServerRequest req, int taskID, boolean status) {
         SubmitTaskResponse str = SubmitTaskResponse.newBuilder()
-                .setStatus(Status.OK)
+                .setStatus(status ? Status.OK : Status.ERROR)
                 .setSubmittedTaskId(taskID)
                 .build();
         ServerResponse sr = ServerResponse.newBuilder()
@@ -150,7 +157,7 @@ class ManagerThread extends Thread {
 
     private void sendToClient(WrapperMessage wm) {
         try {
-            wm.writeTo(socket.getOutputStream());
+            wm.writeDelimitedTo(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -179,7 +186,7 @@ class CalcThread extends Thread {
         start();
     }*/
 
-    public CalcThread(Task task, String clientId) {
+    public CalcThread(Task task, String clientId) throws InvalidArgumentException {
         this.task = task;
         this.clientID = clientId;
         a = getValueOrLock(task.getA());
@@ -193,6 +200,7 @@ class CalcThread extends Thread {
 
     @Override
     public void run() {
+        TaskServer.calcThreadsLock.lock();
         while (n-- > 0)
         {
             b = (a * p + b) % m;
@@ -203,16 +211,20 @@ class CalcThread extends Thread {
         synchronized (monitor) {
             monitor.notifyAll();
         }
+        TaskServer.calcThreadsLock.unlock();
     }
 
     public Task getTask() {
         return task;
     }
 
-    private long getValueOrLock(Task.Param param) {
+    private long getValueOrLock(Task.Param param) throws InvalidArgumentException {
         if (param.hasDependentTaskId()) {
             int id = param.getDependentTaskId();
-            return TaskServer.taskThreads.get(id).getResult();
+            CalcThread thread = TaskServer.taskThreads.get(id);
+            if (thread == null)
+                throw new InvalidArgumentException(new String[]{"no such taskID: " + id});
+            return thread.getResult();
         }
         return param.getValue();
     }
