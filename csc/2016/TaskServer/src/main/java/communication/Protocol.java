@@ -3649,7 +3649,7 @@ Protocol {
         }
 
         // Construct using communication.Protocol.Task.Param.newBuilder()
-        private Builder() {
+        public Builder() {
           maybeForceBuilderInitialization();
         }
 
