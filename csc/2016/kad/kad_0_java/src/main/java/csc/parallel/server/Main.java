@@ -10,7 +10,6 @@ public class Main
 {
     public static void main(String[] args) throws IOException, InterruptedException
     {
-        Server srv = new Server(5555);
-        srv.start();
+        new Thread(new TaskManager(5555)).start();
     }
 }

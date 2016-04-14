@@ -16,9 +16,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -29,42 +29,61 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class TaskManager implements Runnable
 {
     private final Logger logger = LoggerFactory.getLogger(TaskManager.class);
-    private ConnectionsManager connectionsManager;
-    private TaskSolver solverPool;
+    private TaskSolver taskSolver;
+    private ServerSocket socket;
+    private final int port;
 
-    private final AtomicInteger idGenerator = new AtomicInteger();
+    private final AtomicInteger taskIDGenerator = new AtomicInteger();
+    private final AtomicInteger clientIDGenerator = new AtomicInteger();
 
     // id -> task
     private final Map<Integer, TaskHolder> tasks = new HashMap<>();
 
-    public TaskManager(ConnectionsManager connectionsManager)
+    public TaskManager(int port)
     {
-        this.connectionsManager = connectionsManager;
-        this.solverPool = new TaskSolver(tasks);
+        this.port = port;
+        this.taskSolver = new TaskSolver(tasks);
     }
 
     @Override
     public void run()
     {
-        List<Socket> clients = connectionsManager.getClients();
+        Thread.currentThread().setName("-- Task manager");
+        try
+        {
+            this.socket = new ServerSocket(port);
+        } catch (IOException e)
+        {
+            logger.error(e.getMessage());
+            return;
+        }
+        logger.info("I'm up");
 
         while (true)
         {
-            for (Socket client : clients)
+            try
             {
-                try
-                {
-                    if(client.getInputStream().available() == 0)
+                Socket client = socket.accept();
+                int clientId = clientIDGenerator.incrementAndGet();
+                String name = "-- Client listener " + clientId;
+                new Thread(() -> {
+                    while(!client.isClosed())
                     {
-                        continue;
+                        try
+                        {
+                            handleClient(client);
+                        }
+                        catch (IOException e)
+                        {
+                            logger.error("Client listener {} crashed with {}", clientId, e.getMessage());
+                            break;
+                        }
                     }
-                    handleClient(client);
-                } catch (IOException e)
-                {
-                    logger.error(e.getMessage());
-                }
+                }, name).start();
+            } catch (IOException e)
+            {
+                logger.error(e.getMessage());
             }
-
         }
     }
 
@@ -76,6 +95,7 @@ public class TaskManager implements Runnable
     private void handleClient(Socket client) throws IOException
     {
         ServerRequest request = WrapperMessage.parseFrom(client.getInputStream()).getRequest();
+        logger.trace("Handle client {}", request.getClientId());
         if(request.hasSubmit())
         {
             handleSubmitTask(request, client.getOutputStream());
@@ -98,7 +118,8 @@ public class TaskManager implements Runnable
     {
         Task task = request.getSubmit().getTask();
 
-        int id = idGenerator.incrementAndGet();
+        int id = taskIDGenerator.incrementAndGet();
+        logger.debug("handleSubmitTask {}", id);
 
         SubmitTaskResponse.Builder r = SubmitTaskResponse.newBuilder()
                 .setStatus(Protocol.Status.OK)
@@ -117,9 +138,8 @@ public class TaskManager implements Runnable
             logger.error("Error on SubmitTask response.\n{}", e.getMessage());
         }
 
-
         TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
-        solverPool.solveTask(holder);
+        taskSolver.solveTask(holder);
     }
 
     private void handleListTasks(ServerRequest request, OutputStream clientOut)
@@ -160,7 +180,7 @@ public class TaskManager implements Runnable
     private void handleSubscription(ServerRequest request, OutputStream clientOut)
     {
         Subscribe subscribe = request.getSubscribe();
-        String name = String.format("Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
+        String name = String.format("-- Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
 
         new Thread(() -> {
             TaskHolder holder;

@@ -40,8 +40,13 @@ public class TaskSolver
 
     public void solveTask(TaskHolder holder)
     {
+        logger.info("Task {} solving", holder.getId());
         Task task = holder.getTask();
+
+        String name = String.format("-- Solver, task %d", holder.getId());
         new Thread(() -> {
+            logger.info("Task {} started", holder.getId());
+
             int selfId = threadCounter.incrementAndGet();
             // firstly wait for all dependencies
             Map<String, Long> vals = null;
@@ -95,7 +100,7 @@ public class TaskSolver
                 // free one another solver
                 guard.notify();
             }
-        });
+        }, name).start();
     }
 
     private Map<String, Long> getValues(Task task) throws InterruptedException
