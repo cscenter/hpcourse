@@ -14,22 +14,23 @@ public class RandomTaskGenerator
     public static void main(String[] args) throws IOException
     {
         int port = 5555;
-        int k = 1000;
-        int l = 2000;
+        int clientsNum = 10;
+        int tasks = 100;
         Random r = new Random();
 
-        for(int i = 0; i < k; i++)
+        for(int i = 0; i < clientsNum; i++)
         {
-            Client c = new Client(port);
-            for(int j = 0; j < l; j++)
+            try(Client c = new Client("Client_" + i, port))
             {
-                Param a = Param.newBuilder().setValue(r.nextInt(100000)).build();
-                Param b = Param.newBuilder().setValue(r.nextInt(100000)).build();
-                Param p = Param.newBuilder().setValue(r.nextInt(100000)).build();
-                Param m = Param.newBuilder().setValue(1 + r.nextInt(99999)).build();
-                long n = 1_000_000_000;
-                c.sendTask(a, b, p, m, n);
-                System.out.println("Task sent " + (i*k + j));
+                for (int j = 0; j < tasks; j++)
+                {
+                    Param a = Param.newBuilder().setValue(r.nextInt(100000)).build();
+                    Param b = Param.newBuilder().setValue(r.nextInt(100000)).build();
+                    Param p = Param.newBuilder().setValue(r.nextInt(100000)).build();
+                    Param m = Param.newBuilder().setValue(1 + r.nextInt(99999)).build();
+                    long n = 1_000_000;
+                    c.sendTask(a, b, p, m, n);
+                }
             }
         }
     }
