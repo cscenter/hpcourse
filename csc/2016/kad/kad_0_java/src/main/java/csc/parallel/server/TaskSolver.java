@@ -22,7 +22,6 @@ public class TaskSolver
     private final Object guard = new Object();
     private int maxThreads;
     private AtomicInteger availableThreads;
-    private AtomicInteger threadCounter;
     private final Map<Integer, TaskHolder> tasks;
 
     public int getMaxThreads()
@@ -35,19 +34,17 @@ public class TaskSolver
         this.tasks = tasks;
         this.maxThreads = Runtime.getRuntime().availableProcessors();
         this.availableThreads = new AtomicInteger(this.maxThreads);
-        this.threadCounter = new AtomicInteger();
     }
 
     public void solveTask(TaskHolder holder)
     {
-        logger.info("Task {} solving", holder.getId());
+        logger.info("Task id:{}, client:{} staged", holder.getTaskId(), holder.getClient_id());
         Task task = holder.getTask();
 
-        String name = String.format("-- Solver, task %d", holder.getId());
+        String name = String.format("-- Solver, task %d", holder.getTaskId());
         new Thread(() -> {
-            logger.info("Task {} started", holder.getId());
+            logger.info("Task id:{}, client:{} started", holder.getTaskId(), holder.getClient_id());
 
-            int selfId = threadCounter.incrementAndGet();
             // firstly wait for all dependencies
             Map<String, Long> vals = null;
             try
@@ -55,7 +52,7 @@ public class TaskSolver
                 vals = getValues(task);
             } catch (InterruptedException e)
             {
-                logger.error("Interrupted {} solving {} while waiting for dependencies", selfId, holder.getId());
+                logger.error("Interrupted solving task {} while waiting for dependencies", holder.getTaskId());
             }
 
             // here we are ready to solve
@@ -72,7 +69,7 @@ public class TaskSolver
                     } while (!availableThreads.compareAndSet(avail, avail - 1));
                 } catch (InterruptedException e)
                 {
-                    logger.info("Solver {} of task {} interrupted", selfId, holder.getId());
+                    logger.info("Solver of task {} interrupted", holder.getTaskId());
                     return;
                 }
             }

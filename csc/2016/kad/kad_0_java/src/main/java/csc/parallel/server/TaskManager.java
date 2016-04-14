@@ -94,7 +94,7 @@ public class TaskManager implements Runnable
      */
     private void handleClient(Socket client) throws IOException
     {
-        ServerRequest request = WrapperMessage.parseFrom(client.getInputStream()).getRequest();
+        ServerRequest request = WrapperMessage.parseDelimitedFrom(client.getInputStream()).getRequest();
         logger.trace("Handle client {}", request.getClientId());
         if(request.hasSubmit())
         {
@@ -119,7 +119,7 @@ public class TaskManager implements Runnable
         Task task = request.getSubmit().getTask();
 
         int id = taskIDGenerator.incrementAndGet();
-        logger.debug("handleSubmitTask {}", id);
+        logger.trace("handleSubmitTask (id:{}, client:{})", id, request.getClientId());
 
         SubmitTaskResponse.Builder r = SubmitTaskResponse.newBuilder()
                 .setStatus(Protocol.Status.OK)
@@ -144,6 +144,7 @@ public class TaskManager implements Runnable
 
     private void handleListTasks(ServerRequest request, OutputStream clientOut)
     {
+        logger.trace("handleListTasks client:{}", request.getClientId());
         ListTasksResponse.Builder listResponse = ListTasksResponse.newBuilder();
 
         synchronized (tasks)
@@ -151,7 +152,7 @@ public class TaskManager implements Runnable
             for (TaskHolder h : tasks.values())
             {
                 TaskDescription.Builder td = TaskDescription.newBuilder()
-                        .setTaskId(h.getId())
+                        .setTaskId(h.getTaskId())
                         .setTask(h.getTask());
 
                 if(h.isDone())
@@ -180,8 +181,9 @@ public class TaskManager implements Runnable
     private void handleSubscription(ServerRequest request, OutputStream clientOut)
     {
         Subscribe subscribe = request.getSubscribe();
-        String name = String.format("-- Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
+        logger.trace("handleSubscription client:{} on task:{}", request.getClientId(), subscribe.getTaskId());
 
+        String name = String.format("-- Subscription (%s, %d)", request.getClientId(), subscribe.getTaskId());
         new Thread(() -> {
             TaskHolder holder;
             synchronized (tasks)
@@ -209,7 +211,7 @@ public class TaskManager implements Runnable
 
                 } catch (InterruptedException e)
                 {
-                    logger.info(
+                    logger.error(
                             "Subscription ({}, {}) interrupted",
                             request.getClientId(),
                             subscribe.getTaskId()
@@ -225,6 +227,6 @@ public class TaskManager implements Runnable
     private void wrapAndSend(ServerResponse response, OutputStream out) throws IOException
     {
         WrapperMessage msg = WrapperMessage.newBuilder().setResponse(response).build();
-        msg.writeTo(out);
+        msg.writeDelimitedTo(out);
     }
 }

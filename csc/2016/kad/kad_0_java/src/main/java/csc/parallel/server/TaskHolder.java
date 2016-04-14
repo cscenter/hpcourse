@@ -1,6 +1,5 @@
 package csc.parallel.server;
 
-import communication.Protocol;
 import communication.Protocol.Task;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,7 +12,7 @@ public class TaskHolder
 {
     public final Object lock = new Object();
     private final Task task;
-    private final int id;
+    private final int taskId;
     private long result;
     private String client_id;
     private AtomicBoolean done = new AtomicBoolean(false);
@@ -28,9 +27,9 @@ public class TaskHolder
         return done.get();
     }
 
-    public int getId()
+    public int getTaskId()
     {
-        return id;
+        return taskId;
     }
 
     public long getResult()
@@ -49,9 +48,9 @@ public class TaskHolder
         this.result = result;
     }
 
-    public TaskHolder(int id, String client_id, Task task)
+    public TaskHolder(int taskId, String client_id, Task task)
     {
-        this.id = id;
+        this.taskId = taskId;
         this.task = task;
         this.client_id = client_id;
     }
