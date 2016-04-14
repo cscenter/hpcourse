@@ -37,15 +37,15 @@ public class Client extends Thread {
             PARAMETER_4, PARAMETER_3, ITERATIONS);
 
     private static final ClientConfiguration[] CONFIGURATIONS = {
-            new ClientConfiguration(0, SUBMIT_PARAMS_1, COUNTER.next(), "ClientOne"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_2, COUNTER.next(), "ClientTwo"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_3, COUNTER.next(), "ClientThree"),
-            new ClientConfiguration(0, SUBMIT_PARAMS_4, COUNTER.next(), "ClientFour"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_1, COUNTER.next(), "Client 1"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_2, COUNTER.next(), "Client 2"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_3, COUNTER.next(), "Client 3"),
+            new ClientConfiguration(0, SUBMIT_PARAMS_4, COUNTER.next(), "Client 4"),
             new ClientConfiguration(1, new SubscribeParams(1), COUNTER.next(), "Client 1 subscribe"),
             new ClientConfiguration(1, new SubscribeParams(2), COUNTER.next(), "Client 2 subscribe"),
             new ClientConfiguration(1, new SubscribeParams(3), COUNTER.next(), "Client 3 subscribe"),
             new ClientConfiguration(1, new SubscribeParams(4), COUNTER.next(), "Client 4 subscribe"),
-            new ClientConfiguration(2, null, COUNTER.next(), "ClientList")};
+            new ClientConfiguration(2, null, COUNTER.next(), "Client list")};
 
     private final String host;
     private final int port;
@@ -68,8 +68,7 @@ public class Client extends Thread {
     private void send(ServerRequest request) {
         try {
             socket = new Socket(host, port);
-            socket.getOutputStream().write(request.getSerializedSize());
-            request.writeTo(socket.getOutputStream());
+            request.writeDelimitedTo(socket.getOutputStream());
         } catch (IOException e) {
             log.warning("Can't send request: " + e.getMessage());
         }
@@ -77,11 +76,7 @@ public class Client extends Thread {
 
     private void waitResponse() {
         try {
-            int size = socket.getInputStream().read();
-            byte buffer[] = new byte[size];
-            int result = socket.getInputStream().read(buffer);
-            if (result == -1) throw new IOException("Can't read response");
-            ServerResponse response = ServerResponse.parseFrom(buffer);
+            ServerResponse response = ServerResponse.parseDelimitedFrom(socket.getInputStream());
             if (response.hasSubmitResponse() && COUNTER.current() < 14) {
                 int taskId = response.getSubmitResponse().getSubmittedTaskId();
                 new Client(host, port, new ClientConfiguration(0, new SubmitParams(PARAMETER_1,
@@ -89,11 +84,7 @@ public class Client extends Thread {
                 .start();
             }
             String text = configuration.toText(response);
-            synchronized (System.out) {
-                System.out.println("==============================");
-                System.out.println(text);
-                System.out.println("==============================");
-            }
+            System.out.println("==============================\n" + text + "==============================\n");
             socket.close();
         } catch (IOException e) {
             log.warning("Error on waiting response: " + e.getMessage());

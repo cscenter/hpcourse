@@ -37,9 +37,7 @@ class AbstractServerThread<T> extends Thread {
         responseConsumer.accept(builder, message);
         ServerResponse response = builder.build();
         try {
-            OutputStream stream = socket.getOutputStream();
-            stream.write(response.getSerializedSize());
-            response.writeTo(stream);
+            response.writeDelimitedTo(socket.getOutputStream());
         } catch (IOException e) {
             log.warning("Can't send response: " + e.getMessage());
         }

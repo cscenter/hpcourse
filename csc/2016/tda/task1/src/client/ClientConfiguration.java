@@ -22,15 +22,15 @@ class ClientConfiguration {
     }
 
     ServerRequest create() {
-        MessageManager wrapper = MessageManager.of(type);
-        GeneratedMessage message = wrapper.generate(params);
+        MessageManager manager = MessageManager.of(type);
+        GeneratedMessage message = manager.generate(params);
         ServerRequest.Builder request = ServerRequest.newBuilder().setRequestId(requestId).setClientId(clientId);
-        wrapper.setTask(request, message);
+        manager.setTask(request, message);
         return request.build();
     }
 
     String toText(ServerResponse response) {
-        MessageManager wrapper = MessageManager.of(type);
-        return wrapper.getText(response, clientId);
+        MessageManager manager = MessageManager.of(type);
+        return manager.getText(response, clientId);
     }
 }

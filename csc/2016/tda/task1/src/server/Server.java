@@ -6,7 +6,6 @@ import server.thread.*;
 import static communication.Protocol.*;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -46,12 +45,7 @@ public class Server extends Thread {
     }
 
     private void processClientSocket(Socket socket) throws IOException {
-        InputStream stream = socket.getInputStream();
-        int size = stream.read();
-        byte[] buffer = new byte[size];
-        int result = stream.read(buffer);
-        if (result == -1) throw new IOException("Can't read data from client socket");
-        ServerRequest request = ServerRequest.PARSER.parseFrom(buffer);
+        ServerRequest request = ServerRequest.parseDelimitedFrom(socket.getInputStream());
         new TaskStarter(socket, request, storage).start();
     }
 

@@ -34,7 +34,8 @@ public class TaskStarter extends Thread {
     public void run() {
         List<AbstractServerThread<?>> threads = new ArrayList<>();
         if (request.hasSubscribe()) {
-            threads.add(new Subscriber(socket, request.getRequestId(), request.getClientId(), storage, request.getSubscribe().getTaskId()));
+            threads.add(new Subscriber(socket, request.getRequestId(), request.getClientId(), storage,
+                    request.getSubscribe().getTaskId()));
         }
         if (request.hasSubmit()) {
             int taskId = COUNTER.next();
