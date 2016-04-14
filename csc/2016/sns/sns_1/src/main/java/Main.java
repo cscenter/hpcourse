@@ -24,6 +24,7 @@ public class Main {
         final Server server = new Server(DEFAULT_SERVER_PORT);
         server.start();
         final Client client = new Client(DEFAULT_HOST, DEFAULT_SERVER_PORT, "client1");
+
         client.submitTask(createParam(14), createParam(11), createParam(15), createParam(16), 15);
         client.submitTask(createParam(14), createParam(11), createParam(15), createParam(16), 15);
         client.submitTask(createParam(14), createParam(11), createParam(15), createParam(16), 15);

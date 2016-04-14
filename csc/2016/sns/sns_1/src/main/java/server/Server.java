@@ -23,7 +23,6 @@ public class Server extends Thread {
 
     private final ServerSocket serverSocket;
     private final ThreadPool threadPool;
-    private boolean running;
 
     /**
      * @param port
@@ -32,18 +31,13 @@ public class Server extends Thread {
     public Server(final int port) throws IOException {
         serverSocket = new ServerSocket(port);
         threadPool = new ThreadPool();
-        running = true;
     }
 
-    @Override
-    public void interrupt() {
-        running = false;
-    }
 
     @Override
     public void run() {
         LOGGER.info("Server starting...");
-        while (running) {
+        while (!interrupted()) {
             try {
                 LOGGER.info("Wait for new socket");
                 final Socket socket = serverSocket.accept();
@@ -55,11 +49,19 @@ public class Server extends Thread {
                     LOGGER.info("Socket not closed so read request");
                     final int size = inputStream.read();
                     LOGGER.info("Message size:" + size);
-                    final byte[] message = new byte[size];
-                    inputStream.read(message);
+                    final byte[] messageBytes = new byte[size];
+                    inputStream.read(messageBytes);
 
-                    final Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(message);
-                    LOGGER.info("Server read request: " + request.getClientId() + " " + request.getRequestId());
+                    final Protocol.WrapperMessage message = Protocol.WrapperMessage.parseFrom(messageBytes);
+
+                    if (!message.hasRequest()) {
+                        LOGGER.warning("Got message without request. Ignore it and continue work");
+                        continue;
+                    }
+
+                    final Protocol.ServerRequest request = message.getRequest();
+
+                    LOGGER.info("Server read request: " + request.getClientId() + ' ' + request.getRequestId());
 
                     try {
                         final BaseTaskProcessor taskProcessor = new BaseTaskProcessorFactory(socket, request).getProcessor();

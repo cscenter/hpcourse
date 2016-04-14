@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  */
 public abstract class BaseTaskProcessor implements Runnable {
 
-    private final static Logger LOGGER = Logger.getLogger(BaseTaskProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(BaseTaskProcessor.class.getName());
 
     protected Socket socket;
     protected Protocol.ServerRequest request;
@@ -25,8 +25,9 @@ public abstract class BaseTaskProcessor implements Runnable {
     protected void sendResponse(final Protocol.ServerResponse response) {
         try {
             final OutputStream outputStream = socket.getOutputStream();
-            outputStream.write(response.getSerializedSize());
-            response.writeTo(outputStream);
+            final Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setResponse(response).build();
+            outputStream.write(message.getSerializedSize());
+            message.writeTo(outputStream);
         } catch (IOException e) {
             LOGGER.warning("Can't get socket's output stream: " + e);
         }

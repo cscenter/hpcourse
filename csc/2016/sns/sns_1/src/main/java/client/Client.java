@@ -32,8 +32,9 @@ public class Client {
         LOGGER.info("Client try to send server request:" + serverRequest.getClientId() + " " + serverRequest.getRequestId());
         final OutputStream outputStream = socket.getOutputStream();
         synchronized (socket) {
-            outputStream.write(serverRequest.getSerializedSize());
-            serverRequest.writeTo(outputStream);
+            final Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setRequest(serverRequest).build();
+            outputStream.write(message.getSerializedSize());
+            message.writeTo(outputStream);
             outputStream.flush();
         }
     }

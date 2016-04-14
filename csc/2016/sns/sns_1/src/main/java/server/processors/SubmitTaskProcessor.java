@@ -10,7 +10,7 @@ import java.util.logging.Logger;
  */
 public class SubmitTaskProcessor extends BaseTaskProcessor {
 
-    private final static Logger LOGGER = Logger.getLogger(SubmitTaskProcessor.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(SubmitTaskProcessor.class.getName());
 
     protected SubmitTaskProcessor(final Socket socket, final Protocol.ServerRequest request) {
         super(socket, request);
@@ -18,6 +18,7 @@ public class SubmitTaskProcessor extends BaseTaskProcessor {
 
     @Override
     public void run() {
+
         LOGGER.info("Submit task start processing");
     }
 }

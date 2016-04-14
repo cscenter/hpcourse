@@ -21,6 +21,12 @@ public class BaseTaskProcessorFactory {
         if (request.hasSubmit()) {
             return new SubmitTaskProcessor(socket, request);
         }
+        if (request.hasList()) {
+            return new ListTasksProcessor(socket, request);
+        }
+        if (request.hasSubscribe()) {
+            return new SubscribeProcessor(socket, request);
+        }
 
         throw new NoProcessorForTaskException();
     }
