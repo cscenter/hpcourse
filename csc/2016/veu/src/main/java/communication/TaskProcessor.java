@@ -70,7 +70,7 @@ public class TaskProcessor implements RequestProcessor {
           return;
         }
         // jvm puts strings in cache
-        logger.debug(VARS[i] + "-param for taskId {} is ", myId, myN);
+        logger.debug(VARS[i] + "-param for taskId {} is {}", myId, myVars[i]);
       }
       long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
       logger.debug("Finished solving, taskId: {}, anser: {}", myId, answer);

@@ -27,12 +27,12 @@ class Client extends Thread {
   }
 
   public static void main(String[] args)  {
-//    new Client('bob').start()
-//    new Client('alice').start()
-//    new Client('john').start()
-//    new Client('ivan').start()
-//    new Client('borya').start()
-//    new Client('svyatopolk').start()
+    new Client('bob').start()
+    new Client('alice').start()
+    new Client('john').start()
+    new Client('ivan').start()
+    new Client('borya').start()
+    new Client('svyatopolk').start()
 
     new IllegalClient('rediska').start();
 
