@@ -58,19 +58,23 @@ public class TaskProcessor implements RequestProcessor {
     }
 
     private void collectParamsAndSolve() {
-      logger.debug("Start collecting params, taskId: " + myId);
+      logger.debug("Start collecting params, taskId: {}", myId);
       for (int i = 0; i < myParams.length; i++) {
         myVars[i] = calc(myParams[i]);
         if (myVars[i] == null) {
           myStorage.notifyError(myId);
-          logger.debug("Error with param:" + myParams[i]);
+          logger.debug("Error with param: {}", myParams[i]);
           return;
         }
       }
-      logger.debug("Finished collecting params, taskId: " + myId + ", params: " + Arrays.toString(myVars) + "; " + myN);
-      long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
-      logger.debug("Finished solving, taskId: " + myId + ", answer: " + answer);
-      myStorage.notifySolved(myId, answer);
+      logger.debug("Finished collecting params, taskId: {}, params: {}", myId, Arrays.toString(myVars));
+      Long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
+      logger.debug("Finished solving, taskId: {}, anser: {}", myId, answer == null ? "NaN" : Long.toString(answer));
+      if (answer == null) {
+        myStorage.notifyError(myId);
+      } else {
+        myStorage.notifySolved(myId, answer);
+      }
     }
 
     private Long calc(Param param) {

@@ -10,6 +10,7 @@ class TestUtil {
 
   private static Random RAND = new Random()
   private static int MAX = 200000
+  static def DONE = ';DONE\n'
 
   static GeneratedMessage list = Protocol.ListTasks.newBuilder().build()
 
@@ -34,6 +35,7 @@ class TestUtil {
     params['b'] = fromParam(task.getB())
     params['p'] = fromParam(task.getP())
     params['m'] = fromParam(task.getM())
+    params['n'] = task.getN()
     params
   }
 
@@ -88,12 +90,22 @@ class TestUtil {
     StringBuilder builder = new StringBuilder()
     def status = listTasksResponse.getStatus()
     builder.append("LIST: $status\n")
-    listTasksResponse.getTasksList().each( {
-      def result = it.hasResult() ? it.getResult() as String : 'empty'
+    boolean done = true
+    listTasksResponse.getTasksList().each({
+      def result
+      if (it.hasResult()) {
+        result = it.getResult() as String
+      } else {
+        result = 'empty'
+        done = false
+      }
       def format = String.format(
         "id: %3s, task: %50s, client: %5s, result: %s\n", it.taskId, taskToString(it.task), it.clientId, result)
       builder.append(format);
     })
+    if (done) {
+      builder.append(DONE)
+    }
     builder.toString()
   }
 }

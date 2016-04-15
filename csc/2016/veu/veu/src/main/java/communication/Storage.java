@@ -37,15 +37,14 @@ public class Storage {
   public Long getValue(int taskId) {
     FullTask task = myTasksContainer.getTask(taskId);
     while (task.myState.get() == FullTask.UNDONE) {
-      // todo fix all logs: too expensive concatenating string and int
-      logger.debug("waiting for taskId: " + taskId);
+      logger.debug("waiting for taskId: {}", taskId);
       try {
         synchronized (task.myTask) {
           task.myTask.wait(TIMEOUT);
         }
       } catch (InterruptedException ignore) {}
     }
-    logger.debug("value received, taskId: " + taskId);
+    logger.debug("value received, taskId: {}", taskId);
     return task.myState.get() == FullTask.ERROR ? null : task.myResult.get();
   }
 

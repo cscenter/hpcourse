@@ -28,7 +28,7 @@ public class TasksContainer {
 
   public int registerTask(Protocol.Task task, String clientId) {
     int id = myCounter.getAndIncrement();
-    logger.debug("new task: " + id + ", " + task.toString().replace('\n', ' '));
+    logger.debug("new task: {}", id);
     FullTask fullTask = new FullTask(id, task, clientId);
     int i1 = idx1(id);
     int i2 = idx2(id);

@@ -34,15 +34,13 @@ class Client extends Thread {
     new Client('borya').start()
     new Client('svyatopolk').start()
 
-    new Client2('znajka').start()
-    new Client2('vintik').start()
+//    new Client2('znajka').start()
+//    new Client2('vintik').start()
     new Client2('kozlik').start()
   }
 
   static log(String msg) {
-    synchronized (logger) {
-      logger.debug(msg)
-    }
+    logger.debug(msg)
   }
   protected Protocol.ServerResponse sendAndGet(GeneratedMessage msg) {
     TestUtil.sendRequest(socket, clientId, cnt++, msg)
@@ -58,15 +56,21 @@ class Client extends Thread {
     response = sendAndGet(subscribe(id)).getSubscribeResponse()
     log "subscribe $id: $response"
 
-    response = sendAndGet(task('m:239, n:10000000')).getSubmitResponse()
+    response = sendAndGet(task('m:239, n:100000000')).getSubmitResponse()
     assert response.getStatus() == Protocol.Status.OK
     def id2 = response.getSubmittedTaskId()
     log 'submit: ' + id2
 
-    response = sendAndGet(task("a:_$id2, m:1000017, n:10000000")).getSubmitResponse()
+    response = sendAndGet(subscribe(id2)).getSubscribeResponse()
+    log "subscribe $id2: $response"
+
+    response = sendAndGet(task("a:_$id2, m:1000017, n:1000000000")).getSubmitResponse()
     assert response.getStatus() == Protocol.Status.OK
     def id3 = response.getSubmittedTaskId()
     log 'submit: ' + id3
+
+    response = sendAndGet(subscribe(id3)).getSubscribeResponse()
+    log "subscribe $id3: $response"
 
 //    response = sendAndGet(list()).getListResponse()
 //    log TestUtil.formatted(response)
@@ -81,11 +85,15 @@ class Client extends Thread {
     }
 
     void run() {
-      for (int i = 0; i < 5; i++) {
+      while (true) {
         def response = sendAndGet(list()).getListResponse()
-        log TestUtil.formatted(response)
+        def formatted = TestUtil.formatted(response)
+        log formatted
+        if (formatted.endsWith(TestUtil.DONE)) {
+          break
+        }
         sleep(5000)
-      }
+    }
     }
   }
 }
