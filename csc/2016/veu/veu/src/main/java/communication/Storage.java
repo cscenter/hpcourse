@@ -2,10 +2,8 @@ package communication;
 
 import communication.Protocol.ListTasksResponse.TaskDescription;
 import communication.Protocol.Task;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.*;
 import org.slf4j.*;
-
-import java.util.Iterator;
 
 public class Storage {
   private static Logger logger = LoggerFactory.getLogger(Storage.class);
@@ -51,28 +49,18 @@ public class Storage {
     return task.myState.get() == FullTask.ERROR ? null : task.myResult.get();
   }
 
-  public Iterable<? extends TaskDescription> getTasks() {
-    return new Iterable<TaskDescription>() {
-      public Iterator<TaskDescription> iterator() {
-        return new Iterator<TaskDescription>() {
-          final Iterator<FullTask> myTasks = myTasksContainer.iterTasks();
-          public boolean hasNext() {
-            return myTasks.hasNext();
-          }
-
-          public TaskDescription next() {
-            FullTask cur = myTasks.next();
-            TaskDescription.Builder builder = TaskDescription.newBuilder()
-              .setTaskId(cur.myId)
-              .setClientId(cur.myCliendId)
-              .setTask(cur.myTask);
-            if (cur.myState.get() == FullTask.DONE) {
-              builder.setResult(cur.myResult.get());
-            }
-            return builder.build();
-          }
-        };
+  public void eachTask(final TaskDescriptionReceiver receiver) {
+    myTasksContainer.eachTask(new TaskReceiver() {
+      public void processFullTask(@NotNull FullTask fullTask) {
+        TaskDescription.Builder builder = TaskDescription.newBuilder()
+          .setTaskId(fullTask.myId)
+          .setClientId(fullTask.myCliendId)
+          .setTask(fullTask.myTask);
+        if (fullTask.myState.get() == FullTask.DONE) {
+          builder.setResult(fullTask.myResult.get());
+        }
+        receiver.processTaskDescription(builder.build());
       }
-    };
+    });
   }
 }

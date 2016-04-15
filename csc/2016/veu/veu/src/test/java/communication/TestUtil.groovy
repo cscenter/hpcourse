@@ -1,16 +1,19 @@
 package communication
 
+import com.google.protobuf.GeneratedMessage
 import communication.Protocol.Task.Param
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 class TestUtil {
+  private final static Logger logger = LoggerFactory.getLogger(TestUtil.class);
+
   private static Random RAND = new Random()
   private static int MAX = 200000
 
-  static def list = Protocol.ListTasks.newBuilder().build()
+  static GeneratedMessage list = Protocol.ListTasks.newBuilder().build()
 
-  static def list() {
-    list
-  }
+  static GeneratedMessage list() { list }
 
   static def task(String val) {
     def params = [:].withDefault { RAND.nextInt(MAX) as String }
@@ -27,11 +30,10 @@ class TestUtil {
     StringBuilder builder = new StringBuilder()
     builder.append('task: ')
     def params = [:]
-    def EMPTY = [] as Object[]
-    'abpm'.toCharArray().each {
-      Param p = task.invokeMethod("get${it.toUpperCase()}",  EMPTY)
-      params[it] = fromParam(p)
-    }
+    params['a'] = fromParam(task.getA())
+    params['b'] = fromParam(task.getB())
+    params['p'] = fromParam(task.getP())
+    params['m'] = fromParam(task.getM())
     params
   }
 
@@ -41,12 +43,14 @@ class TestUtil {
 
   static def sendRequest(Socket socket, String clientId, int requestId, def msg) {
     def request = request(clientId, requestId, msg)
-    socket.getOutputStream().write(request.serializedSize)
+    int sz = request.serializedSize
+    socket.getOutputStream().write(Util.intToBytes(sz))
     request.writeTo(socket.getOutputStream())
 
-    def sz = socket.getInputStream().read()
+    sz = Util.readInt(socket.getInputStream())
     byte[] bytes = new byte[sz]
     socket.getInputStream().read(bytes)
+    logger.debug("received bytes: $sz, requestId: $requestId, clientId: $clientId, msgType: ${msg.getClass()}")
     return Protocol.ServerResponse.parseFrom(bytes)
   }
 

@@ -60,7 +60,7 @@ public class Server {
 
   private void listen() throws IOException {
     boolean cont = true;
-    logger.info("server started");
+    logger.info("server started, localhost:{}", myServerSocket.getLocalPort());
     while (cont && !Boolean.parseBoolean(System.getProperty("exit", ""))) {
       try {
         Socket accept = myServerSocket.accept();
