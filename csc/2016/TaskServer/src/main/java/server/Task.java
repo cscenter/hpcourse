@@ -2,60 +2,46 @@ package server;
 
 import communication.Protocol;
 
-public class Task implements Runnable {
+public class Task {
 
     private long taskId;
-    private TaskParameter a;
-    private TaskParameter b;
-    private TaskParameter m;
-    private TaskParameter p;
-    private TaskParameter n;
-
+    private Protocol.Task protoTask;
     private String clientId;
-    private volatile boolean isReady;
-    private volatile long result;
+    private boolean isReady;
+    private Long result;
 
-    private Task(TaskParameter a, TaskParameter b, TaskParameter p, TaskParameter m, TaskParameter n, int id, String clientId) {
-        this.a = a;
-        this.b = b;
-        this.p = p;
-        this.m = m;
-        this.n = n;
+    public Task(Protocol.Task protoTask, long  id, String clientId) {
         this.taskId = id;
         this.clientId = clientId;
-    }
-
-
-    long calculate(long a, long b, long p, long m, long n) {
-        while (n-- > 0) {
-            b = (a * p + b) % m;
-            a = b;
-        }
-        return a;
+        this.protoTask = protoTask;
+        isReady = false;
+        result = null;
     }
 
     boolean isReady() {
         return isReady;
     }
+    public void setReady(boolean val) {
+        isReady = val;
+    }
 
-    @Override
-    public void run() {
-        try {
-            a.waitResult();
-            b.waitResult();
-            p.waitResult();
-            m.waitResult();
-            n.waitResult();
-        } catch (InterruptedException e) {
-            return;
-        }
-        long result = calculate(a.getValue(), b.getValue(), p.getValue(), m.getValue(), n.getValue());
+    public Protocol.Task getProtoTask() {
+        return protoTask;
+    }
 
-        synchronized (this) {
-            isReady = true;
-            this.result = result;
-            this.notifyAll();
-        }
+    public String getClientId() {
+        return clientId;
+    }
 
+    public Long getResult() {
+        return result;
+    }
+
+    public void setResult(Long result) {
+        this.result = result;
+    }
+
+    public long getTaskId() {
+        return taskId;
     }
 }
