@@ -3,10 +3,13 @@ package communication;
 import communication.Protocol.ListTasksResponse.TaskDescription;
 import communication.Protocol.Task;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.*;
 
 import java.util.Iterator;
 
 public class Storage {
+  private static Logger logger = LoggerFactory.getLogger(Storage.class);
+
   private static int TIMEOUT = 500;
   private TasksContainer myTasksContainer = new TasksContainer();
 
@@ -36,12 +39,15 @@ public class Storage {
   public Long getValue(int taskId) {
     FullTask task = myTasksContainer.getTask(taskId);
     while (task.myState.get() == FullTask.UNDONE) {
+      // todo fix all logs: too expensive concatenating string and int
+      logger.debug("waiting for taskId: " + taskId);
       try {
         synchronized (task.myTask) {
           task.myTask.wait(TIMEOUT);
         }
       } catch (InterruptedException ignore) {}
     }
+    logger.debug("value received, taskId: " + taskId);
     return task.myState.get() == FullTask.ERROR ? null : task.myResult.get();
   }
 

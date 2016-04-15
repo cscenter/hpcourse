@@ -11,7 +11,7 @@ public class SubscribeProcessor implements RequestProcessor {
   }
 
   @Nullable
-  public ServerResponse processRequest(Protocol.ServerRequest request) {
+  public ServerResponse.Builder processRequest(Protocol.ServerRequest request) {
     if (!request.hasSubscribe()) {
       return null;
     }
@@ -24,6 +24,6 @@ public class SubscribeProcessor implements RequestProcessor {
       builder.setStatus(Protocol.Status.OK).setValue(result);
     }
     SubscribeResponse subscribeResponse = builder.build();
-    return ServerResponse.newBuilder().setSubscribeResponse(subscribeResponse).setRequestId(request.getRequestId()).build();
+    return ServerResponse.newBuilder().setSubscribeResponse(subscribeResponse);
   }
 }

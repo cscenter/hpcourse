@@ -11,11 +11,14 @@ public class ListProcessor implements RequestProcessor{
   }
 
   @Nullable
-  public Protocol.ServerResponse processRequest(Protocol.ServerRequest request) {
+  public Protocol.ServerResponse.Builder processRequest(Protocol.ServerRequest request) {
     if (!request.hasList()) {
       return null;
     }
-    ListTasksResponse listTasksResponse = ListTasksResponse.newBuilder().addAllTasks(myStorage.getTasks()).build();
-    return Protocol.ServerResponse.newBuilder().setListResponse(listTasksResponse).build();
+    ListTasksResponse listTasksResponse = ListTasksResponse.newBuilder()
+      .addAllTasks(myStorage.getTasks())
+      .setStatus(Protocol.Status.OK)
+      .build();
+    return Protocol.ServerResponse.newBuilder().setListResponse(listTasksResponse);
   }
 }

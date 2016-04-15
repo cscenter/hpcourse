@@ -5,12 +5,13 @@ import org.jetbrains.annotations.Nullable;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static communication.Protocol.*;
 
 public class Server {
-  private final static Logger log = Logger.getGlobal();
+  private final static Logger logger = LoggerFactory.getLogger(Server.class);
 
   private final ServerSocket myServerSocket;
   private final RequestProcessor[] myProcessors;
@@ -32,26 +33,25 @@ public class Server {
       new SubscribeProcessor(storage),
       new RequestProcessor() {
         @Nullable
-        public ServerResponse processRequest(ServerRequest request) {
-          System.out.println("warning: empty request");
-          return ServerResponse.newBuilder().setRequestId(request.getRequestId()).build();
+        public ServerResponse.Builder processRequest(ServerRequest request) {
+          logger.warn("warning: empty request");
+          return ServerResponse.newBuilder();
         }
       }
     };
     new Thread(new Runnable() {
       public void run() {
-        while (true) {
-          if (Boolean.parseBoolean(System.getProperty("exit", ""))) {
-            try {
-              serverSocket.close();
-              return;
-            } catch (IOException e) {
-              System.out.println(e.toString());
-            }
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        try {
+          for(String line = ""; !"exit".equals(line); ) {
+            line = reader.readLine();
           }
+        } catch (IOException ignore) {}
+
+        if (!serverSocket.isClosed()) {
           try {
-            Thread.sleep(5000);
-          } catch (InterruptedException ignore) {}
+            serverSocket.close();
+          } catch (IOException ignore) {}
         }
       }
     }).start();
@@ -60,13 +60,13 @@ public class Server {
 
   private void listen() throws IOException {
     boolean cont = true;
+    logger.info("server started");
     while (cont && !Boolean.parseBoolean(System.getProperty("exit", ""))) {
       try {
         Socket accept = myServerSocket.accept();
-        log.warning("socket accepted");
         new ProcessingThread(accept).start();
       } catch (IOException ex) {
-        System.out.println(ex.toString());
+        logger.warn("Exception during listening", ex);
         cont = false;
       }
     }
@@ -82,9 +82,7 @@ public class Server {
     public void run() {
       while (true) {
         try {
-          log.warning("begin processing");
           ServerRequest serverRequest = Util.getRequest(mySocket);
-          log.warning("end processing");
           if (serverRequest == null) {
             break;
           }
@@ -92,17 +90,22 @@ public class Server {
           assert response != null;
           Util.sendResponse(mySocket, response);
         } catch (IOException e) {
-          log.warning("something go wrong.." + e.toString());
+          logger.error("something go wrong..");
+          try {
+            mySocket.close();
+          } catch (IOException e1) {
+            logger.error("Error during closing socket", e1);
+          }
           break;
         }
       }
     }
 
-    private ServerResponse getResponse(ServerRequest serverRequest) {
+    private ServerResponse getResponse(ServerRequest request) {
       for (RequestProcessor processor : myProcessors) {
-        ServerResponse serverResponse = processor.processRequest(serverRequest);
-        if (serverResponse != null) {
-          return serverResponse;
+        ServerResponse.Builder builder = processor.processRequest(request);
+        if (builder != null) {
+          return builder.setRequestId(request.getRequestId()).build();
         }
       }
       return null;

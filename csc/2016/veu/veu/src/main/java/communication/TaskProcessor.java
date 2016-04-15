@@ -3,8 +3,13 @@ package communication;
 import communication.Protocol.*;
 import communication.Protocol.Task.Param;
 import org.jetbrains.annotations.*;
+import org.slf4j.*;
+
+import java.util.Arrays;
 
 public class TaskProcessor implements RequestProcessor {
+  private final static Logger logger = LoggerFactory.getLogger(TaskProcessor.class);
+
   private final Storage myStorage;
 
   public TaskProcessor(Storage storage) {
@@ -12,7 +17,7 @@ public class TaskProcessor implements RequestProcessor {
   }
 
   @Nullable
-  public Protocol.ServerResponse processRequest(Protocol.ServerRequest request) {
+  public ServerResponse.Builder processRequest(Protocol.ServerRequest request) {
     if (!request.hasSubmit()) {
       return null;
     }
@@ -23,9 +28,7 @@ public class TaskProcessor implements RequestProcessor {
     int newId = registerTask(myStorage, submit.getTask(), request.getClientId());
 
     SubmitTaskResponse submitTaskResponse = SubmitTaskResponse.newBuilder().setSubmittedTaskId(newId).setStatus(Status.OK).build();
-    return Protocol.ServerResponse.newBuilder()
-      .setSubmitResponse(submitTaskResponse)
-      .setRequestId(request.getRequestId()).build();
+    return Protocol.ServerResponse.newBuilder().setSubmitResponse(submitTaskResponse);
   }
 
   int registerTask(Storage storage, @NotNull Task task, String clientId) {
@@ -51,27 +54,23 @@ public class TaskProcessor implements RequestProcessor {
     public void run() {
       myParams = new Param[]{myTask.getA(), myTask.getB(), myTask.getP(), myTask.getM()};
       myN = myTask.getN();
-      recur(0);
+      collectParamsAndSolve();
     }
 
-    private void recur(int i) {
-      if (i == myParams.length) {
-        solve(myVars[0], myVars[1], myVars[2], myVars[3]);
-      } else {
+    private void collectParamsAndSolve() {
+      logger.debug("Start collecting params, taskId: " + myId);
+      for (int i = 0; i < myParams.length; i++) {
         myVars[i] = calc(myParams[i]);
         if (myVars[i] == null) {
           myStorage.notifyError(myId);
+          logger.debug("Error with param:" + myParams[i]);
+          return;
         }
-        recur(i + 1);
       }
-    }
-
-    private void solve(long a, long b, long p, long m) {
-      while (myN-- > 0) {
-        b = (a * p + b) % m;
-        a = b;
-      }
-      myStorage.notifySolved(myId, a);
+      logger.debug("Finished collecting params, taskId: " + myId + ", params: " + Arrays.toString(myVars) + "; " + myN);
+      long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
+      logger.debug("Finished solving, taskId: " + myId + ", answer: " + answer);
+      myStorage.notifySolved(myId, answer);
     }
 
     private Long calc(Param param) {

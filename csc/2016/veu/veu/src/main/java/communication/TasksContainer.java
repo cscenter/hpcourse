@@ -1,9 +1,13 @@
 package communication;
 
+import org.slf4j.*;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TasksContainer {
+  private static Logger logger = LoggerFactory.getLogger(TasksContainer.class);
+
   private static final int p1, p2, LEN1, LEN2;// = 15, p2 = 31 - 15;
 //  private static final int LEN1 = 1 << p1, LEN2 = 1 << p2;
 
@@ -20,19 +24,23 @@ public class TasksContainer {
   }
 
   private final FullTask[][] myTasks = new FullTask[LEN1][];
-  private final AtomicInteger myCounter = new AtomicInteger(-1);
+  private final AtomicInteger myCounter = new AtomicInteger(0);
 
   public int registerTask(Protocol.Task task, String clientId) {
-    int id = myCounter.incrementAndGet();
+    int id = myCounter.getAndIncrement();
+    logger.debug("new task: " + id + ", " + task.toString().replace('\n', ' '));
     FullTask fullTask = new FullTask(id, task, clientId);
     int i1 = idx1(id);
     int i2 = idx2(id);
     if (myTasks[i1] == null) {
+      boolean alloc = false;
       synchronized (myTasks) {
         if (myTasks[i1] == null) {
+          alloc = true;
           myTasks[i1] = new FullTask[LEN2];
         }
       }
+      if (alloc) { logger.info("allocated new memory, {}", i1); }
     }
     myTasks[i1][i2] = fullTask;
     return id;
@@ -60,10 +68,10 @@ public class TasksContainer {
   }
 
   private static int idx1(int id) {
-    return id & (LEN1 - 1);
+    return id >> p1;
   }
 
   private static int idx2(int id) {
-    return id >> p1;
+    return id & (LEN1 - 1);
   }
 }
