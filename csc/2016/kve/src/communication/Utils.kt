@@ -1,6 +1,6 @@
-package main
+package communication
 
-import communication.Protocol
+import taskExecution.Task
 import java.net.Socket
 
 fun sendSubscribeResponse(result: Long, requestId: Long, socket: Socket) {
@@ -32,13 +32,13 @@ fun sendListResponse(tasks: Collection<Task>, requestId: Long, socket: Socket) {
 fun getTaskDescription(tasks: Collection<Task>): Collection<Protocol.ListTasksResponse.TaskDescription> {
     return tasks.map {
         Protocol.ListTasksResponse.TaskDescription.newBuilder().apply {
-            clientId = it.myClientId.toString()
-            clientId = it.myClientId.toString()
+            clientId = it.clientId.toString()
+            clientId = it.clientId.toString()
             if (it.result != null) {
                 result = it.result as Long
             }
-            taskId = it.myId
-            task = it.myTask
+            taskId = it.id
+            task = it.task
         }.build()
     }
 }

@@ -1,24 +1,24 @@
-package main
+package communication
 
-import communication.Protocol
+import taskExecution.Task
+import taskExecution.TaskExecutor
 import java.io.OutputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicInteger
 
 
-class Server(executorSize: Int = 800) {
+class Server(executorSize: Int = 800, val port: Int = 47255) {
     private var idCounter: AtomicInteger = AtomicInteger()
     val myTaskExecutor: TaskExecutor = TaskExecutor(executorSize)
 
-    fun create() {
-        val serverSocket = ServerSocket(47255)
-        Thread { run(serverSocket) }.start()
+    fun start() {
+        Thread { run() }.start()
         myTaskExecutor.create()
     }
 
-    private fun run(serverSocket: ServerSocket) {
-
+    private fun run() {
+        val serverSocket = ServerSocket(port)
         while (true) {
             val socket = serverSocket.accept()
 
@@ -34,8 +34,7 @@ class Server(executorSize: Int = 800) {
                 }
 
                 request.list.isInitialized -> {
-                    val listTasks = myTaskExecutor.listTasks()
-                    sendListResponse(listTasks!!, request.requestId, socket)
+                    sendListResponse(myTaskExecutor.listTasks, request.requestId, socket)
                 }
             }
         }
@@ -45,20 +44,28 @@ class Server(executorSize: Int = 800) {
         val task = request.submit.task
         if (task != null) {
             val taskId = idCounter.andIncrement
-            val myTask = Task(task, taskId, request.clientId, this)
+            val myTask = Task(task, taskId, request.clientId)
             sendSubmitResponse(request.requestId, socket.outputStream, taskId)
             myTaskExecutor.execute(myTask)
         }
     }
 
     private fun sendSubmitResponse(id: Long, outputStream: OutputStream, taskId: Int) {
-        val response: Protocol.ServerResponse = Protocol.ServerResponse.newBuilder()
+        val responseWrapper = Protocol.WrapperMessage.newBuilder().apply { 
+            this.response = Protocol.ServerResponse.newBuilder().apply {
+                requestId = id
+                submitResponse = Protocol.SubmitTaskResponse.newBuilder().apply {
+                    submittedTaskId = taskId
+                    status = Protocol.Status.OK
+                }.build()
+            }.build()
+        }.build()
+        
+        print("Response created: " + Protocol.ServerResponse.newBuilder()
                 .setRequestId(id)
                 .setSubmitResponse(Protocol.SubmitTaskResponse.newBuilder()
                         .setSubmittedTaskId(taskId)
-                        .setStatus(Protocol.Status.OK)).build()
-        val responseWrapper = Protocol.WrapperMessage.newBuilder().setResponse(response).build()
-        print("Response created: " + response.toString())
+                        .setStatus(Protocol.Status.OK)).build().toString())
         try {
             responseWrapper.writeDelimitedTo(outputStream)
             outputStream.flush()
