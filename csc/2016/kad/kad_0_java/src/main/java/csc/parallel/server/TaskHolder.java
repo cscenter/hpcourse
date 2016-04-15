@@ -44,8 +44,8 @@ public class TaskHolder
 
     public void setResult(long result)
     {
-        this.done.set(true);
         this.result = result;
+        this.done.set(true);
     }
 
     public TaskHolder(int taskId, String client_id, Task task)

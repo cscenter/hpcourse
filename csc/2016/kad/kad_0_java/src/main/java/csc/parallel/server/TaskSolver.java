@@ -38,18 +38,18 @@ public class TaskSolver
 
     public void solveTask(TaskHolder holder)
     {
-        logger.info("Task id:{}, client:{} staged", holder.getTaskId(), holder.getClient_id());
+        logger.info("Preparing task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
         Task task = holder.getTask();
 
         String name = String.format("-- Solver, task %d", holder.getTaskId());
         new Thread(() -> {
-            logger.info("Task id:{}, client:{} started", holder.getTaskId(), holder.getClient_id());
+            logger.info("Started task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
 
             // firstly wait for all dependencies
-            Map<String, Long> vals = null;
+            Map<String, Long> values = null;
             try
             {
-                vals = getValues(task);
+                values = getValues(task);
             } catch (InterruptedException e)
             {
                 logger.error("Interrupted solving task {} while waiting for dependencies", holder.getTaskId());
@@ -75,29 +75,38 @@ public class TaskSolver
             }
 
             holder.setResult(compute(
-                    vals.get("a"),
-                    vals.get("b"),
-                    vals.get("p"),
-                    vals.get("m"),
+                    values.get("a"),
+                    values.get("b"),
+                    values.get("p"),
+                    values.get("m"),
                     task.getN()
             ));
-            // Notify all dependant tasks and subscribers
-            synchronized (holder.lock)
-            {
-                holder.lock.notifyAll();
-            }
 
-            synchronized (guard)
-            {
-                do
-                {
-                    avail = availableThreads.get();
-                } while (!availableThreads.compareAndSet(avail, avail + 1));
+            notifyAndFree(holder);
 
-                // free one another solver
-                guard.notify();
-            }
+            logger.info("Solved task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
         }, name).start();
+    }
+
+    private void notifyAndFree(TaskHolder holder)
+    {
+        // Notify all dependant tasks and subscribers
+        synchronized (holder.lock)
+        {
+            holder.lock.notifyAll();
+        }
+
+        int avail = 0;
+        synchronized (guard)
+        {
+            do
+            {
+                avail = availableThreads.get();
+            } while (!availableThreads.compareAndSet(avail, avail + 1));
+
+            // free one another solver
+            guard.notify();
+        }
     }
 
     private Map<String, Long> getValues(Task task) throws InterruptedException
@@ -105,10 +114,10 @@ public class TaskSolver
         Map<String, Long> result = new HashMap<>();
 
         List<Pair<String, Task.Param>> params = new ArrayList<>();
-        params.add(new Pair<String, Task.Param>("a", task.getA()));
-        params.add(new Pair<String, Task.Param>("b", task.getB()));
-        params.add(new Pair<String, Task.Param>("p", task.getP()));
-        params.add(new Pair<String, Task.Param>("m", task.getM()));
+        params.add(new Pair<>("a", task.getA()));
+        params.add(new Pair<>("b", task.getB()));
+        params.add(new Pair<>("p", task.getP()));
+        params.add(new Pair<>("m", task.getM()));
 
         List<Pair<String, Task.Param>> notAvaliable = new ArrayList<>();
 
@@ -119,7 +128,6 @@ public class TaskSolver
             else
                 notAvaliable.add(p);
         }
-
 
         List<Pair<String, TaskHolder>> waitHolders = new ArrayList<>();
         synchronized (tasks)

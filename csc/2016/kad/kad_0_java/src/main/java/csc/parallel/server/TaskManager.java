@@ -18,7 +18,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,6 +55,7 @@ public class TaskManager implements Runnable
         try
         {
             this.socket = new ServerSocket(port);
+            this.socket.setSoTimeout(1000);
         } catch (IOException e)
         {
             logger.error(e.getMessage());
@@ -64,23 +68,26 @@ public class TaskManager implements Runnable
             try
             {
                 Socket client = socket.accept();
+
                 int clientId = clientIDGenerator.incrementAndGet();
                 String name = "-- Client listener " + clientId;
                 new Thread(() -> {
-                    while(!client.isClosed())
+                    try
                     {
-                        try
-                        {
-                            handleClient(client);
-                        }
-                        catch (IOException e)
-                        {
-                            logger.error("Client listener {} crashed with {}", clientId, e.getMessage());
-                            break;
-                        }
+                        while(handleClient(client));
+                        logger.debug("Connection with {} closed.", clientId);
+                    }
+                    catch (IOException e)
+                    {
+                        logger.error("Client listener {} crashed with {}", clientId, e.getMessage());
                     }
                 }, name).start();
-            } catch (IOException e)
+            } catch (SocketTimeoutException e)
+            {
+                if(Thread.interrupted())
+                    break;
+            }
+            catch (IOException e)
             {
                 logger.error(e.getMessage());
             }
@@ -92,34 +99,69 @@ public class TaskManager implements Runnable
      * @param client
      * @throws IOException
      */
-    private void handleClient(Socket client) throws IOException
+    private boolean handleClient(Socket client) throws IOException
     {
-        ServerRequest request = WrapperMessage.parseDelimitedFrom(client.getInputStream()).getRequest();
+        WrapperMessage w = WrapperMessage.parseDelimitedFrom(client.getInputStream());
+        if(w == null)
+        {
+            return false;
+        }
+
+        ServerRequest request = w.getRequest();
         logger.trace("Handle client {}", request.getClientId());
         if(request.hasSubmit())
         {
             handleSubmitTask(request, client.getOutputStream());
-            return;
+            return true;
         }
 
         if(request.hasList())
         {
             handleListTasks(request, client.getOutputStream());
-            return;
+            return true;
         }
 
         if(request.hasSubscribe())
         {
             handleSubscription(request, client.getOutputStream());
         }
+        return true;
     }
 
     private void handleSubmitTask(ServerRequest request, OutputStream clientOut)
     {
         Task task = request.getSubmit().getTask();
-
         int id = taskIDGenerator.incrementAndGet();
         logger.trace("handleSubmitTask (id:{}, client:{})", id, request.getClientId());
+
+        if(!isValid(task))
+        {
+            logger.debug("Task {} has invalid dependencies", id);
+
+            SubmitTaskResponse.Builder r = SubmitTaskResponse.newBuilder()
+                    .setStatus(Protocol.Status.ERROR)
+                    .setSubmittedTaskId(id);
+
+            ServerResponse response = ServerResponse.newBuilder()
+                    .setRequestId(request.getRequestId())
+                    .setSubmitResponse(r)
+                    .build();
+
+            try
+            {
+                wrapAndSend(response, clientOut);
+            } catch (IOException e)
+            {
+                logger.error("Error on SubmitTask response.\n{}", e.getMessage());
+            }
+            return;
+        }
+
+        TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
+        synchronized (tasks)
+        {
+            tasks.put(id, holder);
+        }
 
         SubmitTaskResponse.Builder r = SubmitTaskResponse.newBuilder()
                 .setStatus(Protocol.Status.OK)
@@ -138,8 +180,26 @@ public class TaskManager implements Runnable
             logger.error("Error on SubmitTask response.\n{}", e.getMessage());
         }
 
-        TaskHolder holder = new TaskHolder(id, request.getClientId(), task);
         taskSolver.solveTask(holder);
+    }
+
+    private boolean isValid(Task task)
+    {
+        List<Integer> deps = new ArrayList<>();
+        if(task.getA().hasDependentTaskId())
+            deps.add(task.getA().getDependentTaskId());
+        if(task.getB().hasDependentTaskId())
+            deps.add(task.getB().getDependentTaskId());
+        if(task.getP().hasDependentTaskId())
+            deps.add(task.getP().getDependentTaskId());
+        if(task.getM().hasDependentTaskId())
+            deps.add(task.getM().getDependentTaskId());
+
+        synchronized (tasks)
+        {
+            // check all dependencies are prepared for execution
+            return deps.stream().allMatch(tasks::containsKey);
+        }
     }
 
     private void handleListTasks(ServerRequest request, OutputStream clientOut)
