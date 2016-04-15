@@ -18,7 +18,7 @@ Dispatcher::~Dispatcher()
 void Dispatcher::handle_connection(int sockfd)
 {
   bool connect = true;
-  SocketRW * socket_rw = new SocketRW(sockfd);
+  SocketRW const * socket_rw = new SocketRW(sockfd);
   communication::WrapperMessage msg;
   
 	while (connect)
@@ -62,12 +62,10 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
     msg.mutable_response()->set_request_id(request_id);
     msg.mutable_response()->set_allocated_subscriberesponse(response);
     
-    std::vector<SocketRW *> & socks = m_socks_to_ids[task_id];
-    for (std::vector<SocketRW *>::iterator sock = socks.begin(); 
-    sock != socks.end(); 
-    ++sock)
+    auto const & socks = m_socks_to_ids[task_id];
+    for (auto const sock : socks)
     {
-      (*sock)->write(msg);
+      sock->write(msg);
     }
     
     m_socks_to_ids.erase(task_id);
@@ -76,7 +74,7 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
   m_mut.unlock();
 }
 
-bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW * socket_rw)
+bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
 {
   communication::SubmitTask const & submitTask = msg_in.request().submit();
   
@@ -92,7 +90,7 @@ bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, Socke
   return socket_rw->write(msg_out);
 }
 
-bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, SocketRW * socket_rw)
+bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
 {
   std::vector<Task> tasks;
   m_worker.get_task_list(tasks);
@@ -100,16 +98,15 @@ bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, Socket
   communication::ListTasksResponse * response = communication::ListTasksResponse().New();
   response->set_status(communication::Status::OK);
   
-  size_t sz = tasks.size();
-  for (size_t i = 0; i != sz; ++i)
+  for (auto const & task : tasks)
   {
     communication::ListTasksResponse_TaskDescription * desc = response->add_tasks();
-    desc->set_taskid(tasks[i].id);
-    desc->set_clientid(tasks[i].client_id);
-    desc->mutable_task()->CopyFrom(tasks[i].args);
-    if (tasks[i].finished)
+    desc->set_taskid(task.id);
+    desc->set_clientid(task.client_id);
+    desc->mutable_task()->CopyFrom(task.args);
+    if (task.finished)
     {
-      desc->set_result(tasks[i].result);
+      desc->set_result(task.result);
     }
   }
   
@@ -119,7 +116,7 @@ bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, Socket
   return socket_rw->write(msg_out);
 }
 
-bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketRW * socket_rw)
+bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
 {
   bool res = false;
   communication::Subscribe const & subscribe = msg_in.request().subscribe();

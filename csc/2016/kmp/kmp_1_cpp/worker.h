@@ -51,11 +51,9 @@ public:
   
   ~Worker()
   {
-    for (std::vector<Task>::iterator it = m_tasks.begin(); 
-    it != m_tasks.end(); 
-    ++it)
+    for (auto const & task : m_tasks)
     {
-      delete it->cv;
+      delete task.cv;
     }
   }
   

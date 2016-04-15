@@ -56,15 +56,10 @@ unsigned int Worker::add_task(communication::SubmitTask const & submitTask, std:
 
 void Worker::start(unsigned int self_id, communication::Task args)
 {
-  communication::Task_Param const & a = args.a();
-  communication::Task_Param const & b = args.b();
-  communication::Task_Param const & p = args.p();
-  communication::Task_Param const & m = args.m();
-  
-  int64_t a_value = try_get_param(a);
-  int64_t b_value = try_get_param(b);
-  int64_t p_value = try_get_param(p);
-  int64_t m_value = try_get_param(m);
+  int64_t a_value = try_get_param(args.a());
+  int64_t b_value = try_get_param(args.b());
+  int64_t p_value = try_get_param(args.p());
+  int64_t m_value = try_get_param(args.m());
   
   work(self_id, a_value, b_value, p_value, m_value, args.n());
 }

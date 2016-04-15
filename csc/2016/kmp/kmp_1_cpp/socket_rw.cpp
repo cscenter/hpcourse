@@ -14,7 +14,7 @@ SocketRW::SocketRW(int sockfd)
 : m_sockfd(sockfd)
 { }
 
-bool SocketRW::read(communication::WrapperMessage & msg)
+bool SocketRW::read(communication::WrapperMessage & msg) const
 {
   size_t length = get_var_length();
   
@@ -41,26 +41,27 @@ bool SocketRW::read(communication::WrapperMessage & msg)
   return true;
 }
 
-bool SocketRW::write(communication::WrapperMessage const & msg)
+bool SocketRW::write(communication::WrapperMessage const & msg) const
 {
   size_t length = msg.ByteSize();
   unsigned char * buffer = new unsigned char[length + MAX_VARINT_LENGTH];
   
-  ArrayOutputStream aos(buffer, length + MAX_VARINT_LENGTH);
+  ArrayOutputStream * aos = new ArrayOutputStream(buffer, length + MAX_VARINT_LENGTH);
   
-  CodedOutputStream * output_stream = new CodedOutputStream(&aos);
+  CodedOutputStream * output_stream = new CodedOutputStream(aos);
   output_stream->WriteTag(length);
   msg.SerializeToCodedStream(output_stream);
   
   send(m_sockfd, buffer, output_stream->ByteCount(), MSG_DONTWAIT);
   
   delete output_stream;
+  delete aos;
   delete [] buffer;
   
   return true;
 }
 
-size_t SocketRW::get_var_length()
+size_t SocketRW::get_var_length() const
 {
   size_t length = 0;
   int sz = 1;

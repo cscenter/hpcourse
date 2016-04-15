@@ -20,9 +20,9 @@ public:
   void subscribe_callback(unsigned int task_id, int64_t request_id, int64_t result);
   
 private:
-  bool submit_task(communication::WrapperMessage const & msg_in, SocketRW * socket_rw);
-  bool list_tasks(communication::WrapperMessage const & msg_in, SocketRW * socket_rw);
-  bool subscribe(communication::WrapperMessage const & msg_in, SocketRW * socket_rw);
+  bool submit_task(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw);
+  bool list_tasks(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw);
+  bool subscribe(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw);
   communication::WrapperMessage create_serv_response(communication::WrapperMessage const & serv_req);
   
   inline bool get_message_from_bytes(char const * input, size_t len, communication::WrapperMessage & out) const
@@ -37,7 +37,7 @@ private:
 private:
   Worker m_worker;
   std::mutex m_mut;
-  std::unordered_map<unsigned int, std::vector<SocketRW *> > m_socks_to_ids;
+  std::unordered_map<unsigned int, std::vector<SocketRW const *> > m_socks_to_ids;
 };
 
 #endif
