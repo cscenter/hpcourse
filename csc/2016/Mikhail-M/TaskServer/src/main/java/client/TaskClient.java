@@ -65,11 +65,12 @@ public class TaskClient {
              InputStream in = clientSocket.getInputStream();
              OutputStream out = clientSocket.getOutputStream()
         ) {
-
             requestBuilder.setClientId(String.valueOf(clientId));
             requestBuilder.setRequestId(requestCount.addAndGet(1));
 
-            Protocol.WrapperMessage requestMessage = Protocol.WrapperMessage.newBuilder().setRequest(requestBuilder).build();
+            Protocol.WrapperMessage requestMessage = Protocol.WrapperMessage.newBuilder()
+                    .setRequest(requestBuilder)
+                    .build();
 
             requestMessage.writeDelimitedTo(out);
             out.flush();
