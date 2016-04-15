@@ -40,11 +40,12 @@ public class Server implements Runnable {
             try {
                 LOGGER.info("Wait for new socket");
                 final Socket socket = serverSocket.accept();
-                LOGGER.info("Accept socket");
+                LOGGER.info("Socket accepted");
 
                 threadPool.execute(() -> {
                     while (!socket.isClosed()) {
                         final Protocol.WrapperMessage message;
+                        LOGGER.info("Read message from socket");
                         try {
                             message = ProtocolUtils.readWrappedMessage(socket);
 

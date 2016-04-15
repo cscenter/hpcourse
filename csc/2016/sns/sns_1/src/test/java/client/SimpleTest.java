@@ -41,11 +41,12 @@ public class SimpleTest extends ClientServerTest {
     @Test
     public void futureTest1() throws Exception {
         final Random random = new Random();
-        final long a = random.nextLong();
-        final long b = random.nextLong();
-        final long c = random.nextLong();
-        final long m = random.nextLong();
-        final long n = random.nextLong();
+        final long max = 10_000;
+        final long a = random.nextLong() % max;
+        final long b = random.nextLong() % max;
+        final long c = random.nextLong() % max;
+        final long m = random.nextLong() % max;
+        final long n = Math.abs(random.nextLong()) % max;
         final Long expectedResult1 = Functions.calculateModulo(a, b, c, m, n);
 
         final Protocol.Task task1 = ProtocolUtils.createTask(
@@ -56,7 +57,6 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
-        System.out.println(1);
         final Pair<Long, Integer> result1 = sendAndGetResultAndId(client1, task1);
         assertEquals(expectedResult1, result1.getKey());
 
@@ -69,7 +69,6 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
-        System.out.println(2);
         final Pair<Long, Integer> result2 = sendAndGetResultAndId(client1, task2);
         assertEquals(expectedResult2, result2.getKey());
 
@@ -82,7 +81,6 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
-        System.out.println(3);
         final Pair<Long, Integer> result3 = sendAndGetResultAndId(client1, task3);
         assertEquals(expectedResult3, result3.getKey());
 
