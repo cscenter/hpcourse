@@ -44,6 +44,7 @@ public class Server extends Thread{
                         try {
                             ServerRequest request = ServerRequest.parseDelimitedFrom(connection.getInputStream());
                             if (request.hasSubmit()) {
+                                new TaskHandler(request).start();
                             }
                             if (request.hasSubscribe()) {
                                 new SubscribeHandler(request).start();
@@ -86,7 +87,7 @@ public class Server extends Thread{
             this.request = request;
         }
 
-        public void sendMessage(ServerResponse message) throws IOException {
+        protected void sendMessage(ServerResponse message) throws IOException {
             synchronized (connection) {
                 message.writeDelimitedTo(connection.getOutputStream());
             }
@@ -137,7 +138,7 @@ public class Server extends Thread{
                     if (description.hasResult())
                         result = description.getResult();
                     else {
-                        task.wait();;
+                        task.wait();
                         result = helper.getInstance().getTaskById(taskId).getResult();
                     }
                 }
@@ -153,4 +154,91 @@ public class Server extends Thread{
         }
     }
 
+    public class TaskHandler extends AbstractHandler {
+
+        private Task task;
+        private int task_id;
+
+        TaskHandler(ServerRequest request) {
+            super(request);
+            task = request.getSubmit().getTask();
+            task_id = ids.nextValue();
+            helper.getInstance().addTask(task_id, TaskDescription.newBuilder().setTask(task).setClientId(request.getClientId()).
+                                            setTaskId(task_id).build());
+            new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        sendMessage(ServerResponse.newBuilder().setRequestId(request.getRequestId()).setSubmitResponse(
+                                Protocol.SubmitTaskResponse.newBuilder().setStatus(Protocol.Status.OK).setSubmittedTaskId(task_id).build()
+                        ).build());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }.start();
+        }
+
+        private long evaluate(long a, long b, long p, long m, long n) {
+            while (n --> 0) {
+                b = (a * p + b) % m;
+                a = b;
+            }
+            return a;
+        }
+
+        void evaluateParam(int id) throws InterruptedException {
+            TaskDescription td = helper.getInstance().getTaskById(id);
+            Task task = td.getTask();
+            synchronized (task) {
+                td = helper.getInstance().getTaskById(id);
+                if (!td.hasResult()) {
+                    task.wait();
+                }
+            }
+        }
+
+        long calculate(Task task, int task_id) throws InterruptedException {
+
+            if (task.getA().hasDependentTaskId()) {
+                evaluateParam(task.getA().getDependentTaskId());
+            }
+
+            if (task.getB().hasDependentTaskId()) {
+                evaluateParam(task.getB().getDependentTaskId());
+            }
+
+            if (task.getM().hasDependentTaskId()) {
+                evaluateParam(task.getM().getDependentTaskId());
+            }
+
+            if (task.getP().hasDependentTaskId()) {
+                evaluateParam(task.getP().getDependentTaskId());
+            }
+
+            task = helper.getInstance().getTaskById(task_id).getTask();
+
+            long a = task.getA().getValue();
+            long p = task.getP().getValue();
+            long m = task.getM().getValue();
+            long b = task.getB().getValue();
+            long n = task.getN();
+
+            return evaluate(a, b, p, m, n);
+        }
+
+        @Override
+        public void run() {
+            synchronized (task) {
+                try {
+                    long result = calculate(task, task_id);
+                    helper.getInstance().addTask(task_id, TaskDescription.newBuilder().setClientId(request.getClientId()).setTaskId(task_id)
+                    .setTask(task).setResult(result).build());
+                    task.notifyAll();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
 }
