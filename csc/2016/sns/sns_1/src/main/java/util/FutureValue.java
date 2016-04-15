@@ -13,17 +13,11 @@ public class FutureValue<T> {
         this.clazz = clazz;
     }
 
-    public boolean isEmpty() {
-        return valueWrapper.isEmpty();
-    }
-
     /**
-     * Block current thread until value coming
-     *
-     * @return
-     * @throws InterruptedException
+     * Blocking value get operation
+     * @return associated value
      */
-    public T get() throws InterruptedException {
+    public T get() {
         try {
             valueWrapper.getClazz().cast(valueWrapper.getValue());
             return clazz.cast(valueWrapper.getValue());

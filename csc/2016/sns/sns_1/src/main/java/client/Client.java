@@ -4,6 +4,7 @@ import com.google.protobuf.GeneratedMessage;
 import communication.Protocol;
 import util.*;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.logging.Logger;
@@ -11,17 +12,18 @@ import java.util.logging.Logger;
 /**
  * Created by nikita.sokeran@gmail.com
  */
-public class Client extends Thread {
+public class Client implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Client.class.getName());
 
     private final Socket socket;
     private final String clientId;
-
+    private final Thread listener = new SocketListener();
     private final ConcurrentStorage<ValueWrapper<GeneratedMessage>> futures = new ConcurrentStorage<>();
 
     public Client(final String host, final int port, final String clientId) throws IOException {
         socket = new Socket(host, port);
         this.clientId = clientId;
+        listener.start();
     }
 
     public Protocol.ServerRequest.Builder createServerRequest() {
@@ -29,68 +31,6 @@ public class Client extends Thread {
                 .setClientId(clientId);
     }
 
-    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
-    @Override
-    public void run() {
-        while (!interrupted()) {
-            try {
-                final Protocol.WrapperMessage wrapperMessage = ProtocolUtils.readWrappedMessage(socket);
-                LOGGER.info("Client read wrapped message: " + wrapperMessage);
-                if (!wrapperMessage.hasResponse()) {
-                    LOGGER.warning("Read message in client, which one isn't an ServerResponse message. Continue");
-                    continue;
-                }
-
-                final Protocol.ServerResponse response = wrapperMessage.getResponse();
-                final long requestId = response.getRequestId();
-
-                final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
-
-                if (valueWrapper == null) {
-                    LOGGER.warning("Receive message from server with wrong request id");
-                    continue;
-                }
-
-                if (response.hasSubmitResponse()) {
-
-//                    LOGGER.info("Value wrapper has type: " + Arrays.toString(valueWrapper.getClass().getTypeParameters()));
-
-                    LOGGER.info("Get result:" + response.getSubmitResponse());
-
-                    synchronized (valueWrapper) {
-                        try {
-                            valueWrapper.setValue(response.getSubmitResponse());
-                        } catch (CheckedClassCastException e) {
-                            LOGGER.warning("Server answer is wrong, expected that value wrapper store SubmitTaskResponse");
-                        }
-                    }
-                }
-
-                if (response.hasSubscribeResponse()) {
-                    synchronized (valueWrapper) {
-                        try {
-                            valueWrapper.setValue(response.getSubscribeResponse());
-                        } catch (CheckedClassCastException e) {
-                            LOGGER.warning("Server answer is wrong, expected that value wrapper store SubscribeResponse");
-                        }
-                    }
-                }
-
-                if (response.hasListResponse()) {
-                    synchronized (valueWrapper) {
-                        try {
-                            valueWrapper.setValue(response.getListResponse());
-                        } catch (CheckedClassCastException e) {
-                            LOGGER.warning("Server answer is wrong, expected that value wrapper store ListTasksResponse");
-                        }
-                    }
-                }
-
-            } catch (IOException e) {
-                LOGGER.warning("Exception " + e + " while reading wrapped message from socket. Continue");
-            }
-        }
-    }
 
     /**
      * @return request id
@@ -124,7 +64,6 @@ public class Client extends Thread {
         return new FutureValue<>(valueWrapper, Protocol.SubscribeResponse.class);
     }
 
-
     public FutureValue<Protocol.ListTasksResponse> sendServerRequest(final Protocol.ListTasks listTasks) throws IOException {
         final ValueWrapper<GeneratedMessage> valueWrapper = new ValueWrapper<>(Protocol.ListTasksResponse.class);
         final long requestId = futures.add(valueWrapper);
@@ -135,5 +74,82 @@ public class Client extends Thread {
         ProtocolUtils.sendWrappedMessage(socket, message);
 
         return new FutureValue<>(valueWrapper, Protocol.ListTasksResponse.class);
+    }
+
+    @Override
+    public void close() throws IOException {
+        socket.close();
+        listener.interrupt();
+    }
+
+    private class SocketListener extends Thread {
+        @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
+        @Override
+        public void run() {
+            while (!interrupted()) {
+                try {
+                    final Protocol.WrapperMessage wrapperMessage = ProtocolUtils.readWrappedMessage(socket);
+
+                    LOGGER.info("Client read wrapped message: " + wrapperMessage);
+                    if (!wrapperMessage.hasResponse()) {
+                        LOGGER.warning("Read message in client, which one isn't an ServerResponse message. Continue");
+                        continue;
+                    }
+
+                    final Protocol.ServerResponse response = wrapperMessage.getResponse();
+                    final long requestId = response.getRequestId();
+
+                    final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
+
+                    if (valueWrapper == null) {
+                        LOGGER.warning("Receive message from server with wrong request id");
+                        continue;
+                    }
+
+                    if (response.hasSubmitResponse()) {
+                        synchronized (valueWrapper) {
+                            try {
+                                valueWrapper.setValue(response.getSubmitResponse());
+                            } catch (CheckedClassCastException e) {
+                                LOGGER.warning("Server answer is wrong, expected that value wrapper store SubmitTaskResponse");
+                            }
+                        }
+                    }
+
+                    if (response.hasSubscribeResponse()) {
+                        synchronized (valueWrapper) {
+                            try {
+                                valueWrapper.setValue(response.getSubscribeResponse());
+                            } catch (CheckedClassCastException e) {
+                                LOGGER.warning("Server answer is wrong, expected that value wrapper store SubscribeResponse");
+                            }
+                        }
+                    }
+
+                    if (response.hasListResponse()) {
+                        synchronized (valueWrapper) {
+                            try {
+                                valueWrapper.setValue(response.getListResponse());
+                            } catch (CheckedClassCastException e) {
+                                LOGGER.warning("Server answer is wrong, expected that value wrapper store ListTasksResponse");
+                            }
+                        }
+                    }
+
+                } catch (IOException e) {
+                    LOGGER.warning("Exception " + e + " while reading wrapped message from socket. Continue. Client id: " + clientId);
+                } catch (InterruptedException e) {
+                    LOGGER.info("Client listener was interrupted");
+                    interrupt();
+                }
+            }
+            LOGGER.info("Socket was interrupted, try close socket");
+            try {
+                socket.close();
+                LOGGER.info("Socket for client " + clientId + " was closed");
+            } catch (IOException e) {
+                LOGGER.warning("Can't close socket. Client id: " + clientId);
+            }
+        }
     }
 }

@@ -4,7 +4,6 @@ package util;
  * Created by nikita.sokeran@gmail.com
  */
 public class ValueWrapper<T> {
-
     private final Class<? extends T> clazz;
     private final Object lock = new Object();
     private volatile T value;
@@ -51,9 +50,5 @@ public class ValueWrapper<T> {
 
     public Class<? extends T> getClazz() {
         return clazz;
-    }
-
-    public boolean isEmpty() {
-        return value == null;
     }
 }

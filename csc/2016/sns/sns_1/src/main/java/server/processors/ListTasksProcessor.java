@@ -52,9 +52,7 @@ public class ListTasksProcessor extends BaseTaskProcessor {
         listTasksResponseBuilder
                 .setStatus(Protocol.Status.OK);
 
-        for (int i = 0; i < taskDescriptions.size(); i++) {
-            listTasksResponseBuilder.setTasks(i, taskDescriptions.get(i));
-        }
+        taskDescriptions.forEach(listTasksResponseBuilder::addTasks);
 
         final Protocol.ServerResponse serverResponse = ProtocolUtils.createServerResponse(request)
                 .setListResponse(listTasksResponseBuilder.build())

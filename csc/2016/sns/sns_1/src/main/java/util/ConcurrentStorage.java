@@ -20,7 +20,7 @@ public class ConcurrentStorage<V> {
     private ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
-     * @param element
+     * @param value element value
      * @return index of added element
      */
     public long add(final V value) {
@@ -35,7 +35,7 @@ public class ConcurrentStorage<V> {
     }
 
     /**
-     * @param id task id
+     * @param index index of wanted element
      * @return task if exists or {@code null} if not
      */
     public V get(final long index) {

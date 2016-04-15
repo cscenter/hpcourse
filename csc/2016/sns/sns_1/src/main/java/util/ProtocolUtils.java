@@ -6,11 +6,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketException;
+import java.util.logging.Logger;
 
 /**
  * Created by nikita.sokeran@gmail.com
  */
 public class ProtocolUtils {
+
+    private static final Logger LOGGER = Logger.getLogger(ProtocolUtils.class.getName());
 
     public static Protocol.SubmitTaskResponse createSubmitTaskResponse(final int taskId, final Protocol.Status status) {
         return Protocol.SubmitTaskResponse.newBuilder()
@@ -31,17 +35,33 @@ public class ProtocolUtils {
      * @throws IOException when can't get output stream for socket
      */
     public static void sendWrappedMessage(final Socket socket, final Protocol.WrapperMessage message) throws IOException {
+        LOGGER.info("Send wrapped message");
         final OutputStream outputStream = socket.getOutputStream();
         message.writeDelimitedTo(outputStream);
+        LOGGER.info("Sent wrapped message");
     }
 
     /**
      * @param socket destination of message
      * @throws IOException when can't get input stream for socket
      */
-    public static Protocol.WrapperMessage readWrappedMessage(final Socket socket) throws IOException {
+    public static Protocol.WrapperMessage readWrappedMessage(final Socket socket) throws IOException, InterruptedException {
         final InputStream inputStream = socket.getInputStream();
-        return Protocol.WrapperMessage.parseDelimitedFrom(inputStream);
+        while (true) {
+            LOGGER.info("Try read wrapped message");
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException();
+            }
+
+            if (inputStream.available() > 0) {
+                synchronized (socket) {
+                    if (inputStream.available() > 0) {
+                        LOGGER.info("Read wrapped message");
+                        return Protocol.WrapperMessage.parseDelimitedFrom(inputStream);
+                    }
+                }
+            }
+        }
     }
 
     public static Protocol.Task createTask(final Protocol.Task.Param a, final Protocol.Task.Param b, final Protocol.Task.Param p,

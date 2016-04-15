@@ -23,47 +23,8 @@ public class Main {
      * @throws IOException when can't open socket on {@code DEFAULT_SERVER_PORT}
      */
     public static void main(final String[] args) throws IOException {
-
         final Server server = new Server(DEFAULT_SERVER_PORT);
         server.start();
         final Client client = new Client(DEFAULT_HOST, DEFAULT_SERVER_PORT, "client1");
-        client.start();
-
-        final FutureValue<Protocol.SubmitTaskResponse> responseFutureValue = client.sendServerRequest(ProtocolUtils.createSubmitTask(
-                        ProtocolUtils.createTask(
-                                ProtocolUtils.createParam(155L, null),
-                                ProtocolUtils.createParam(1111L, null),
-                                ProtocolUtils.createParam(1566L, null),
-                                ProtocolUtils.createParam(4L, null),
-                                154
-                        )
-                )
-        );
-
-        try {
-            final Protocol.SubmitTaskResponse submitTaskResponse = responseFutureValue.get();
-            LOGGER.info("Task id = " + submitTaskResponse.getSubmittedTaskId());
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            LOGGER.info("Response value = " + responseFutureValue.get());
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        client.sendServerRequest(ProtocolUtils.createSubmitTask(
-                        ProtocolUtils.createTask(
-                                ProtocolUtils.createParam(null, 0),
-                                ProtocolUtils.createParam(null, 0),
-                                ProtocolUtils.createParam(141411L, null),
-                                ProtocolUtils.createParam(5555L, null),
-                                1411
-                        )
-                )
-        );
-
     }
-
 }

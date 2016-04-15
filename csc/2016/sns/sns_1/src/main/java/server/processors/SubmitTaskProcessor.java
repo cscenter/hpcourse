@@ -2,6 +2,7 @@ package server.processors;
 
 import communication.Protocol;
 import util.ConcurrentStorage;
+import util.Functions;
 import util.ProtocolUtils;
 import util.TaskAndResult;
 
@@ -22,13 +23,6 @@ public class SubmitTaskProcessor extends BaseTaskProcessor {
         task = request.getSubmit().getTask();
     }
 
-    private static long calculate(long a, long b, long p, long m, long n) {
-        while (n-- > 0) {
-            b = (a * p + b) % m;
-            a = b;
-        }
-        return a;
-    }
 
     @Override
     public void run() {
@@ -48,7 +42,7 @@ public class SubmitTaskProcessor extends BaseTaskProcessor {
             final long m = getParamValue(task.getM());
             final long n = task.getN();
 
-            result = calculate(a, b, p, m, n);
+            result = Functions.calculateModulo(a, b, p, m, n);
             LOGGER.info("Params: a=" + a + ", b=" + b + ", p=" + p + ", m=" + m + ", n=" + n + ". Result=" + result);
 
         } catch (Exception ignored) {

@@ -10,9 +10,6 @@ import java.util.logging.Logger;
 public class ThreadPool {
     private static final Logger LOGGER = Logger.getLogger(ThreadPool.class.getName());
 
-    /**
-     * Not for concurrency environment
-     */
     final Deque<PoolThread> threads = new LinkedList<>();
 
     final Deque<Runnable> tasks = new LinkedList<>();
@@ -54,7 +51,7 @@ public class ThreadPool {
 
                 try {
                     task.run();
-                } catch (RuntimeException e) {
+                } catch (Exception e) {
                     LOGGER.warning("Error occurred in thread worker:" + e);
                 }
             }
