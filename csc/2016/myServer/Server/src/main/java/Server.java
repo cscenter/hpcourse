@@ -42,7 +42,7 @@ class TaskThread extends Thread {
     //static
     static int initialId = 1;
     static ConcurrentHashMap<Integer, Calculation> taskMap = new ConcurrentHashMap<>();
-//    static Map<Integer, Calculation> taskMap = new ConcurrentHashMap<Integer, Calculation>();
+    //    static Map<Integer, Calculation> taskMap = new ConcurrentHashMap<Integer, Calculation>();
     static int curId;
 
     //no-static
@@ -99,16 +99,16 @@ class TaskThread extends Thread {
     List<Protocol.ListTasksResponse.TaskDescription> getTasks() {
         List<ListTasksResponse.TaskDescription> res = new LinkedList<>();
         for (Integer taskId: taskMap.keySet()) {
-                Calculation task = taskMap.get(taskId);
+            Calculation task = taskMap.get(taskId);
 
-                ListTasksResponse.TaskDescription.Builder description =
-                        ListTasksResponse.TaskDescription.newBuilder();
-                description.setClientId(task.clientId).setTaskId(taskId).setTask(task.task);
-                if (task.isReady())
-                {
-                    description.setResult(task.getValue());
-                }
-                res.add(description.build());
+            ListTasksResponse.TaskDescription.Builder description =
+                    ListTasksResponse.TaskDescription.newBuilder();
+            description.setClientId(task.clientId).setTaskId(taskId).setTask(task.task);
+            if (task.isReady())
+            {
+                description.setResult(task.getValue());
+            }
+            res.add(description.build());
         }
         return res;
     }
@@ -182,10 +182,7 @@ class TaskThread extends Thread {
     }
 
     void sendToClient(GeneratedMessage message) throws IOException{
-        InputStream is = socket.getInputStream();
-        OutputStream os = socket.getOutputStream();
-        os.write(message.getSerializedSize());
-        message.writeTo(os);
+        message.writeDelimitedTo(socket.getOutputStream());
     }
 
     //Поля уже проверены checkField function
@@ -235,10 +232,7 @@ class TaskThread extends Thread {
     }
 
     ServerRequest getServerRequest() throws IOException {
-        int size = socket.getInputStream().read();
-        byte buf[] = new byte[size];
-        socket.getInputStream().read(buf);
-        return ServerRequest.parseFrom(buf);
+        return ServerRequest.parseDelimitedFrom(socket.getInputStream());
     }
 
     int getNewId() {

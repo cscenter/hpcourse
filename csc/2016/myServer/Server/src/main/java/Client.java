@@ -112,17 +112,11 @@ class TaskClient extends Thread{
     }
 
     void SendMessageToServer(ServerRequest request) throws IOException{
-        InputStream is = socket.getInputStream();
-        OutputStream os = socket.getOutputStream();
-        os.write(request.getSerializedSize());
-        request.writeTo(os);
+        request.writeDelimitedTo(socket.getOutputStream());
     }
 
     ServerResponse getServerResponse() throws IOException {
-        int size = socket.getInputStream().read();
-        byte buf[] = new byte[size];
-        socket.getInputStream().read(buf);
-        return ServerResponse.parseFrom(buf);
+        return ServerResponse.parseDelimitedFrom(socket.getInputStream());
     }
 
     //all tasks extend com.google.protobuf.GeneratedMessage
@@ -156,8 +150,8 @@ class TaskClient extends Thread{
 
         //параметр m
         param.clearParamValue();
-//        param.setValue(24);
-        param.setDependentTaskId(1);
+        param.setValue(24);
+//        param.setDependentTaskId(1);
         task.setM(param.build());
 
         //параметр n
