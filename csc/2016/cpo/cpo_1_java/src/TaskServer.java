@@ -4,8 +4,9 @@ import sync.Semaphore;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static communication.Protocol.*;
@@ -17,7 +18,7 @@ public class TaskServer {
 
     final static int PORT = 7979;
     final static AtomicInteger taskID = new AtomicInteger(0);
-    final static ConcurrentHashMap<Integer, CalcThread> taskThreads = new ConcurrentHashMap<>();
+    final static HashMap<Integer, CalcThread> taskThreads = new HashMap<>();
     final static Semaphore calcThreadsLock = new Semaphore(Runtime.getRuntime().availableProcessors() + 1);
 
     public static void main(String[] args) {
@@ -49,15 +50,11 @@ class ServerThread extends Thread {
             ServerRequest req;
             try {
                 //req = WrapperMessage.parseFrom(socket.getInputStream()).getRequest();
-                req = WrapperMessage.parseDelimitedFrom(socket.getInputStream()).getRequest();
-                System.out.println("Got the request!!!");
+                WrapperMessage wm = WrapperMessage.parseDelimitedFrom(socket.getInputStream());
+                if (wm == null)
+                    throw new IOException();
+                req = wm.getRequest();
             } catch (IOException e) {
-                //respondSubmitError();
-                try {
-                    socket.close();
-                } catch (IOException e1) {
-                    //e1.printStackTrace();
-                }
                 return;
             }
             new ManagerThread(req, socket);
@@ -94,7 +91,11 @@ class ManagerThread extends Thread {
     private void listTasks() {
         ListTasksResponse.Builder listBuilder = ListTasksResponse.newBuilder();
         int i = 0;
-        for (Map.Entry<Integer, CalcThread> entry : TaskServer.taskThreads.entrySet()) {
+        Set<Map.Entry<Integer, CalcThread>> entries;
+        synchronized (TaskServer.taskThreads) {
+            entries = TaskServer.taskThreads.entrySet();
+        }
+        for (Map.Entry<Integer, CalcThread> entry : entries) {
             ListTasksResponse.TaskDescription.Builder tdBuilder = ListTasksResponse.TaskDescription.newBuilder()
                     .setClientId(entry.getValue().getClientID())
                     .setTaskId(entry.getKey())
@@ -113,7 +114,10 @@ class ManagerThread extends Thread {
     private void subscribeTask(ServerRequest req) {
         SubscribeResponse.Builder builder = SubscribeResponse.newBuilder();
         int taskID = req.getSubscribe().getTaskId();
-        CalcThread thread = TaskServer.taskThreads.get(taskID);
+        CalcThread thread;
+        synchronized (TaskServer.taskThreads) {
+            thread = TaskServer.taskThreads.get(taskID);
+        }
         if (thread == null) {
             builder.setStatus(Status.ERROR);
         } else {
@@ -133,7 +137,9 @@ class ManagerThread extends Thread {
         boolean status = true;
         int taskID = TaskServer.taskID.getAndIncrement();
         try {
-            TaskServer.taskThreads.put(taskID, new CalcThread(task, req.getClientId()));
+            synchronized (TaskServer.taskThreads) {
+                TaskServer.taskThreads.put(taskID, new CalcThread(task, req.getClientId()));
+            }
         } catch (InvalidArgumentException e) {
             status = false;
         }
@@ -161,10 +167,6 @@ class ManagerThread extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private void respondSubmitError() {
-
     }
 }
 
@@ -221,7 +223,10 @@ class CalcThread extends Thread {
     private long getValueOrLock(Task.Param param) throws InvalidArgumentException {
         if (param.hasDependentTaskId()) {
             int id = param.getDependentTaskId();
-            CalcThread thread = TaskServer.taskThreads.get(id);
+            CalcThread thread;
+            synchronized (TaskServer.taskThreads) {
+                thread = TaskServer.taskThreads.get(id);
+            }
             if (thread == null)
                 throw new InvalidArgumentException(new String[]{"no such taskID: " + id});
             return thread.getResult();
@@ -237,9 +242,7 @@ class CalcThread extends Thread {
         synchronized (monitor) {
             while (!ready)
                 try {
-                    // wait 1sec in case task was solved after
-                    // checking 'ready' value
-                    monitor.wait(1000);
+                    monitor.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
