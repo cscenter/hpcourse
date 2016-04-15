@@ -1,4 +1,3 @@
-import com.sun.javaws.exceptions.InvalidArgumentException;
 import sync.Semaphore;
 
 import java.io.IOException;
@@ -49,7 +48,6 @@ class ServerThread extends Thread {
         while(true) {
             ServerRequest req;
             try {
-                //req = WrapperMessage.parseFrom(socket.getInputStream()).getRequest();
                 WrapperMessage wm = WrapperMessage.parseDelimitedFrom(socket.getInputStream());
                 if (wm == null)
                     throw new IOException();
@@ -60,7 +58,6 @@ class ServerThread extends Thread {
             new ManagerThread(req, socket);
         }
     }
-
 }
 
 class ManagerThread extends Thread {
@@ -140,7 +137,7 @@ class ManagerThread extends Thread {
             synchronized (TaskServer.taskThreads) {
                 TaskServer.taskThreads.put(taskID, new CalcThread(task, req.getClientId()));
             }
-        } catch (InvalidArgumentException e) {
+        } catch (IllegalArgumentException e) {
             status = false;
         }
         WrapperMessage wm = prepareSubmitTaskResponse(req, taskID, status);
@@ -177,18 +174,7 @@ class CalcThread extends Thread {
     Task task;
     final Object monitor = new Object();
 
-/*    public CalcThread(long a, long b, long p, long m, long n, String id) {
-        this.a = a;
-        this.b = b;
-        this.p = p;
-        this.m = m;
-        this.n = n;
-        this.clientID = id;
-        this.setDaemon(true);
-        start();
-    }*/
-
-    public CalcThread(Task task, String clientId) throws InvalidArgumentException {
+    public CalcThread(Task task, String clientId) throws IllegalArgumentException {
         this.task = task;
         this.clientID = clientId;
         a = getValueOrLock(task.getA());
@@ -220,7 +206,7 @@ class CalcThread extends Thread {
         return task;
     }
 
-    private long getValueOrLock(Task.Param param) throws InvalidArgumentException {
+    private long getValueOrLock(Task.Param param) throws IllegalArgumentException {
         if (param.hasDependentTaskId()) {
             int id = param.getDependentTaskId();
             CalcThread thread;
@@ -228,7 +214,7 @@ class CalcThread extends Thread {
                 thread = TaskServer.taskThreads.get(id);
             }
             if (thread == null)
-                throw new InvalidArgumentException(new String[]{"no such taskID: " + id});
+                throw new IllegalArgumentException("no such taskID: " + id);
             return thread.getResult();
         }
         return param.getValue();

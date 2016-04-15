@@ -13,15 +13,13 @@ public class Semaphore {
     }
 
     public synchronized void lock() {
-        if (count > 0) {
-            count--;
-        } else
+        while (count == 0)
             try {
-                while (count == 0)
-                    wait();
+                wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        count--;
     }
 
     public synchronized void unlock() {
