@@ -1,10 +1,10 @@
 import java.io.*;
 import java.lang.String;
 import java.net.*;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 //import java.util.concurrent.ConcurrentHashMap;
 import util.ConcurrentHashMap;
 import com.google.protobuf.GeneratedMessage;
@@ -14,25 +14,23 @@ import com.sun.org.apache.xpath.internal.operations.*;
 import communication.Protocol;
 import communication.Protocol.*;
 
-public class Server
-{
-    static int num = 0;
-    static final int PORT_NUMBER = 44444;
+enum Status {
+    Ready, notReady, Error;
+}
 
-    public static void main(String args[])
-    {
-        try(ServerSocket server = new ServerSocket(PORT_NUMBER);)
-        {
+public class Server {
+    static final int PORT_NUMBER = 44444;
+    static int num = 0;
+
+    public static void main(String args[]) {
+        try (ServerSocket server = new ServerSocket(PORT_NUMBER);) {
             System.out.println("Server is started: ");
 
-            while(true)
-            {
+            while (true) {
                 new TaskThread(server.accept());
                 num++;
             }
-        }
-        catch(Exception e)
-        {
+        } catch (Exception e) {
             System.out.println("init server error: " + e);
         }
     }
@@ -40,7 +38,7 @@ public class Server
 
 class TaskThread extends Thread {
     //static
-    static int initialId = 1;
+    static AtomicInteger initialId = new AtomicInteger(1);
     static ConcurrentHashMap<Integer, Calculation> taskMap = new ConcurrentHashMap<>();
     //    static Map<Integer, Calculation> taskMap = new ConcurrentHashMap<Integer, Calculation>();
     static int curId;
@@ -51,8 +49,7 @@ class TaskThread extends Thread {
     String clientId;
     Calculation curTaskDescription;
 
-    TaskThread(Socket socket)
-    {
+    TaskThread(Socket socket) {
         this.socket = socket;
         setDaemon(true);
         setPriority(NORM_PRIORITY);
@@ -60,10 +57,8 @@ class TaskThread extends Thread {
         System.out.println();
     }
 
-    public void run()
-    {
-        try
-        {
+    public void run() {
+        try {
             ServerRequest request = getServerRequest();
             clientId = request.getClientId();
             requestId = request.getRequestId();
@@ -74,19 +69,19 @@ class TaskThread extends Thread {
                 submitHandler(request.getSubmit());
             } else if (request.hasSubscribe()) {
                 subscribeHandler(request.getSubscribe());
-            } else if(request.hasList()) {
+            } else if (request.hasList()) {
                 listHandler();
             }
 
             socket.close();
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.print("work error: ");
             e.printStackTrace();
             System.out.println();
         }
     }
 
-    void listHandler() throws IOException{
+    void listHandler() throws IOException {
         ServerResponse.Builder serverResponse = ServerResponse.newBuilder();
         serverResponse.setRequestId(requestId);
 
@@ -98,14 +93,13 @@ class TaskThread extends Thread {
 
     List<Protocol.ListTasksResponse.TaskDescription> getTasks() {
         List<ListTasksResponse.TaskDescription> res = new LinkedList<>();
-        for (Integer taskId: taskMap.keySet()) {
+        for (Integer taskId : taskMap.keySet()) {
             Calculation task = taskMap.get(taskId);
 
             ListTasksResponse.TaskDescription.Builder description =
                     ListTasksResponse.TaskDescription.newBuilder();
             description.setClientId(task.clientId).setTaskId(taskId).setTask(task.task);
-            if (task.isReady())
-            {
+            if (task.isReady()) {
                 description.setResult(task.getValue());
             }
             res.add(description.build());
@@ -114,7 +108,7 @@ class TaskThread extends Thread {
     }
 
 
-    void submitHandler(SubmitTask submitTask) throws IOException{
+    void submitHandler(SubmitTask submitTask) throws IOException {
 
         //Вытакскиваем поля
         Task currentTask = submitTask.getTask();
@@ -157,7 +151,7 @@ class TaskThread extends Thread {
             long p = takeParamValue(currentTask.getP());
             long m = takeParamValue(currentTask.getM());
             long n = currentTask.getN();
-            long res = task(a, b, p, m ,n);
+            long res = task(a, b, p, m, n);
             curTaskDescription.setValue(res);
         }
     }
@@ -181,14 +175,13 @@ class TaskThread extends Thread {
         }
     }
 
-    void sendToClient(GeneratedMessage message) throws IOException{
+    void sendToClient(GeneratedMessage message) throws IOException {
         message.writeDelimitedTo(socket.getOutputStream());
     }
 
     //Поля уже проверены checkField function
     long takeParamValue(Task.Param param) {
-        if (param.hasValue())
-        {
+        if (param.hasValue()) {
             return param.getValue();
         } else {
             //(param.hasDependentTaskId())
@@ -197,33 +190,31 @@ class TaskThread extends Thread {
     }
 
     //проверка на валидность поля в случае подписки
-    void checkSubmitTaskField(Task.Param param){
+    void checkSubmitTaskField(Task.Param param) {
         if (param.hasDependentTaskId()) {
             //Если мапа не содержит ключ, или содержит, но он ссылается на себя самого
             if (param.getDependentTaskId() == curId) {
                 curTaskDescription.status = Status.Error;
                 return;
             }
-            if  (!taskMap.containsKey(param.getDependentTaskId()) || taskMap.get(param.getDependentTaskId()).status == Status.Error) {
+            if (!taskMap.containsKey(param.getDependentTaskId()) || taskMap.get(param.getDependentTaskId()).status == Status.Error) {
                 //если пытаемся взять задачу с ERROR
                 curTaskDescription.status = Status.Error;
             }
-        } else if(!param.hasValue()) {
+        } else if (!param.hasValue()) {
             //Если и значения тоже нет
             curTaskDescription.status = Status.Error;
         }
     }
 
 
-    long task(long a, long b, long p, long m, long n)
-    {
+    long task(long a, long b, long p, long m, long n) {
         if (m == 0) {
             curTaskDescription.setStatus(Status.Error);
             return 1;
         }
 
-        while (n-- > 0)
-        {
+        while (n-- > 0) {
             b = (a * p + b) % m;
             a = b;
         }
@@ -236,21 +227,21 @@ class TaskThread extends Thread {
     }
 
     int getNewId() {
-        return initialId++;
+        return initialId.getAndIncrement();
     }
 }
+
 //информация о каждой задачи
 class Calculation {
 
-    Status status = Status.notReady;
     final Object GoldenBell = new Object();
+    final Thread ownThread = Thread.currentThread();
+    final Task task;
+    Status status = Status.notReady;
     volatile long value;
-
     //status information
     long requestId;
     String clientId;
-    final Thread ownThread = Thread.currentThread();
-    final Task task;
 
     Calculation(long requestId, String clientId, Task task) {
         this.requestId = requestId;
@@ -258,7 +249,7 @@ class Calculation {
         this.task = task;
     }
 
-    long getValue () {
+    long getValue() {
         System.out.println("before");
         synchronized (GoldenBell) {
             System.out.println("after");
@@ -273,6 +264,11 @@ class Calculation {
         }
     }
 
+    void setValue(long value) {
+        this.value = value;
+        setStatus(Status.Ready);
+    }
+
     void setStatus(Status status) {
         synchronized (GoldenBell) {
             this.status = status;
@@ -282,16 +278,7 @@ class Calculation {
         }
     }
 
-    void setValue(long value) {
-        this.value = value;
-        setStatus(Status.Ready);
-    }
-
-    boolean isReady(){
+    boolean isReady() {
         return status == Status.Ready;
     }
-}
-
-enum Status{
-    Ready, notReady, Error;
 }
