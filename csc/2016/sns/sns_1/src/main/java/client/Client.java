@@ -17,7 +17,7 @@ public class Client implements Closeable {
 
     private final Socket socket;
     private final String clientId;
-    private final Thread listener = new SocketListener();
+    private final Thread listener = new Thread(new SocketListener());
     private final ConcurrentStorage<ValueWrapper<GeneratedMessage>> futures = new ConcurrentStorage<>();
 
     public Client(final String host, final int port, final String clientId) throws IOException {
@@ -82,11 +82,11 @@ public class Client implements Closeable {
         listener.interrupt();
     }
 
-    private class SocketListener extends Thread {
+    private class SocketListener implements Runnable {
         @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
         @Override
         public void run() {
-            while (!interrupted()) {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
                     final Protocol.WrapperMessage wrapperMessage = ProtocolUtils.readWrappedMessage(socket);
 
@@ -140,7 +140,7 @@ public class Client implements Closeable {
                     LOGGER.warning("Exception " + e + " while reading wrapped message from socket. Continue. Client id: " + clientId);
                 } catch (InterruptedException e) {
                     LOGGER.info("Client listener was interrupted");
-                    interrupt();
+                    //Ignored because all close logic will be executed right after this block
                 }
             }
             LOGGER.info("Socket was interrupted, try close socket");

@@ -10,7 +10,7 @@ import java.util.logging.Logger;
 public class ThreadPool {
     private static final Logger LOGGER = Logger.getLogger(ThreadPool.class.getName());
 
-    final Deque<PoolThread> threads = new LinkedList<>();
+    final Deque<Thread> threads = new LinkedList<>();
 
     final Deque<Runnable> tasks = new LinkedList<>();
 
@@ -18,7 +18,7 @@ public class ThreadPool {
     public ThreadPool() {
         final int parallelism = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < parallelism; i++) {
-            final PoolThread poolThread = new PoolThread();
+            final Thread poolThread = new Thread(new PoolThread());
             threads.add(poolThread);
             poolThread.start();
         }
@@ -32,18 +32,18 @@ public class ThreadPool {
         }
     }
 
-    private class PoolThread extends Thread {
+    private class PoolThread implements Runnable {
         @Override
         public void run() {
             Runnable task;
 
-            mainWhile: while (!interrupted()) {
+            while (!Thread.currentThread().isInterrupted()) {
                 synchronized (tasks) {
                     while (tasks.isEmpty()) {
                         try {
                             tasks.wait();
                         } catch (InterruptedException ignored) {
-                            continue mainWhile;
+                            return;
                         }
                     }
                     task = tasks.remove();

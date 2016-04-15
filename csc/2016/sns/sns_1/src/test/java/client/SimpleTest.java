@@ -25,24 +25,18 @@ public class SimpleTest extends ClientServerTest {
 
     private static final String HOST = "localhost";
 
-    private Server server;
+    private Thread server;
     private Client client1;
     private Client client2;
-    private Client client3;
-    private Client client4;
-    private Client client5;
 
     public SimpleTest() throws IOException {
         final int randomPort = new Random().nextInt(20000) + 10000;
 
-        server = new Server(randomPort);
+        server = new Thread(new Server(randomPort));
         server.start();
 
         client1 = new Client(HOST, randomPort, "test_client1");
         client2 = new Client(HOST, randomPort, "test_client2");
-        client3 = new Client(HOST, randomPort, "test_client3");
-        client4 = new Client(HOST, randomPort, "test_client4");
-        client5 = new Client(HOST, randomPort, "test_client5");
     }
 
     @Test

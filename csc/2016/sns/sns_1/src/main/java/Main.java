@@ -1,9 +1,5 @@
 import client.Client;
-import com.google.protobuf.GeneratedMessage;
-import communication.Protocol;
 import server.Server;
-import util.FutureValue;
-import util.ProtocolUtils;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -23,7 +19,7 @@ public class Main {
      * @throws IOException when can't open socket on {@code DEFAULT_SERVER_PORT}
      */
     public static void main(final String[] args) throws IOException {
-        final Server server = new Server(DEFAULT_SERVER_PORT);
+        final Thread server = new Thread(new Server(DEFAULT_SERVER_PORT));
         server.start();
         final Client client = new Client(DEFAULT_HOST, DEFAULT_SERVER_PORT, "client1");
     }

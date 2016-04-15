@@ -18,7 +18,7 @@ import java.util.logging.Logger;
  * Created by nikita.sokeran@gmail.com
  */
 
-public class Server extends Thread {
+public class Server implements Runnable {
     private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
     final ConcurrentStorage<TaskAndResult> concurrentStorage = new ConcurrentStorage<>();
     private final ServerSocket serverSocket;
