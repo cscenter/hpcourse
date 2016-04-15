@@ -11,11 +11,11 @@ import static communication.TestUtil.task
 class Client extends Thread {
   private final static Logger logger = LoggerFactory.getLogger(Client.class);
 
-  private String clientId
-  private Socket socket
-  private OutputStream outp
-  private InputStream inp
-  private int cnt
+  protected String clientId
+  protected Socket socket
+  protected OutputStream outp
+  protected InputStream inp
+  protected int cnt
 
   Client(String id) {
     socket = new Socket('localhost', ServerRunner.port)
@@ -27,16 +27,18 @@ class Client extends Thread {
   }
 
   public static void main(String[] args)  {
-    new Client('bob').start()
-    new Client('alice').start()
-    new Client('john').start()
-    new Client('ivan').start()
-    new Client('borya').start()
-    new Client('svyatopolk').start()
+//    new Client('bob').start()
+//    new Client('alice').start()
+//    new Client('john').start()
+//    new Client('ivan').start()
+//    new Client('borya').start()
+//    new Client('svyatopolk').start()
 
-//    new Client2('znajka').start()
-//    new Client2('vintik').start()
-    new Client2('kozlik').start()
+    new IllegalClient('rediska').start();
+
+//    new ListClient('znajka').start()
+//    new ListClient('vintik').start()
+    new ListClient('kozlik').start()
   }
 
   static log(String msg) {
@@ -79,8 +81,8 @@ class Client extends Thread {
 //    log TestUtil.formatted(response)
   }
 
-  static class Client2 extends Client {
-    Client2(String id) {
+  static class ListClient extends Client {
+    ListClient(String id) {
       super(id)
     }
 
@@ -94,6 +96,31 @@ class Client extends Thread {
         }
         sleep(5000)
     }
+    }
+  }
+
+  static class IllegalClient extends Client {
+    IllegalClient(String id) {
+      super(id)
+    }
+
+    void run() {
+      log socket.toString()
+      def response = sendAndGet(task('a:5, b:7, m:0, p:13, n:100000')).getSubmitResponse()
+      assert response.getStatus() == Protocol.Status.OK
+      def id = response.getSubmittedTaskId()
+      log 'submit: ' + id
+
+      response = sendAndGet(subscribe(id)).getSubscribeResponse()
+      log "subscribe $id: $response"
+
+      response = sendAndGet(task("m:_$id, n:100000000")).getSubmitResponse()
+      assert response.getStatus() == Protocol.Status.OK
+      def id2 = response.getSubmittedTaskId()
+      log 'submit: ' + id2
+
+      response = sendAndGet(subscribe(id2)).getSubscribeResponse()
+      log "subscribe $id2: $response"
     }
   }
 }

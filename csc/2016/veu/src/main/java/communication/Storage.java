@@ -8,7 +8,6 @@ import org.slf4j.*;
 public class Storage {
   private static Logger logger = LoggerFactory.getLogger(Storage.class);
 
-  private static int TIMEOUT = 500;
   private TasksContainer myTasksContainer = new TasksContainer();
 
   public int registerTask(Task task, String clientId) {
@@ -26,7 +25,9 @@ public class Storage {
   private void updateTask(int taskId, Long result, int state) {
     FullTask task = myTasksContainer.getTask(taskId);
     // firstly result, secondly state
-    task.myResult.set(result);
+    if (state != FullTask.ERROR) {
+      task.myResult.set(result);
+    }
     task.myState.set(state);
     synchronized (task.myTask) {
       task.myTask.notifyAll();
@@ -40,7 +41,7 @@ public class Storage {
       logger.debug("waiting for taskId: {}", taskId);
       try {
         synchronized (task.myTask) {
-          task.myTask.wait(TIMEOUT);
+          task.myTask.wait();
         }
       } catch (InterruptedException ignore) {}
     }

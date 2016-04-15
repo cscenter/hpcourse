@@ -55,7 +55,7 @@ public class TasksContainer {
   public void eachTask(TaskReceiver receiver) {
     for (int i = 0, sz = myAllocated.get(); i < sz; i++) {
       FullTask task = getTask(i);
-      if (task != null) {
+      if (task != null && task.myState.get() != FullTask.ERROR) {
         receiver.processFullTask(task);
       }
     }

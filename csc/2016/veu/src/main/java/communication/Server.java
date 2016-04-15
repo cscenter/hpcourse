@@ -23,7 +23,7 @@ public class Server {
 
   public static void main(String[] args) throws IOException {
     // ip and port
-//    String ip = "localhost";
+    // String ip = "localhost";
     int port = Integer.parseInt(args[0]);
     final ServerSocket serverSocket = new ServerSocket(port);
     Storage storage = new Storage();

@@ -10,6 +10,9 @@ import java.util.Arrays;
 public class TaskProcessor implements RequestProcessor {
   private final static Logger logger = LoggerFactory.getLogger(TaskProcessor.class);
 
+  private final static int ID_FOR_M = 3;
+  private final static char[] VARS = {'a', 'b', 'p', 'm'};
+
   private final Storage myStorage;
 
   public TaskProcessor(Storage storage) {
@@ -52,7 +55,7 @@ public class TaskProcessor implements RequestProcessor {
 
     @Override
     public void run() {
-      myParams = new Param[]{myTask.getA(), myTask.getB(), myTask.getP(), myTask.getM()};
+      myParams = new Param[] {myTask.getA(), myTask.getB(), myTask.getP(), myTask.getM()};
       myN = myTask.getN();
       collectParamsAndSolve();
     }
@@ -61,20 +64,17 @@ public class TaskProcessor implements RequestProcessor {
       logger.debug("Start collecting params, taskId: {}", myId);
       for (int i = 0; i < myParams.length; i++) {
         myVars[i] = calc(myParams[i]);
-        if (myVars[i] == null) {
+        if (myVars[i] == null || ID_FOR_M == i && myVars[i] == 0 && myN != 0) {
           myStorage.notifyError(myId);
-          logger.debug("Error with param: {}", myParams[i]);
+          logger.debug("Error with {}-param for taskId {}", VARS[i], myId);
           return;
         }
+        // jvm puts strings in cache
+        logger.debug(VARS[i] + "-param for taskId {} is ", myId, myN);
       }
-      logger.debug("Finished collecting params, taskId: {}, params: {}", myId, Arrays.toString(myVars));
-      Long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
-      logger.debug("Finished solving, taskId: {}, anser: {}", myId, answer == null ? "NaN" : Long.toString(answer));
-      if (answer == null) {
-        myStorage.notifyError(myId);
-      } else {
-        myStorage.notifySolved(myId, answer);
-      }
+      long answer = Util.solve(myVars[0], myVars[1], myVars[2], myVars[3], myN);
+      logger.debug("Finished solving, taskId: {}, anser: {}", myId, answer);
+      myStorage.notifySolved(myId, answer);
     }
 
     private Long calc(Param param) {

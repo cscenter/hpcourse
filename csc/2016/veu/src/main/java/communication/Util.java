@@ -36,10 +36,7 @@ public class Util {
 //    response.writeTo();
   }
 
-  public static Long solve(long a, long b, long p, long m, long n) {
-    if (m == 0) {
-      return null;
-    }
+  public static long solve(long a, long b, long p, long m, long n) {
     while (n-- > 0) {
       b = (a * p + b) % m;
       a = b;
