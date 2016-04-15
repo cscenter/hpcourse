@@ -33,18 +33,10 @@ public class Server implements Runnable {
         threadPool = new ThreadPool();
     }
 
-    public void close() {
-        try {
-            serverSocket.close();
-        } catch (IOException e) {
-            LOGGER.warning("Can't close server socket");
-        }
-    }
-
     @Override
     public void run() {
         LOGGER.info("Server starting...");
-        while (!serverSocket.isClosed()) {
+        while (!Thread.currentThread().isInterrupted()) {
             try {
                 LOGGER.info("Wait for new socket");
                 final Socket socket = serverSocket.accept();
@@ -79,6 +71,11 @@ public class Server implements Runnable {
             } catch (IOException e) {
                 LOGGER.warning("Error while waiting for client socket, retry. Error: " + e);
             }
+        }
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            LOGGER.warning("Can't close server socket");
         }
         LOGGER.info("Server stopped");
     }

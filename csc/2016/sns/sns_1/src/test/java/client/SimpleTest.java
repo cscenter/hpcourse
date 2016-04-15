@@ -3,8 +3,6 @@ package client;
 import communication.Protocol;
 import javafx.util.Pair;
 import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import server.Server;
 import util.Functions;
@@ -12,7 +10,6 @@ import util.FutureValue;
 import util.ProtocolUtils;
 
 import java.io.IOException;
-import java.net.SocketException;
 import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
@@ -29,6 +26,7 @@ public class SimpleTest extends ClientServerTest {
     private Client client1;
     private Client client2;
 
+    @SuppressWarnings("CallToThreadStartDuringObjectConstruction")
     public SimpleTest() throws IOException {
         final int randomPort = new Random().nextInt(20000) + 10000;
 
@@ -39,13 +37,15 @@ public class SimpleTest extends ClientServerTest {
         client2 = new Client(HOST, randomPort, "test_client2");
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void futureTest1() throws Exception {
-        final long a = 1555L;
-        final long b = 4555L;
-        final long c = 5555L;
-        final long m = 6555L;
-        final long n = 8555L;
+        final Random random = new Random();
+        final long a = random.nextLong();
+        final long b = random.nextLong();
+        final long c = random.nextLong();
+        final long m = random.nextLong();
+        final long n = random.nextLong();
         final Long expectedResult1 = Functions.calculateModulo(a, b, c, m, n);
 
         final Protocol.Task task1 = ProtocolUtils.createTask(
@@ -56,6 +56,7 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
+        System.out.println(1);
         final Pair<Long, Integer> result1 = sendAndGetResultAndId(client1, task1);
         assertEquals(expectedResult1, result1.getKey());
 
@@ -68,6 +69,7 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
+        System.out.println(2);
         final Pair<Long, Integer> result2 = sendAndGetResultAndId(client1, task2);
         assertEquals(expectedResult2, result2.getKey());
 
@@ -80,6 +82,7 @@ public class SimpleTest extends ClientServerTest {
                 n
         );
 
+        System.out.println(3);
         final Pair<Long, Integer> result3 = sendAndGetResultAndId(client1, task3);
         assertEquals(expectedResult3, result3.getKey());
 
@@ -122,9 +125,8 @@ public class SimpleTest extends ClientServerTest {
         fail();
     }
 
-    @Test(expected = SocketException.class)
-    public void sendRequestWithClosedClient() throws IOException {
-        client1.close();
-        client1.sendServerRequest(Protocol.ListTasks.newBuilder().build());
+    @After
+    public void closeServer() {
+        server.interrupt();
     }
 }

@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.logging.Logger;
 
 /**
- * Created by nikita.sokeran@gmail.com
+ * One of examples how to use {@code Server} and {@code Client} classes
  */
 public class Main {
 

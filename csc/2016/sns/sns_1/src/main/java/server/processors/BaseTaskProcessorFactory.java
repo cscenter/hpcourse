@@ -1,7 +1,6 @@
 package server.processors;
 
 import communication.Protocol;
-import javafx.util.Pair;
 import util.ConcurrentStorage;
 import util.TaskAndResult;
 
@@ -16,7 +15,7 @@ public class BaseTaskProcessorFactory {
     private final Socket socket;
     private final Protocol.ServerRequest request;
 
-    public BaseTaskProcessorFactory(final ConcurrentStorage<TaskAndResult>concurrentStorage, final Socket socket, final Protocol.ServerRequest request) {
+    public BaseTaskProcessorFactory(final ConcurrentStorage<TaskAndResult> concurrentStorage, final Socket socket, final Protocol.ServerRequest request) {
         this.concurrentStorage = concurrentStorage;
         this.socket = socket;
         this.request = request;

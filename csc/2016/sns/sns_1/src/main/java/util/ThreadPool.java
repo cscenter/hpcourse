@@ -5,13 +5,12 @@ import java.util.LinkedList;
 import java.util.logging.Logger;
 
 /**
- * Created by nikita.sokeran@gmail.com
+ * Basic implementation of thread pool
  */
 public class ThreadPool {
     private static final Logger LOGGER = Logger.getLogger(ThreadPool.class.getName());
 
     final Deque<Thread> threads = new LinkedList<>();
-
     final Deque<Runnable> tasks = new LinkedList<>();
 
     @SuppressWarnings("CallToThreadStartDuringObjectConstruction")

@@ -65,6 +65,5 @@ public class ListTasksProcessor extends BaseTaskProcessor {
         } catch (IOException e) {
             LOGGER.warning("Can't send wrapped message to client");
         }
-
     }
 }

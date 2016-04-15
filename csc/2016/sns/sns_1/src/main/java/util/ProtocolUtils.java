@@ -48,7 +48,6 @@ public class ProtocolUtils {
     public static Protocol.WrapperMessage readWrappedMessage(final Socket socket) throws IOException, InterruptedException {
         final InputStream inputStream = socket.getInputStream();
         while (true) {
-            LOGGER.info("Try read wrapped message");
             if (Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException();
             }

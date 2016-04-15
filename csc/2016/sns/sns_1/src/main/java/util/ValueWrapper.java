@@ -1,39 +1,46 @@
 package util;
 
 /**
- * Created by nikita.sokeran@gmail.com
+ * Simple value wrapper with blocking get operation
+ *
+ * @param <T> storing value type
  */
 public class ValueWrapper<T> {
     private final Class<? extends T> clazz;
     private final Object lock = new Object();
     private volatile T value;
 
+    /**
+     * @param clazz before returning value will be casted to this class
+     */
     public ValueWrapper(final Class<? extends T> clazz) {
         this.clazz = clazz;
     }
 
     /**
-     * Block thread and wait
+     * Blocking operation
      *
-     * @return
+     * @return storing value, can return {@code null} if method interrupted, but can return actual value if lucky enough
      */
     public T getValue() {
-        synchronized (lock) {
-            while (value == null) {
-                try {
-                    lock.wait();
-                } catch (InterruptedException e) {
-                    return null;
+        //Double-checking for less synchronization during work with this method
+        if (value == null) {
+            synchronized (lock) {
+                while (value == null) {
+                    try {
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        return value;
+                    }
                 }
             }
-
-            return value;
         }
+        return value;
     }
 
     /**
-     * @param value
-     * @throws CheckedClassCastException when value can't be casted to class which was passed to constructor
+     * @param value to write to wrapper
+     * @throws CheckedClassCastException when value can't be casted to class {@code clazz} which was passed to constructor
      */
     public void setValue(final T value) throws CheckedClassCastException {
         synchronized (lock) {
@@ -42,10 +49,13 @@ public class ValueWrapper<T> {
             } catch (ClassCastException ex) {
                 throw new CheckedClassCastException("ValueWrapper class can't cast value with type T to type " + clazz.getName(), ex);
             }
-
             this.value = value;
             lock.notifyAll();
         }
+    }
+
+    public boolean hasValue() {
+        return value != null;
     }
 
     public Class<? extends T> getClazz() {
