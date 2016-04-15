@@ -26,17 +26,4 @@ public abstract class BaseTaskProcessor implements Runnable {
         this.socket = socket;
         this.request = request;
     }
-
-    protected void sendResponse(final Protocol.ServerResponse response) {
-        try {
-            final OutputStream outputStream = socket.getOutputStream();
-            final Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setResponse(response).build();
-            outputStream.write(message.getSerializedSize());
-            message.writeTo(outputStream);
-        } catch (IOException e) {
-            LOGGER.warning("Can't get socket's output stream: " + e);
-        }
-    }
-
-
 }

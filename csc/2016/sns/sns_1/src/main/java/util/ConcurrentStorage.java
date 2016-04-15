@@ -1,13 +1,13 @@
 package util;
 
-import communication.Protocol;
+import javafx.util.Pair;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 /**
  * Created by nikita.sokeran@gmail.com
@@ -45,5 +45,9 @@ public class ConcurrentStorage<V> {
         } finally {
             lock.readLock().unlock();
         }
+    }
+
+    public List<Pair<Long, V>> getContent() {
+        return map.entrySet().stream().map(e -> new Pair<>(e.getKey(), e.getValue())).collect(Collectors.toList());
     }
 }

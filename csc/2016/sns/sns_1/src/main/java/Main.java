@@ -42,13 +42,13 @@ public class Main {
 
         try {
             final Protocol.SubmitTaskResponse submitTaskResponse = responseFutureValue.get();
-            System.out.println("Task id = " + submitTaskResponse.getSubmittedTaskId());
+            LOGGER.info("Task id = " + submitTaskResponse.getSubmittedTaskId());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         try {
-            System.out.println("Response value = " + responseFutureValue.get());
+            LOGGER.info("Response value = " + responseFutureValue.get());
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

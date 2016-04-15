@@ -19,11 +19,11 @@ public class ProtocolUtils {
                 .build();
     }
 
-    public static Protocol.ServerResponse createServerResponse(final Protocol.ServerRequest request, final Protocol.SubmitTaskResponse submitTaskResponse) {
+    public static Protocol.ServerResponse.Builder createServerResponse(final Protocol.ServerRequest request) {
         return Protocol.ServerResponse.newBuilder()
-                .setRequestId(request.getRequestId())
-                .setSubmitResponse(submitTaskResponse).build();
+                .setRequestId(request.getRequestId());
     }
+
 
     /**
      * @param socket  destination of message
@@ -83,12 +83,4 @@ public class ProtocolUtils {
 
         return null;
     }
-
-    public static long getTaskValue(final Protocol.Task task) {
-//        synchronized (task) {
-//            while (task.get)
-//        }
-        return 1337L;
-    }
-
 }

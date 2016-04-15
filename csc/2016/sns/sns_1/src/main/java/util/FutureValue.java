@@ -14,7 +14,7 @@ public class FutureValue<T> {
     }
 
     public boolean isEmpty() {
-        return valueWrapper.getValue() == null;
+        return valueWrapper.isEmpty();
     }
 
     /**
@@ -24,21 +24,8 @@ public class FutureValue<T> {
      * @throws InterruptedException
      */
     public T get() throws InterruptedException {
-        synchronized (valueWrapper) {
-            while (valueWrapper.getValue() == null) {
-                valueWrapper.wait();
-            }
-
-            try {
-                return clazz.cast(valueWrapper.getValue());
-            } catch (ClassCastException e) {
-                return null;
-            }
-        }
-    }
-
-    public T tryGet() {
         try {
+            valueWrapper.getClazz().cast(valueWrapper.getValue());
             return clazz.cast(valueWrapper.getValue());
         } catch (ClassCastException e) {
             return null;

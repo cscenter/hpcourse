@@ -2,10 +2,7 @@ package client;
 
 import com.google.protobuf.GeneratedMessage;
 import communication.Protocol;
-import util.ConcurrentStorage;
-import util.FutureValue;
-import util.ProtocolUtils;
-import util.ValueWrapper;
+import util.*;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -47,32 +44,45 @@ public class Client extends Thread {
                 final Protocol.ServerResponse response = wrapperMessage.getResponse();
                 final long requestId = response.getRequestId();
 
+                final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
+
+                if (valueWrapper == null) {
+                    LOGGER.warning("Receive message from server with wrong request id");
+                    continue;
+                }
+
                 if (response.hasSubmitResponse()) {
 
 //                    LOGGER.info("Value wrapper has type: " + Arrays.toString(valueWrapper.getClass().getTypeParameters()));
 
                     LOGGER.info("Get result:" + response.getSubmitResponse());
 
-                    final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
                     synchronized (valueWrapper) {
-                        valueWrapper.setValue(response.getSubmitResponse());
-                        valueWrapper.notifyAll();
+                        try {
+                            valueWrapper.setValue(response.getSubmitResponse());
+                        } catch (CheckedClassCastException e) {
+                            LOGGER.warning("Server answer is wrong, expected that value wrapper store SubmitTaskResponse");
+                        }
                     }
                 }
 
                 if (response.hasSubscribeResponse()) {
-                    final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
                     synchronized (valueWrapper) {
-                        valueWrapper.setValue(response.getSubscribeResponse());
-                        valueWrapper.notifyAll();
+                        try {
+                            valueWrapper.setValue(response.getSubscribeResponse());
+                        } catch (CheckedClassCastException e) {
+                            LOGGER.warning("Server answer is wrong, expected that value wrapper store SubscribeResponse");
+                        }
                     }
                 }
 
                 if (response.hasListResponse()) {
-                    final ValueWrapper<GeneratedMessage> valueWrapper = futures.get(requestId);
                     synchronized (valueWrapper) {
-                        valueWrapper.setValue(response.getListResponse());
-                        valueWrapper.notifyAll();
+                        try {
+                            valueWrapper.setValue(response.getListResponse());
+                        } catch (CheckedClassCastException e) {
+                            LOGGER.warning("Server answer is wrong, expected that value wrapper store ListTasksResponse");
+                        }
                     }
                 }
 
@@ -92,7 +102,7 @@ public class Client extends Thread {
 
         final Protocol.ServerRequest request = createServerRequest().setRequestId(requestId).setSubmit(submitTask).build();
         LOGGER.info("Client try to send server request:" + request.getClientId() + " " + request.getRequestId());
-        final Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setRequest(request).build();
+        final Protocol.WrapperMessage message = ProtocolUtils.wrapRequest(request);
         ProtocolUtils.sendWrappedMessage(socket, message);
 
         return new FutureValue<>(valueWrapper, Protocol.SubmitTaskResponse.class);
@@ -102,15 +112,28 @@ public class Client extends Thread {
      * @return request id
      * @throws IOException occur when problem with sending task to server
      */
-    public long sendServerRequest(final Protocol.Subscribe subscribe) throws IOException {
-        final Protocol.ServerRequest request = createServerRequest().setSubscribe(subscribe).build();
+    public FutureValue<Protocol.SubscribeResponse> sendServerRequest(final Protocol.Subscribe subscribe) throws IOException {
+        final ValueWrapper<GeneratedMessage> valueWrapper = new ValueWrapper<>(Protocol.SubscribeResponse.class);
+        final long requestId = futures.add(valueWrapper);
+
+        final Protocol.ServerRequest request = createServerRequest().setRequestId(requestId).setSubscribe(subscribe).build();
         LOGGER.info("Client try to send server request:" + request.getClientId() + " " + request.getRequestId());
-        final Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setRequest(request).build();
+        final Protocol.WrapperMessage message = ProtocolUtils.wrapRequest(request);
         ProtocolUtils.sendWrappedMessage(socket, message);
-        final Protocol.WrapperMessage wrapperMessage = ProtocolUtils.readWrappedMessage(socket);
-        LOGGER.info("Client retrieve wrapped message:" + wrapperMessage);
-        return request.getRequestId();
+
+        return new FutureValue<>(valueWrapper, Protocol.SubscribeResponse.class);
     }
 
 
+    public FutureValue<Protocol.ListTasksResponse> sendServerRequest(final Protocol.ListTasks listTasks) throws IOException {
+        final ValueWrapper<GeneratedMessage> valueWrapper = new ValueWrapper<>(Protocol.ListTasksResponse.class);
+        final long requestId = futures.add(valueWrapper);
+
+        final Protocol.ServerRequest request = createServerRequest().setRequestId(requestId).setList(listTasks).build();
+        LOGGER.info("Client try to send server request:" + request.getClientId() + " " + request.getRequestId());
+        final Protocol.WrapperMessage message = ProtocolUtils.wrapRequest(request);
+        ProtocolUtils.sendWrappedMessage(socket, message);
+
+        return new FutureValue<>(valueWrapper, Protocol.ListTasksResponse.class);
+    }
 }

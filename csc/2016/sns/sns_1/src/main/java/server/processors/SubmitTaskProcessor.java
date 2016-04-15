@@ -32,14 +32,15 @@ public class SubmitTaskProcessor extends BaseTaskProcessor {
 
     @Override
     public void run() {
+        Long result = null;
+        final int taskId = (int) concurrentStorage.add(new TaskAndResult(task, request.getClientId()));
         try {
-            final int taskId = (int) concurrentStorage.add(new TaskAndResult(task));
             final Protocol.SubmitTaskResponse submitTaskResponse = ProtocolUtils.createSubmitTaskResponse(taskId, Protocol.Status.OK);
-            final Protocol.ServerResponse serverResponse = ProtocolUtils.createServerResponse(request, submitTaskResponse);
+            final Protocol.ServerResponse serverResponse = ProtocolUtils.createServerResponse(request)
+                    .setSubmitResponse(submitTaskResponse)
+                    .build();
             final Protocol.WrapperMessage message = ProtocolUtils.wrapResponse(serverResponse);
             ProtocolUtils.sendWrappedMessage(socket, message);
-
-            final Protocol.Task.Builder taskBuilder = Protocol.Task.newBuilder();
 
             final long a = getParamValue(task.getA());
             final long b = getParamValue(task.getB());
@@ -47,15 +48,17 @@ public class SubmitTaskProcessor extends BaseTaskProcessor {
             final long m = getParamValue(task.getM());
             final long n = task.getN();
 
-            final long result = calculate(a, b, p, m, n);
-
-            concurrentStorage.get(taskId).setResult(result);
-
+            result = calculate(a, b, p, m, n);
             LOGGER.info("Params: a=" + a + ", b=" + b + ", p=" + p + ", m=" + m + ", n=" + n + ". Result=" + result);
-
 
         } catch (Exception ignored) {
 
+        } finally {
+            if (result == null) {
+                concurrentStorage.get(taskId).setResult(Protocol.Status.ERROR, null);
+            } else {
+                concurrentStorage.get(taskId).setResult(Protocol.Status.OK, result);
+            }
         }
         LOGGER.info("Submit task start processing");
     }

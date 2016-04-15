@@ -2,11 +2,13 @@ package util;
 
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.logging.Logger;
 
 /**
  * Created by nikita.sokeran@gmail.com
  */
 public class ThreadPool {
+    private static final Logger LOGGER = Logger.getLogger(ThreadPool.class.getName());
 
     /**
      * Not for concurrency environment
@@ -15,6 +17,7 @@ public class ThreadPool {
 
     final Deque<Runnable> tasks = new LinkedList<>();
 
+    @SuppressWarnings("CallToThreadStartDuringObjectConstruction")
     public ThreadPool() {
         final int parallelism = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < parallelism; i++) {
@@ -24,6 +27,7 @@ public class ThreadPool {
         }
     }
 
+    @SuppressWarnings("CallToNotifyInsteadOfNotifyAll")
     public void execute(final Runnable task) {
         synchronized (tasks) {
             tasks.add(task);
@@ -36,27 +40,24 @@ public class ThreadPool {
         public void run() {
             Runnable task;
 
-            while (true) {
+            mainWhile: while (!interrupted()) {
                 synchronized (tasks) {
                     while (tasks.isEmpty()) {
                         try {
                             tasks.wait();
                         } catch (InterruptedException ignored) {
-
+                            continue mainWhile;
                         }
                     }
-
                     task = tasks.remove();
                 }
 
                 try {
                     task.run();
                 } catch (RuntimeException e) {
-                    System.out.println("Error occured in thread worker:" + e);
+                    LOGGER.warning("Error occurred in thread worker:" + e);
                 }
             }
         }
     }
-
-
 }
