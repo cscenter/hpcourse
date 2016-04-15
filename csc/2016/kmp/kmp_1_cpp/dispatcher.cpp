@@ -18,12 +18,12 @@ Dispatcher::~Dispatcher()
 void Dispatcher::handle_connection(int sockfd)
 {
   bool connect = true;
-  SocketRW const * socket_rw = new SocketRW(sockfd);
+  SocketRW socket_rw = SocketRW(sockfd);
   communication::WrapperMessage msg;
   
 	while (connect)
 	{
-    if (socket_rw->read(msg))
+    if (socket_rw.read(msg))
     {
       if (is_submit_task(msg))
       {
@@ -43,8 +43,7 @@ void Dispatcher::handle_connection(int sockfd)
       connect = false;
     }
 	}
-  
-  delete socket_rw;
+
   close_sockfd(sockfd);
 }
 
@@ -65,7 +64,7 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
     auto const & socks = m_socks_to_ids[task_id];
     for (auto const sock : socks)
     {
-      sock->write(msg);
+      sock.write(msg);
     }
     
     m_socks_to_ids.erase(task_id);
@@ -74,7 +73,7 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, in
   m_mut.unlock();
 }
 
-bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
+bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW const & socket_rw)
 {
   communication::SubmitTask const & submitTask = msg_in.request().submit();
   
@@ -87,10 +86,10 @@ bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, Socke
   communication::WrapperMessage msg_out = create_serv_response(msg_in);
   msg_out.mutable_response()->set_allocated_submitresponse(response);
   
-  return socket_rw->write(msg_out);
+  return socket_rw.write(msg_out);
 }
 
-bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
+bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, SocketRW const & socket_rw)
 {
   std::vector<Task> tasks;
   m_worker.get_task_list(tasks);
@@ -113,10 +112,10 @@ bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, Socket
   communication::WrapperMessage msg_out = create_serv_response(msg_in);
   msg_out.mutable_response()->set_allocated_listresponse(response);
   
-  return socket_rw->write(msg_out);
+  return socket_rw.write(msg_out);
 }
 
-bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketRW const * socket_rw)
+bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketRW const & socket_rw)
 {
   bool res = false;
   communication::Subscribe const & subscribe = msg_in.request().subscribe();
@@ -139,7 +138,7 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
       communication::WrapperMessage msg_out = create_serv_response(msg_in);
       msg_out.mutable_response()->set_allocated_subscriberesponse(response);
       
-      socket_rw->write(msg_out);
+      socket_rw.write(msg_out);
     }
     else
     {
@@ -155,7 +154,7 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
     communication::WrapperMessage msg_out = create_serv_response(msg_in);
     msg_out.mutable_response()->set_allocated_subscriberesponse(response);
     
-    socket_rw->write(msg_out);
+    socket_rw.write(msg_out);
   }
   
   m_mut.unlock();
