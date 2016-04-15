@@ -25,8 +25,8 @@ public class ClientResolver implements Runnable {
                 OutputStream outputStream = clientSocket.getOutputStream();
         ) {
             while (!Thread.currentThread().isInterrupted()) {
-                Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(inputStream);
-                new Thread(new RequestResolver(server, request, outputStream)).start();
+                Protocol.WrapperMessage message = Protocol.WrapperMessage.parseFrom(inputStream);
+                new Thread(new RequestResolver(server, message.getRequest(), outputStream)).start();
             }
         } catch (IOException e) {
             Thread.currentThread().interrupt();

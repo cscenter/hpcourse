@@ -99,16 +99,15 @@ public class ServerImpl implements Server {
         Protocol.ListTasksResponse.TaskDescription.Builder taskDescriptionBuilder = Protocol.ListTasksResponse.TaskDescription.newBuilder();
         synchronized (startedTaskList) {
             for (ServerTask serverTask : startedTaskList) {
-                boolean ok = serverTask.successful.get();
-
-                taskDescriptionBuilder.setTaskId(serverTask.id);
-                taskDescriptionBuilder.setTask(serverTask.task);
+                taskDescriptionBuilder
+                        .setTaskId(serverTask.id)
+                        .setTask(serverTask.task)
+                        .setClientId(serverTask.clientId);
                 if (serverTask.finished.get()) {
                     taskDescriptionBuilder.setResult(serverTask.result.get());
                 } else {
                     taskDescriptionBuilder.clearResult();
                 }
-                taskDescriptionBuilder.setClientId(serverTask.clientId);
                 taskDescriptionList.add(taskDescriptionBuilder.build());
             }
         }

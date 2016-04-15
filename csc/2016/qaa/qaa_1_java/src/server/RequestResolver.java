@@ -26,15 +26,13 @@ public class RequestResolver implements Runnable {
 
             if (request.hasSubmit()) {
                 responseBuilder.setSubmitResponse(server.submitTask(request.getSubmit(), request.getClientId()));
-            }
-            if (request.hasSubscribe()) {
+            } else if (request.hasSubscribe()) {
                 responseBuilder.setSubscribeResponse(server.subscribe(request.getSubscribe()));
-            }
-            if (request.hasList()) {
+            } else if (request.hasList()) {
                 responseBuilder.setListResponse(server.listTasks(request.getList()));
             }
             synchronized (outputStream) {
-                responseBuilder.build().writeTo(outputStream);
+                Protocol.WrapperMessage.newBuilder().setResponse(responseBuilder.build()).build().writeTo(outputStream);
                 outputStream.flush();
             }
         } catch (IOException e) {
