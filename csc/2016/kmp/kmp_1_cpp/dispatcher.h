@@ -17,7 +17,8 @@ public:
   ~Dispatcher();
   
   void handle_connection(int sockfd);
-  void subscribe_callback(unsigned int task_id, int64_t request_id, int64_t result);
+  void subscribe_callback(unsigned int task_id, int64_t request_id, int64_t result
+  , bool success);
   
 private:
   bool submit_task(communication::WrapperMessage const & msg_in, SocketRW const & socket_rw);

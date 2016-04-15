@@ -5,7 +5,8 @@
 
 Dispatcher::Dispatcher()
 : m_worker(std::bind(&Dispatcher::subscribe_callback, this, 
-std::placeholders::_1, std::placeholders::_2, std::placeholders::_3))
+std::placeholders::_1, std::placeholders::_2, std::placeholders::_3
+, std::placeholders::_4))
 {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
 }
@@ -47,14 +48,22 @@ void Dispatcher::handle_connection(int sockfd)
   close_sockfd(sockfd);
 }
 
-void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id, int64_t result)
+void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id
+, int64_t result, bool success)
 {
   m_mut.lock();
   
   if (m_socks_to_ids.find(task_id) != m_socks_to_ids.end())
   {
     communication::SubscribeResponse * response = communication::SubscribeResponse().New();
-    response->set_status(communication::Status::OK);
+    if (success)
+    {
+      response->set_status(communication::Status::OK);
+    }
+    else
+    {
+      response->set_status(communication::Status::ERROR);
+    }
     response->set_value(result);
     
     communication::WrapperMessage msg;
@@ -103,7 +112,7 @@ bool Dispatcher::list_tasks(communication::WrapperMessage const & msg_in, Socket
     desc->set_taskid(task.id);
     desc->set_clientid(task.client_id);
     desc->mutable_task()->CopyFrom(task.args);
-    if (task.finished)
+    if (task.finished && task.success)
     {
       desc->set_result(task.result);
     }
@@ -124,15 +133,17 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
   
   bool result_set;
   int64_t result;
+  bool success;
   unsigned int task_id = subscribe.taskid();
-  bool status = m_worker.subscribe(subscribe.taskid(), result_set, result);
+  bool status = m_worker.subscribe(subscribe.taskid(), result_set, result, success);
   
   if (status)
   {
     if (result_set)
     {
       communication::SubscribeResponse * response = communication::SubscribeResponse().New();
-      response->set_status(communication::Status::OK);
+      response->set_status(success ? communication::Status::OK
+      : communication::Status::ERROR);
       response->set_value(result);
       
       communication::WrapperMessage msg_out = create_serv_response(msg_in);

@@ -14,6 +14,7 @@ struct Task
   unsigned int id;
   int64_t result;
   bool finished;
+  bool success;
   std::string client_id;
   int64_t request_id;
   
@@ -30,6 +31,7 @@ struct Task
   : id(task_id)
   , result(0)
   , finished(false)
+  , success(false)
   , client_id(client_id_input)
   , request_id(request_id_in)
   , cv(new std::condition_variable())
@@ -44,7 +46,7 @@ public:
   : Worker(nullptr)
   { }
   
-  explicit Worker(std::function<void(unsigned int, int64_t, int64_t)> c_func)
+  explicit Worker(std::function<void(unsigned int, int64_t, int64_t, bool)> c_func)
   : m_id(0)
   , m_consumer_func(c_func)
   { }
@@ -59,7 +61,7 @@ public:
   
   unsigned int handle_submit_task(communication::SubmitTask const & submitTask, std::string const & client_id, int64_t request_id);
   void get_task_list(std::vector<Task> & out);
-  bool subscribe(unsigned int id, bool & result_set, int64_t & result);
+  bool subscribe(unsigned int id, bool & result_set, int64_t & result, bool & success);
   
 private:
   unsigned int add_task(communication::SubmitTask const & submitTask, std::string const & client_id, int64_t request_id);
@@ -71,7 +73,7 @@ private:
   unsigned int m_id;
   std::mutex m_mut;
   std::vector<Task> m_tasks;
-  std::function<void(unsigned int, int64_t, int64_t)> m_consumer_func;
+  std::function<void(unsigned int, int64_t, int64_t, bool)> m_consumer_func;
 };
 
 #endif

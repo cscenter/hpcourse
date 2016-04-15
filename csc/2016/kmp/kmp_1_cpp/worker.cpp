@@ -22,7 +22,8 @@ void Worker::get_task_list(std::vector<Task> & out)
   m_mut.unlock();
 }
 
-bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result)
+bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
+, bool & success)
 {
   if (id < m_id)
   {
@@ -32,6 +33,7 @@ bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result)
     {
       result_set = true;
       result = m_tasks[id].result;
+      success = m_tasks[id].success;
     }
     else
     {
@@ -50,7 +52,7 @@ unsigned int Worker::add_task(communication::SubmitTask const & submitTask, std:
 {
   m_tasks.emplace_back(m_id, submitTask.task(), client_id, request_id);
   ++m_id;
-  
+
   return m_id - 1;
 }
 
@@ -60,35 +62,43 @@ void Worker::start(unsigned int self_id, communication::Task args)
   int64_t b_value = try_get_param(args.b());
   int64_t p_value = try_get_param(args.p());
   int64_t m_value = try_get_param(args.m());
-  
+
   work(self_id, a_value, b_value, p_value, m_value, args.n());
 }
 
 void Worker::work(int self_id, int64_t a, int64_t b, int64_t p, int64_t m, int64_t n)
 {
-  while (n-- > 0)
+  int64_t res = 0;
+  bool success = false;
+
+  if (m != 0)
   {
-    b = (a * p + b) % m;
-    a = b;
+    while (n-- > 0)
+    {
+      b = (a * p + b) % m;
+      a = b;
+    }
+
+    res = a;
+    success = true;
   }
-    
-  int64_t res = a;
-  
+
   m_mut.lock();
-  
+
   Task & self_task = m_tasks[self_id];
   self_task.result = res;
   self_task.finished = true;
-  
+  self_task.success = success;
+
   self_task.cv->notify_all();
   delete self_task.cv;
   self_task.cv = nullptr;
-  
+
   if (m_consumer_func)
   {
-    m_consumer_func(self_id, self_task.request_id, res);
+    m_consumer_func(self_id, self_task.request_id, res, success);
   }
-  
+
   m_mut.unlock();
 }
 
