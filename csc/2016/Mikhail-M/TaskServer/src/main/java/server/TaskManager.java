@@ -1,15 +1,10 @@
 package server;
 import communication.Protocol;
-import communication.Protocol.Task;
-import server.TaskCalculator;
-import server.TaskRepository;
+import server.TaskHelper.TaskCalculator;
+import server.TaskHelper.TaskRepository;
 
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class TaskManager {
     private TaskRepository taskRep;
@@ -24,7 +19,7 @@ public class TaskManager {
 
     public int submitTask(String ClientID, Protocol.Task task) {
         int id = taskIdCounter.getAndIncrement();
-        server.Task newTask = new server.Task(task, id, ClientID);
+        server.TaskHelper.Task newTask = new server.TaskHelper.Task(task, id, ClientID);
         taskRep.putTask(id, newTask);
         taskCalc.solve(newTask);
 

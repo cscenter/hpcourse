@@ -22,7 +22,7 @@ public class Server extends Thread {
         try {
             while (true) {
                 final Socket newSocket = serverSocket.accept();
-                // запуск потока на обработку нового клиента
+
                 new Thread() {
                     @Override
                     public void run() {
@@ -34,35 +34,31 @@ public class Server extends Thread {
                                 byte buf[] = new byte[size];
                                 newSocket.getInputStream().read(buf);
                                 Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(buf);
-                                ;
 
-                                // обработка типа запроса
                                 if (request.hasSubmit()) {
-                                    new Thread(new SubmitTaskThread(newSocket, request, taskManager)).start();
+                                    new Thread(new server.SubmitTaskThread(newSocket, request, taskManager)).start();
                                 }
                                 if (request.hasSubscribe()) {
-                                    new Thread(new SubscribeTaskThread(newSocket, request, taskManager)).start();
+                                    new Thread(new server.SubscribeTaskThread(newSocket, request, taskManager)).start();
                                 }
                                 if (request.hasList()) {
                                     new Thread(new server.TasksListThread(newSocket, request, taskManager)).start();
                                 }
                             }
                         } catch (IOException e) {
-                            System.out.println("Error with client communication " + newSocket.getInetAddress());
                             e.printStackTrace();
                         } finally {
                             try {
                                 newSocket.close();
                             } catch (IOException e) {
+                                e.printStackTrace();
                             }
                         }
                     }
                 }.start();
             }
         } catch (IOException e) {
-            System.out.println("Error with server socket accept");
             e.printStackTrace();
         }
-
     }
 }

@@ -77,7 +77,6 @@ public class TaskClient {
             Protocol.WrapperMessage responseMessage = Protocol.WrapperMessage.parseFrom(in);
             return responseMessage.getResponse();
         } catch (IOException e) {
-            System.out.println("Error create client at port: " + this.port);
             e.printStackTrace();
         }
         return null;
