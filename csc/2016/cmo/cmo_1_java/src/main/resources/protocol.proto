@@ -1,4 +1,4 @@
-package communication;
+package ru.compscicenter.hpc2016.ha1.communication;
 
 // Конвертное сообщение https://developers.google.com/protocol-buffers/docs/techniques#union
 message WrapperMessage {
@@ -9,7 +9,7 @@ message WrapperMessage {
 // Запрос на сервер
 message ServerRequest {
   required string client_id = 1;
-  required int64 request_id = 2; // id запроса
+  required int64 request_id = 2; // clientId запроса
   
   optional SubmitTask submit = 3;
   optional Subscribe subscribe = 4;
@@ -18,7 +18,7 @@ message ServerRequest {
 
 // Ответ сервера
 message ServerResponse {
-  required int64 request_id = 1; // id запроса на который мы отвечаем
+  required int64 request_id = 1; // clientId запроса на который мы отвечаем
   
   optional SubmitTaskResponse submitResponse = 2;
   optional SubscribeResponse subscribeResponse = 3;
