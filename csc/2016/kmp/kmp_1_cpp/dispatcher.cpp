@@ -56,14 +56,8 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id
   if (m_socks_to_ids.find(task_id) != m_socks_to_ids.end())
   {
     communication::SubscribeResponse * response = communication::SubscribeResponse().New();
-    if (success)
-    {
-      response->set_status(communication::Status::OK);
-    }
-    else
-    {
-      response->set_status(communication::Status::ERROR);
-    }
+    response->set_status(success ? communication::Status::OK
+    : communication::Status::ERROR);
     response->set_value(result);
     
     communication::WrapperMessage msg;
