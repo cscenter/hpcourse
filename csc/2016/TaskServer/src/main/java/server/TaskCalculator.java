@@ -15,12 +15,11 @@ public class TaskCalculator {
     TaskParameter getTaskParameter(Protocol.Task.Param p) {
         if (p.hasDependentTaskId()) {
             return new TaskParameter(taskRepository.getTaskById(p.getDependentTaskId()));
-        }
-        else
+        } else
             return new TaskParameter(p.getValue());
     }
 
-   private long calculate(long a, long b, long p, long m, long n) {
+    private long calculate(long a, long b, long p, long m, long n) {
         while (n-- > 0) {
             b = (a * p + b) % m;
             a = b;
@@ -46,10 +45,10 @@ public class TaskCalculator {
             p.waitResult();
             m.waitResult();
             n.waitResult();
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
 
         }
+
         long result = calculate(a.getValue(), b.getValue(), p.getValue(), m.getValue(), n.getValue());
 
         synchronized (this) {
