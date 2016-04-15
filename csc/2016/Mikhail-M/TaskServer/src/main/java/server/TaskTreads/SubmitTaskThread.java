@@ -1,12 +1,14 @@
-package server;
+package server.TaskTreads;
 
 
 import communication.Protocol;
+import server.RequestThread;
+import server.TaskManager;
 
 import java.io.IOException;
 import java.net.Socket;
 
-public class SubmitTaskThread extends  RequestThread {
+public class SubmitTaskThread extends RequestThread {
 
     public SubmitTaskThread(Socket socket, Protocol.ServerRequest serverRequest, TaskManager taskManager) {
         super(socket, serverRequest, taskManager);

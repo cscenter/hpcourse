@@ -1,4 +1,4 @@
-package server;
+package server.TaskTreads;
 
 import server.RequestThread;
 import communication.Protocol;
@@ -34,7 +34,6 @@ public class TasksListThread extends RequestThread {
         try {
             send(serverResponseBuilder.build());
         } catch (IOException e) {
-            System.out.println("Error sending data to " + socket.getInetAddress());
             e.printStackTrace();
             try {
                 socket.close();

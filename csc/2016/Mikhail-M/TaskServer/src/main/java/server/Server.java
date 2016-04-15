@@ -36,13 +36,16 @@ public class Server extends Thread {
                                 Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(buf);
 
                                 if (request.hasSubmit()) {
-                                    new Thread(new server.SubmitTaskThread(newSocket, request, taskManager)).start();
+                                    new Thread(new server.TaskTreads.SubmitTaskThread(newSocket, request, taskManager))
+                                            .start();
                                 }
                                 if (request.hasSubscribe()) {
-                                    new Thread(new server.SubscribeTaskThread(newSocket, request, taskManager)).start();
+                                    new Thread(new server.TaskTreads.SubscribeTaskThread(newSocket, request, taskManager))
+                                            .start();
                                 }
                                 if (request.hasList()) {
-                                    new Thread(new server.TasksListThread(newSocket, request, taskManager)).start();
+                                    new Thread(new server.TaskTreads.TasksListThread(newSocket, request, taskManager))
+                                            .start();
                                 }
                             }
                         } catch (IOException e) {

@@ -1,13 +1,14 @@
 
-package server;
+package server.TaskTreads;
 
 import communication.Protocol;
+import server.TaskManager;
 
 import java.io.IOException;
 import java.net.Socket;
 
 /*  Обработчик запросов на подписку на результат запущенной задачи*/
-public class SubscribeTaskThread extends RequestThread {
+public class SubscribeTaskThread extends server.RequestThread {
 
     public SubscribeTaskThread(Socket socket, Protocol.ServerRequest serverRequest, TaskManager taskManager) {
         super(socket, serverRequest, taskManager);
@@ -34,7 +35,6 @@ public class SubscribeTaskThread extends RequestThread {
         try {
             send(serverResponseBuilder.build());
         } catch (IOException e) {
-            System.out.println("Error sending data to " + socket.getInetAddress());
             e.printStackTrace();
             try {
                 socket.close();

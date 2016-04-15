@@ -8,7 +8,7 @@ import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class TaskClient {
+public class TaskClient extends Thread {
 
     private String host;
     private int port;

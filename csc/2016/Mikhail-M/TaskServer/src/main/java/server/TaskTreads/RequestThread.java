@@ -1,6 +1,7 @@
-package server;
+package server.TaskTreads;
 
 import communication.Protocol;
+import server.TaskManager;
 
 import java.io.IOException;
 import java.io.OutputStream;
