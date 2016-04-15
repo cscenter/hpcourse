@@ -4,6 +4,9 @@ import communication.Protocol;
 import server.processors.BaseTaskProcessor;
 import server.processors.BaseTaskProcessorFactory;
 import server.processors.NoProcessorForTaskException;
+import util.ProtocolUtils;
+import util.ConcurrentStorage;
+import util.TaskAndResult;
 import util.ThreadPool;
 
 import java.io.IOException;
@@ -16,8 +19,9 @@ import java.util.logging.Logger;
  * Created by nikita.sokeran@gmail.com
  */
 
-//TODO: add possibility to stop server
 public class Server extends Thread {
+
+    final ConcurrentStorage<TaskAndResult> concurrentStorage = new ConcurrentStorage<>();
 
     private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
 
@@ -33,7 +37,6 @@ public class Server extends Thread {
         threadPool = new ThreadPool();
     }
 
-
     @Override
     public void run() {
         LOGGER.info("Server starting...");
@@ -45,14 +48,7 @@ public class Server extends Thread {
                 LOGGER.info("Accept socket");
 
                 while (!socket.isClosed()) {
-
-                    LOGGER.info("Socket not closed so read request");
-                    final int size = inputStream.read();
-                    LOGGER.info("Message size:" + size);
-                    final byte[] messageBytes = new byte[size];
-                    inputStream.read(messageBytes);
-
-                    final Protocol.WrapperMessage message = Protocol.WrapperMessage.parseFrom(messageBytes);
+                    final Protocol.WrapperMessage message = ProtocolUtils.readWrappedMessage(socket);
 
                     if (!message.hasRequest()) {
                         LOGGER.warning("Got message without request. Ignore it and continue work");
@@ -64,7 +60,7 @@ public class Server extends Thread {
                     LOGGER.info("Server read request: " + request.getClientId() + ' ' + request.getRequestId());
 
                     try {
-                        final BaseTaskProcessor taskProcessor = new BaseTaskProcessorFactory(socket, request).getProcessor();
+                        final BaseTaskProcessor taskProcessor = new BaseTaskProcessorFactory(concurrentStorage, socket, request).getProcessor();
                         threadPool.execute(taskProcessor);
                     } catch (NoProcessorForTaskException e) {
                         LOGGER.warning("Get message with unknown type, ignore it:" + e);
