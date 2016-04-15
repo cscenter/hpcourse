@@ -28,7 +28,7 @@ bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
   if (id < m_id)
   {
     m_mut.lock();
-    
+
     if (m_tasks[id].finished)
     {
       result_set = true;
