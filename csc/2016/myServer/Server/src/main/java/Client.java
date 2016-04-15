@@ -9,7 +9,7 @@ public class Client {
 
     static final int PORT_NUMBER = 44444;
 
-    public static void main(String[] args) throws InterruptedException{
+    public static void main(String[] args) throws InterruptedException {
 //        for (int i = 0; i < 3; i++) {
 ////            Thread.sleep(1000);
 //            new TaskClient(i + " first");
@@ -24,21 +24,21 @@ public class Client {
     }
 }
 
-class TaskClient extends Thread{
+class TaskClient extends Thread {
 
     String clientId;
     long requestId;
     Socket socket;
     String task;
 
-    TaskClient(String clientId, long requestId, String task){
+    TaskClient(String clientId, long requestId, String task) {
         this.clientId = clientId;
         this.requestId = requestId;
         this.task = task;
         start();
     }
 
-    public void run(){
+    public void run() {
         if (task.equals("Subscribe")) {
             sendMassageAndTakeResponse(makeServerRequest(makeSubscribeTask(1)));
         } else if (task.equals("Submit")) {
@@ -51,7 +51,7 @@ class TaskClient extends Thread{
 
     void sendMassageAndTakeResponse(ServerRequest request) {
         try {
-            socket = new Socket("localhost", Client.PORT_NUMBER );
+            socket = new Socket("localhost", Client.PORT_NUMBER);
 
             //Пишем
             SendMessageToServer(request);
@@ -81,7 +81,7 @@ class TaskClient extends Thread{
             if (subscribeResponse.hasValue())
                 System.out.println("value: " + subscribeResponse.getValue());
             System.out.println();
-        } else if(serverResponse.hasListResponse()) {
+        } else if (serverResponse.hasListResponse()) {
             ListTasksResponse listTasksResponse = serverResponse.getListResponse();
             List<ListTasksResponse.TaskDescription> listOfTasks = listTasksResponse.getTasksList();
             System.out.println("Status:" + listTasksResponse.getStatus().name());
@@ -91,7 +91,7 @@ class TaskClient extends Thread{
         }
     }
 
-    void printTaskDescriptions(ListTasksResponse.TaskDescription task){
+    void printTaskDescriptions(ListTasksResponse.TaskDescription task) {
         System.out.println("taskId: " + task.getTaskId());
         System.out.println("clientId: " + task.getClientId());
         if (task.hasResult()) {
@@ -111,7 +111,7 @@ class TaskClient extends Thread{
         return param.getDependentTaskId();
     }
 
-    void SendMessageToServer(ServerRequest request) throws IOException{
+    void SendMessageToServer(ServerRequest request) throws IOException {
         request.writeDelimitedTo(socket.getOutputStream());
     }
 
@@ -122,13 +122,13 @@ class TaskClient extends Thread{
     //all tasks extend com.google.protobuf.GeneratedMessage
     public ServerRequest makeServerRequest(GeneratedMessage message) {
         ServerRequest.Builder request = ServerRequest.newBuilder().setRequestId(requestId).setClientId(clientId);
-        if (message instanceof SubmitTask) request.setSubmit((SubmitTask)message);
-        if (message instanceof Subscribe) request.setSubscribe((Subscribe)message);
-        if (message instanceof ListTasks) request.setList((ListTasks)message);
+        if (message instanceof SubmitTask) request.setSubmit((SubmitTask) message);
+        if (message instanceof Subscribe) request.setSubscribe((Subscribe) message);
+        if (message instanceof ListTasks) request.setList((ListTasks) message);
         return request.build();
     }
 
-    SubmitTask makeSubmitTask(){
+    SubmitTask makeSubmitTask() {
         SubmitTask.Builder submitTask = SubmitTask.newBuilder();
         Task.Builder task = Task.newBuilder();
         Task.Param.Builder param = Task.Param.newBuilder();
@@ -160,7 +160,7 @@ class TaskClient extends Thread{
         return submitTask.setTask(task.build()).build();
     }
 
-    Subscribe makeSubscribeTask(int idTask){
+    Subscribe makeSubscribeTask(int idTask) {
         return Subscribe.newBuilder().setTaskId(idTask).build();
     }
 
