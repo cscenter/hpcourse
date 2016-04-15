@@ -19,7 +19,7 @@ public class Helper {
         tasks = Collections.synchronizedMap(new HashMap<Integer, TaskDescription>());
     }
 
-    public Helper getInstance() {
+    public static Helper getInstance() {
         return Singelton.instance;
     }
 
@@ -36,7 +36,7 @@ public class Helper {
     }
 
     ArrayList<TaskDescription> getAllTask() {
-        synchronized (this) {
+        synchronized (tasks) {
             ArrayList<TaskDescription> result = new ArrayList<>();
             for (TaskDescription td : tasks.values()) {
                 result.add(td);
