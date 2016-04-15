@@ -5,6 +5,7 @@ import communication.Protocol;
 import communication.Protocol.ListTasksResponse.TaskDescription;
 import communication.Protocol.ServerRequest;
 import communication.Protocol.ServerResponse;
+import communication.Protocol.SubscribeResponse;
 import communication.Protocol.Task;
 import communication.Protocol.Task.Param;
 import util.SynchronizedInt;
@@ -45,6 +46,7 @@ public class Server extends Thread{
                             if (request.hasSubmit()) {
                             }
                             if (request.hasSubscribe()) {
+                                new SubscribeHandler(request).start();
                             }
                             if (request.hasList()) {
                                 new ListHandler(request).start();
@@ -57,7 +59,6 @@ public class Server extends Thread{
                 }.start();
             }
         } catch (IOException e) {
-            System.err.println("Error with serever socket!");
             e.printStackTrace();
         } finally {
             try {
@@ -111,6 +112,41 @@ public class Server extends Thread{
             }
             try {
                 sendMessage((ServerResponse.newBuilder().setRequestId(request.getRequestId()).setListResponse(builder.build()).build()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public class SubscribeHandler extends AbstractHandler {
+
+        SubscribeHandler(ServerRequest request) {
+            super(request);
+        }
+
+        @Override
+        public void run() {
+            int taskId = request.getSubscribe().getTaskId();
+            TaskDescription description = helper.getInstance().getTaskById(taskId);
+            SubscribeResponse.Builder builder = SubscribeResponse.newBuilder().setStatus(Protocol.Status.ERROR);
+            try {
+                long result;
+                Task task = description.getTask();
+                synchronized (task) {
+                    description = helper.getInstance().getTaskById(taskId);
+                    if (description.hasResult())
+                        result = description.getResult();
+                    else {
+                        task.wait();;
+                        result = helper.getInstance().getTaskById(taskId).getResult();
+                    }
+                }
+                builder.setStatus(Protocol.Status.OK).setValue(result);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            try {
+                sendMessage(ServerResponse.newBuilder().setRequestId(request.getRequestId()).setSubscribeResponse(builder.build()).build());
             } catch (IOException e) {
                 e.printStackTrace();
             }
