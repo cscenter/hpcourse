@@ -15,27 +15,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Server {
-    private final int port;
-    private final AtomicBoolean running;
-    private TaskManager taskManager;
-    private Map<Long, Socket> requestToSocket; // protect
+public class Server implements Runnable {
 
-    public Server(int port) {
-        this.port = port;
-        this.running = new AtomicBoolean(false);
-    }
+    class SocketThread extends Thread {
+        private final Socket socket;
 
-    public void start() throws IOException {
-        if (running.get()) {
-            throw new IllegalStateException();
+        public SocketThread(Socket socket) {
+            this.socket = socket;
         }
 
-        reinit();
-        running.set(true);
-        try (ServerSocket listener = new ServerSocket(port)) {
-            while (running.get()) {
-                try (Socket socket = listener.accept()) {
+        public void run() {
+            try {
+                while (true) {
                     InputStream is = socket.getInputStream();
                     Protocol.ServerRequest request = Protocol.WrapperMessage.parseDelimitedFrom(is).getRequest();
                     String clientId = request.getClientId();
@@ -52,12 +43,43 @@ public class Server {
                         throw new IllegalArgumentException("Unrecognized request type");
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+        }
+    }
+
+    private final int port;
+    private final AtomicBoolean running;
+    private TaskManager taskManager;
+    private Map<Long, Socket> requestToSocket; // protect
+
+    public Server(int port) {
+        this.port = port;
+        this.running = new AtomicBoolean(false);
+    }
+
+    public void run() {
+        if (running.get()) {
+            throw new IllegalStateException();
+        }
+
+        reinit();
+        running.set(true);
+        try (ServerSocket listener = new ServerSocket(port)) {
+            while (running.get()) {
+                Socket socket = listener.accept();
+                new SocketThread(socket).start();
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     public void stop() {
         running.set(false);
+
     }
 
     public void sendSubmitResponse(long requestId, int taskId, boolean status) throws IOException {
@@ -83,7 +105,7 @@ public class Server {
 
     }
 
-    public void sendListAllResponse(long requestId, List<Task> tasks, boolean status) throws IOException{
+    public void sendListTasksResponse(long requestId, List<Task> tasks, boolean status) throws IOException{
         OutputStream os = requestToSocket.get(requestId).getOutputStream();
 
         List<Protocol.ListTasksResponse.TaskDescription> taskDescriptions = new ArrayList<>();
@@ -106,6 +128,11 @@ public class Server {
     private void reinit() {
         requestToSocket = new HashMap<>();
         taskManager = new TaskManager(this);
+    }
+
+    /* Visible for testing. */
+    int getPort() {
+        return port;
     }
 }
 

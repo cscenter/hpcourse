@@ -58,19 +58,17 @@ public class Task extends Thread {
         return protoTask;
     }
 
+    private long getValue(Protocol.Task.Param param) {
+        return param.hasValue()
+                ? param.getValue()
+                : manager.getTaskResult(param.getDependentTaskId());
+    }
+
     public void run() {
-        long a = (protoTask.getA().hasValue()
-                ? protoTask.getA().getValue()
-                : manager.getTaskResult(protoTask.getA().getDependentTaskId()));
-        long b = (protoTask.getB().hasValue()
-                ? protoTask.getB().getValue()
-                : manager.getTaskResult(protoTask.getB().getDependentTaskId()));
-        long p = (protoTask.getP().hasValue()
-                ? protoTask.getP().getValue()
-                : manager.getTaskResult(protoTask.getP().getDependentTaskId()));
-        long m = (protoTask.getM().hasValue()
-                ? protoTask.getM().getValue()
-                : manager.getTaskResult(protoTask.getM().getDependentTaskId()));
+        long a = getValue(protoTask.getA());
+        long b = getValue(protoTask.getB());;
+        long p = getValue(protoTask.getP());;
+        long m = getValue(protoTask.getM());;
 
         long n = protoTask.getN();
 
@@ -83,7 +81,8 @@ public class Task extends Thread {
         result = a;
         try {
             manager.taskCompleted(this);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        catch (IOException e) {}
     }
 }

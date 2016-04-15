@@ -25,6 +25,7 @@ public class TaskManager {
     public void submit(long requestId, Task task) throws IOException {
         taskById.put(task.getTaskId(), task);
         submitRequest.put(task.getTaskId(), requestId);
+        subscriptionRequests.put(task.getTaskId(), new HashSet<Long>());
 
         boolean delay = false;
         for (int dependentId : task.dependents()) {
@@ -46,9 +47,6 @@ public class TaskManager {
     }
 
     public void subscribe(long requestId, int taskId) throws IOException{
-        if (!subscriptionRequests.containsKey(taskId)) {
-            subscriptionRequests.put(taskId, new HashSet<Long>());
-        }
         subscriptionRequests.get(taskId).add(requestId);
 
         if (complete.contains(taskId)) {
@@ -72,7 +70,7 @@ public class TaskManager {
             result.add(taskById.get(taskId));
         }
 
-        server.sendListAllResponse(requestId, result, true);
+        server.sendListTasksResponse(requestId, result, true);
     }
 
     public void taskCompleted(Task task) throws IOException {
@@ -81,7 +79,7 @@ public class TaskManager {
         complete.add(taskId);
         subscriptionNotify(taskId);
 
-        Set<Integer> dependents = waiting.get(taskId);
+        Set<Integer> dependents = (waiting.containsKey(taskId) ? waiting.get(taskId) : new HashSet<Integer>());
         for (int w : waiting.keySet()) {
             waiting.get(w).removeAll(dependents);
         }
