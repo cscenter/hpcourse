@@ -1,5 +1,7 @@
 package csc.parallel.server;
 
+import csc.parallel.server.TaskManager;
+
 import java.io.IOException;
 
 /**
@@ -10,6 +12,7 @@ public class Main
 {
     public static void main(String[] args) throws IOException, InterruptedException
     {
+        //Start server at port 5555
         new Thread(new TaskManager(5555)).start();
     }
 }

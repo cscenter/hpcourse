@@ -102,7 +102,6 @@ public class TaskManager implements Runnable
 
     /**
      *  Handles message from client. Doesn't support multiple requests in one message.
-     * @param client
      * @throws IOException
      */
     private boolean handleClient(Socket client) throws IOException
