@@ -1,9 +1,10 @@
+package client;
+
 import communication.Protocol;
 
 import java.util.List;
 
 public interface Client {
-
 
     public int submitTask(Protocol.Task task);
 

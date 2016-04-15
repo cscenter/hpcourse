@@ -1,3 +1,4 @@
+package server;
 import communication.Protocol;
 import communication.Protocol.Task;
 import server.TaskCalculator;
@@ -21,7 +22,7 @@ public class TaskManager {
         taskCalc = new TaskCalculator();
     }
 
-    public long submitTask(String ClientID, Protocol.Task task) {
+    public int submitTask(String ClientID, Protocol.Task task) {
         int id = taskIdCounter.getAndIncrement();
         server.Task newTask = new server.Task(task, id, ClientID);
         taskRep.putTask(id, newTask);
@@ -30,7 +31,7 @@ public class TaskManager {
         return id;
     }
 
-    public long getResult(int taskId) {
+    public Long getResult(int taskId) {
         return taskRep.getTaskById(taskId).getResult();
     }
 
