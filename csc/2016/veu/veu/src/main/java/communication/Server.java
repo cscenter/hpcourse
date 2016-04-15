@@ -1,75 +1,111 @@
 package communication;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.logging.Logger;
 
 import static communication.Protocol.*;
 
 public class Server {
-  private final ServerSocket myServerSocket;
-  private final Storage myStorage;
+  private final static Logger log = Logger.getGlobal();
 
-  public Server(ServerSocket serverSocket) {
+  private final ServerSocket myServerSocket;
+  private final RequestProcessor[] myProcessors;
+
+  public Server(ServerSocket serverSocket, RequestProcessor[] processors) {
     myServerSocket = serverSocket;
-    myStorage = new Storage();
+    myProcessors = processors;
   }
 
   public static void main(String[] args) throws IOException {
-    // ip port
-    String ip = "localhost";
+    // ip and port
+//    String ip = "localhost";
     int port = Integer.parseInt(args[0]);
-    ServerSocket serverSocket = new ServerSocket(port);
-
-    new Server(serverSocket).listen();
+    final ServerSocket serverSocket = new ServerSocket(port);
+    Storage storage = new Storage();
+    RequestProcessor[] processors = {
+      new TaskProcessor(storage),
+      new ListProcessor(storage),
+      new SubscribeProcessor(storage),
+      new RequestProcessor() {
+        @Nullable
+        public ServerResponse processRequest(ServerRequest request) {
+          System.out.println("warning: empty request");
+          return ServerResponse.newBuilder().setRequestId(request.getRequestId()).build();
+        }
+      }
+    };
+    new Thread(new Runnable() {
+      public void run() {
+        while (true) {
+          if (Boolean.parseBoolean(System.getProperty("exit", ""))) {
+            try {
+              serverSocket.close();
+              return;
+            } catch (IOException e) {
+              System.out.println(e.toString());
+            }
+          }
+          try {
+            Thread.sleep(5000);
+          } catch (InterruptedException ignore) {}
+        }
+      }
+    }).start();
+    new Server(serverSocket, processors).listen();
   }
 
-  private void listen() {
-    while (true) {
-      try (
-        Socket accept = myServerSocket.accept()) {
-        new Processor(accept).start();
-      } catch (IOException ignore) {}
+  private void listen() throws IOException {
+    boolean cont = true;
+    while (cont && !Boolean.parseBoolean(System.getProperty("exit", ""))) {
+      try {
+        Socket accept = myServerSocket.accept();
+        log.warning("socket accepted");
+        new ProcessingThread(accept).start();
+      } catch (IOException ex) {
+        System.out.println(ex.toString());
+        cont = false;
+      }
     }
   }
 
-  class Processor extends Thread {
+  class ProcessingThread extends Thread {
     Socket mySocket;
-    public Processor(Socket socket) {
+    public ProcessingThread(Socket socket) {
       mySocket = socket;
     }
 
     @Override
     public void run() {
-      try {
-        ServerRequest serverRequest = Util.getRequest(mySocket);
-        ServerResponse response = null;
-        if (serverRequest.hasSubmit()) {
-          int newId = TaskThread.registerTask(serverRequest.getSubmit(), myStorage);
-
-          // todo fix
-          SubmitTaskResponse submitTaskResponse = SubmitTaskResponse.newBuilder().setSubmittedTaskId(newId).build();
-          response = ServerResponse.newBuilder().setSubmitResponse(submitTaskResponse).build();
+      while (true) {
+        try {
+          log.warning("begin processing");
+          ServerRequest serverRequest = Util.getRequest(mySocket);
+          log.warning("end processing");
+          if (serverRequest == null) {
+            break;
+          }
+          ServerResponse response = getResponse(serverRequest);
+          assert response != null;
+          Util.sendResponse(mySocket, response);
+        } catch (IOException e) {
+          log.warning("something go wrong.." + e.toString());
+          break;
         }
-        if (serverRequest.hasSubscribe()) {
-          Subscribe subscribe = serverRequest.getSubscribe();
-          long result = myStorage.getValue(subscribe.getTaskId());
-          SubscribeResponse subscribeResponse = SubscribeResponse.newBuilder().setValue(result).setStatus(Status.OK).build();
-          response = ServerResponse.newBuilder().setSubscribeResponse(subscribeResponse).build();
-        }
-        if (serverRequest.hasList()) {
-          ListTasksResponse listTasksResponse = ListTasksResponse.newBuilder().addAllTasks(myStorage.getTasks()).build();
-          response = ServerResponse.newBuilder().setListResponse(listTasksResponse).build();
-        }
-        if (response == null) {
-          throw new IllegalStateException("empty request");
-        }
-        int responseSize = response.getSerializedSize();
-        mySocket.getOutputStream().write(responseSize);
-        mySocket.getOutputStream().write(response.toByteArray());
-      } catch (IOException e) {
-        // todo implement
       }
+    }
+
+    private ServerResponse getResponse(ServerRequest serverRequest) {
+      for (RequestProcessor processor : myProcessors) {
+        ServerResponse serverResponse = processor.processRequest(serverRequest);
+        if (serverResponse != null) {
+          return serverResponse;
+        }
+      }
+      return null;
     }
   }
 }
