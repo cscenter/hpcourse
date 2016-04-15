@@ -44,7 +44,7 @@ public:
   : Worker(nullptr)
   { }
   
-  Worker(std::function<void(unsigned int, int64_t, int64_t)> c_func)
+  explicit Worker(std::function<void(unsigned int, int64_t, int64_t)> c_func)
   : m_id(0)
   , m_consumer_func(c_func)
   { }

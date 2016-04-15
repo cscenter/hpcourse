@@ -9,7 +9,7 @@ public:
   SocketRW()
   : SocketRW(-1)
   { }
-  SocketRW(int sockfd);
+  explicit SocketRW(int sockfd);
   
   bool read(communication::WrapperMessage & msg) const;
   bool write(communication::WrapperMessage const & msg) const;
