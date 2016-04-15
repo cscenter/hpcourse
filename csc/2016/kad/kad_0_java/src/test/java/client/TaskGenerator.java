@@ -2,6 +2,7 @@ package client;
 
 import communication.Protocol;
 import communication.Protocol.Task.Param;
+import csc.parallel.server.TaskManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +20,7 @@ import java.util.function.Supplier;
  */
 public class TaskGenerator
 {
-    private final Logger logger = LoggerFactory.getLogger(TaskGenerator.class);
+    private static final Logger logger = LoggerFactory.getLogger(TaskGenerator.class);
     private final int port;
 
     public static void main(String[] args) throws IOException, InterruptedException, ExecutionException
@@ -27,23 +28,41 @@ public class TaskGenerator
         int port = 5555;
         int tasks = 100;
         int measuresCount = 50;
-        TaskGenerator t = new TaskGenerator(port);
-        t.checkDependencies();
-        t.checkCalculation(measuresCount);
 
-        t.measureTaskExecution(
-                TaskGenerator.randomSupplier(10000, 10000, 10000, 10000, 10_000_000),
-                "Random",
-                tasks,
-                measuresCount
-        );
+//        Thread tm = new Thread(new TaskManager(port));
+//        tm.start();
+//
+//        //wait a bit
+//        Thread.sleep(100);
+//
+//        TaskGenerator t = new TaskGenerator(port);
+//        t.checkDependencies();
+//        t.checkCalculation(measuresCount);
+//
+//        tm.interrupt();
 
-//        t.measureTaskExecution(
-//                TaskGenerator.constSupplier(12640, 1165, 16548974, 4578, 1_000_000),
-//                "Random",
-//                tasks,
-//                measuresCount
-//        );
+        for(int i = 1; i <= Runtime.getRuntime().availableProcessors(); i++)
+        {
+            logger.info("Threads: {}", i);
+            Thread tm1 = new Thread(new TaskManager(port, i));
+            tm1.start();
+
+            //wait a bit
+            Thread.sleep(100);
+
+            TaskGenerator tg = new TaskGenerator(port);
+
+            tg.measureTaskExecution(
+                    TaskGenerator.constSupplier(12640, 1165, 16548974, 4578, 100_000),
+                    "Random",
+                    tasks,
+                    measuresCount
+            );
+
+            tm1.interrupt();
+            //wait a bit
+            Thread.sleep(100);
+        }
     }
 
     public TaskGenerator(int port)
@@ -86,12 +105,13 @@ public class TaskGenerator
                                      String clientName, int taskCount, int measureCount)
             throws IOException, InterruptedException
     {
+        logger.info("Measurement. taskCount:{}, measureCount:{}, client:{}", taskCount, measureCount, clientName);
         List<Future<Long>> subscriptions = new ArrayList<>();
         long time = System.currentTimeMillis();
 
         for(int i = 0; i < measureCount; i++)
         {
-            logger.info("Measurment {}", i);
+            logger.debug("Measurement {}", i);
             Client c = new Client(clientName, this.port);
 
             List<Integer> taskIds = new ArrayList<>();
@@ -123,13 +143,14 @@ public class TaskGenerator
         }
         long time1 = System.currentTimeMillis();
         double result = (time1 - time) / measureCount;
-        logger.info("client:{}, Total time {} ms, avg {} ms", clientName, (time1 - time), result);
+        logger.info("Done. Total time {} ms, avg {} ms", (time1 - time), result);
 
         return time1 - time;
     }
 
     public boolean checkCalculation(int checkTimes) throws IOException, InterruptedException, ExecutionException
     {
+        logger.info("Check calculation. checkTimes:{}", checkTimes);
         int maxa = 10000, maxb = 10000, maxp = 10000, maxm = 10000, n = 1_000_000;
         Supplier<Protocol.Task> supplier = TaskGenerator.randomSupplier(maxa, maxb, maxp, maxm, n);
 
@@ -164,6 +185,7 @@ public class TaskGenerator
 
     public boolean checkDependencies () throws IOException, InterruptedException, ExecutionException
     {
+        logger.info("Check dependencies");
         /*
             t1   t2
               \  /

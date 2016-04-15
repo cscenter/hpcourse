@@ -48,6 +48,12 @@ public class TaskManager implements Runnable
         this.taskSolver = new TaskSolver(tasks);
     }
 
+    public TaskManager(int port, int maxThreads)
+    {
+        this.port = port;
+        this.taskSolver = new TaskSolver(tasks, maxThreads);
+    }
+
     @Override
     public void run()
     {

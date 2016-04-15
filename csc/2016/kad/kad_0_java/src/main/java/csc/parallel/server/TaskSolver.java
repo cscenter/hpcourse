@@ -31,19 +31,24 @@ public class TaskSolver
 
     public TaskSolver(Map<Integer, TaskHolder> tasks)
     {
+        this(tasks, Runtime.getRuntime().availableProcessors());
+    }
+
+    public TaskSolver(Map<Integer, TaskHolder> tasks, int maxThreads)
+    {
         this.tasks = tasks;
-        this.maxThreads = Runtime.getRuntime().availableProcessors();
+        this.maxThreads = maxThreads;
         this.availableThreads = new AtomicInteger(this.maxThreads);
     }
 
     public void solveTask(TaskHolder holder)
     {
-        logger.info("Preparing task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
+        logger.debug("Preparing task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
         Task task = holder.getTask();
 
         String name = String.format("-- Solver, task %d", holder.getTaskId());
         new Thread(() -> {
-            logger.info("Started task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
+            logger.debug("Started task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
 
             // firstly wait for all dependencies
             Map<String, Long> values = null;
@@ -84,7 +89,7 @@ public class TaskSolver
 
             notifyAndFree(holder);
 
-            logger.info("Solved task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
+            logger.debug("Solved task id:{}, client:{}", holder.getTaskId(), holder.getClient_id());
         }, name).start();
     }
 
