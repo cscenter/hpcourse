@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 /**
  * Created by nikita.sokeran@gmail.com
  */
-public class Client implements Closeable {
+public final class Client implements Closeable {
     private static final Logger LOGGER = Logger.getLogger(Client.class.getName());
 
     private final Socket socket;
@@ -89,6 +89,10 @@ public class Client implements Closeable {
             while (!Thread.currentThread().isInterrupted()) {
                 try {
                     final Protocol.WrapperMessage wrapperMessage = ProtocolUtils.readWrappedMessage(socket);
+
+                    if (wrapperMessage == null) {
+                        continue;
+                    }
 
                     LOGGER.info("Client read wrapped message: " + wrapperMessage);
                     if (!wrapperMessage.hasResponse()) {

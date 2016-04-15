@@ -22,7 +22,7 @@ public class SimpleTest extends ClientServerTest {
 
     private static final String HOST = "localhost";
 
-    private Thread server;
+    private Server server;
     private Client client1;
     private Client client2;
 
@@ -30,8 +30,7 @@ public class SimpleTest extends ClientServerTest {
     public SimpleTest() throws IOException {
         final int randomPort = new Random().nextInt(20000) + 10000;
 
-        server = new Thread(new Server(randomPort));
-        server.start();
+        server = new Server(randomPort);
 
         client1 = new Client(HOST, randomPort, "test_client1");
         client2 = new Client(HOST, randomPort, "test_client2");
@@ -125,6 +124,6 @@ public class SimpleTest extends ClientServerTest {
 
     @After
     public void closeServer() {
-        server.interrupt();
+        server.stop();
     }
 }

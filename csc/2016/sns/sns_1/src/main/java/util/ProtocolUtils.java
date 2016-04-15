@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.logging.Logger;
 
 /**
@@ -47,20 +46,17 @@ public class ProtocolUtils {
      */
     public static Protocol.WrapperMessage readWrappedMessage(final Socket socket) throws IOException, InterruptedException {
         final InputStream inputStream = socket.getInputStream();
-        while (true) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw new InterruptedException();
-            }
 
-            if (inputStream.available() > 0) {
-                synchronized (socket) {
-                    if (inputStream.available() > 0) {
-                        LOGGER.info("Read wrapped message");
-                        return Protocol.WrapperMessage.parseDelimitedFrom(inputStream);
-                    }
+        if (inputStream.available() > 0) {
+            synchronized (socket) {
+                if (inputStream.available() > 0) {
+                    LOGGER.info("Read wrapped message");
+                    return Protocol.WrapperMessage.parseDelimitedFrom(inputStream);
                 }
             }
         }
+
+        return null;
     }
 
     public static Protocol.Task createTask(final Protocol.Task.Param a, final Protocol.Task.Param b, final Protocol.Task.Param p,

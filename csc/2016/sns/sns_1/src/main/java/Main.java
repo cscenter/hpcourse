@@ -19,8 +19,7 @@ public class Main {
      * @throws IOException when can't open socket on {@code DEFAULT_SERVER_PORT}
      */
     public static void main(final String[] args) throws IOException {
-        final Thread server = new Thread(new Server(DEFAULT_SERVER_PORT));
-        server.start();
+        final Server server = new Server(DEFAULT_SERVER_PORT);
         final Client client = new Client(DEFAULT_HOST, DEFAULT_SERVER_PORT, "client1");
     }
 }
