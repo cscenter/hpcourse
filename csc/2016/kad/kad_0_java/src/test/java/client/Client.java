@@ -1,10 +1,9 @@
-package csc.parallel.client;
+package client;
 
 import communication.Protocol;
 import communication.Protocol.ServerRequest;
 import communication.Protocol.SubmitTask;
 import communication.Protocol.Task;
-import communication.Protocol.Task.Param;
 import communication.Protocol.WrapperMessage;
 import communication.Protocol.ListTasks;
 import communication.Protocol.Subscribe;
@@ -13,7 +12,6 @@ import communication.Protocol.ListTasksResponse.TaskDescription;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
