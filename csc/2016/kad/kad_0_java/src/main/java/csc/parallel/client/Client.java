@@ -90,8 +90,7 @@ public class Client implements AutoCloseable
 
             } catch (IOException e)
             {
-                logger.error(e.getMessage());
-
+                //Socket closed, or smth
                 //Stubs
                 Protocol.ListTasksResponse.Builder lr = Protocol.ListTasksResponse.newBuilder()
                         .setStatus(Protocol.Status.ERROR);
@@ -131,10 +130,8 @@ public class Client implements AutoCloseable
      * Sends task using given params, returns task id
      * @throws IOException
      */
-    public Integer sendTask(Param a, Param b, Param p, Param m, long n) throws IOException, InterruptedException
+    public Integer sendTask(Task t) throws IOException, InterruptedException
     {
-        Task.Builder t = Task.newBuilder().setA(a).setB(b).setP(p).setM(m).setN(n);
-
         SubmitTask.Builder st = SubmitTask.newBuilder().setTask(t);
 
         long requestId = wrapAndSend(null, st, null);
