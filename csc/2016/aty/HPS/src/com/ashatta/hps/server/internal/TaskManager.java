@@ -7,6 +7,7 @@ import java.util.*;
 
 public class TaskManager {
     private final Server server;
+    private final Lock synchronizationLock;
 
     private final Map<Integer, Long> submitRequest = new HashMap<>();
     private final Map<Integer, Set<Long>> subscriptionRequests = new HashMap<>();
@@ -20,9 +21,12 @@ public class TaskManager {
 
     public TaskManager(Server server) {
         this.server = server;
+        this.synchronizationLock = new Lock();
     }
 
     public void submit(long requestId, Task task) throws IOException {
+        synchronizationLock.lock();
+
         taskById.put(task.getTaskId(), task);
         submitRequest.put(task.getTaskId(), requestId);
         subscriptionRequests.put(task.getTaskId(), new HashSet<Long>());
@@ -44,14 +48,20 @@ public class TaskManager {
             server.sendSubmitResponse(requestId, task.getTaskId(), true);
             submitRequest.remove(task.getTaskId());
         }
+
+        synchronizationLock.unlock();
     }
 
-    public void subscribe(long requestId, int taskId) throws IOException{
+    public void subscribe(long requestId, int taskId) throws IOException {
+        synchronizationLock.lock();
+
         subscriptionRequests.get(taskId).add(requestId);
 
         if (complete.contains(taskId)) {
             subscriptionNotify(taskId);
         }
+
+        synchronizationLock.unlock();
     }
 
     private void subscriptionNotify(int taskId) throws IOException {
@@ -61,7 +71,9 @@ public class TaskManager {
         subscriptionRequests.get(taskId).clear();
     }
 
-    public void listAll(long requestId) throws IOException{
+    public void listAll(long requestId) throws IOException {
+        synchronizationLock.lock();
+
         List<Task> result = new ArrayList<>();
         for (int taskId : running) {
             result.add(taskById.get(taskId));
@@ -70,10 +82,14 @@ public class TaskManager {
             result.add(taskById.get(taskId));
         }
 
+        synchronizationLock.unlock();
+
         server.sendListTasksResponse(requestId, result, true);
     }
 
     public void taskCompleted(Task task) throws IOException {
+        synchronizationLock.lock();
+
         int taskId = task.getTaskId();
         running.remove(taskId);
         complete.add(taskId);
@@ -85,8 +101,15 @@ public class TaskManager {
         }
         waiting.remove(taskId);
 
+        Map<Long, Task> dependentsMap = new HashMap<>();
         for (int dependent : dependents) {
-            submit(submitRequest.get(dependent), taskById.get(dependent));
+            dependentsMap.put(submitRequest.get(dependent), taskById.get(dependent));
+        }
+
+        synchronizationLock.unlock();
+
+        for (Map.Entry<Long, Task> entry : dependentsMap.entrySet()) {
+            submit(entry.getKey(), entry.getValue());
         }
     }
 
