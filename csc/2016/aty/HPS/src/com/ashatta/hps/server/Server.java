@@ -1,6 +1,7 @@
 package com.ashatta.hps.server;
 
 import com.ashatta.hps.communication.Protocol;
+import com.ashatta.hps.server.internal.Lock;
 import com.ashatta.hps.server.internal.TaskManager;
 import com.ashatta.hps.server.internal.Task;
 
@@ -26,12 +27,14 @@ public class Server implements Runnable {
 
         public void run() {
             try {
-                while (true) {
+                while (running.get()) {
                     InputStream is = socket.getInputStream();
                     Protocol.ServerRequest request = Protocol.WrapperMessage.parseDelimitedFrom(is).getRequest();
                     String clientId = request.getClientId();
                     long requestId = request.getRequestId();
+                    requestMapLock.lock();
                     requestToSocket.put(requestId, socket);
+                    requestMapLock.unlock();
 
                     if (request.hasSubmit()) {
                         taskManager.submit(requestId, new Task(clientId, request.getSubmit().getTask(), taskManager));
@@ -52,11 +55,15 @@ public class Server implements Runnable {
     private final int port;
     private final AtomicBoolean running;
     private TaskManager taskManager;
-    private Map<Long, Socket> requestToSocket; // protect
+    private Map<Long, Socket> requestToSocket;
+    private final Lock requestMapLock;
 
     public Server(int port) {
         this.port = port;
         this.running = new AtomicBoolean(false);
+        this.requestMapLock = new Lock();
+        this.requestToSocket = new HashMap<>();
+        this.taskManager = new TaskManager(this);
     }
 
     public void run() {
@@ -64,7 +71,6 @@ public class Server implements Runnable {
             throw new IllegalStateException();
         }
 
-        reinit();
         running.set(true);
         try (ServerSocket listener = new ServerSocket(port)) {
             while (running.get()) {
@@ -77,13 +83,10 @@ public class Server implements Runnable {
         }
     }
 
-    public void stop() {
-        running.set(false);
-
-    }
-
     public void sendSubmitResponse(long requestId, int taskId, boolean status) throws IOException {
+        requestMapLock.lock();
         OutputStream os = requestToSocket.get(requestId).getOutputStream();
+        requestMapLock.unlock();
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
                     .setRequestId(requestId)
@@ -94,7 +97,10 @@ public class Server implements Runnable {
     }
 
     public void sendSubscribeResponse(long requestId, long result, boolean status) throws IOException {
+        requestMapLock.lock();
         OutputStream os = requestToSocket.get(requestId).getOutputStream();
+        requestMapLock.unlock();
+
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
                         .setRequestId(requestId)
@@ -106,7 +112,9 @@ public class Server implements Runnable {
     }
 
     public void sendListTasksResponse(long requestId, List<Task> tasks, boolean status) throws IOException{
+        requestMapLock.lock();
         OutputStream os = requestToSocket.get(requestId).getOutputStream();
+        requestMapLock.unlock();
 
         List<Protocol.ListTasksResponse.TaskDescription> taskDescriptions = new ArrayList<>();
         for (Task task : tasks) {
@@ -125,9 +133,9 @@ public class Server implements Runnable {
         message.writeDelimitedTo(os);
     }
 
-    private void reinit() {
-        requestToSocket = new HashMap<>();
-        taskManager = new TaskManager(this);
+    /* Visible for testing. */
+    void stop() {
+        running.set(false);
     }
 
     /* Visible for testing. */

@@ -114,6 +114,9 @@ public class TaskManager {
     }
 
     public long getTaskResult(int taskId) {
-        return taskById.get(taskId).getResult();
+        synchronizationLock.lock();
+        Task task = taskById.get(taskId);
+        synchronizationLock.unlock();
+        return task.getResult();
     }
 }
