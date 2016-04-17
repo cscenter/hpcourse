@@ -36,6 +36,14 @@ public class OneSession {
         this.val = val;
     }
 
+    public int getRequest_id() {
+        return request_id;
+    }
+
+    public Protocol.Task getTask() {
+        return task;
+    }
+
     public OneSession() {
         statusTask = true;
         statusSubscribeTask = true;
