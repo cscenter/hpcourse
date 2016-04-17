@@ -55,10 +55,12 @@ public class ServerTests {
                             .setP(buildIntParam(5))
                             .setM(buildIntParam(3))
                             .setN(5L)))).build();
+
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
         Protocol.WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
+
         Assert.assertEquals(0, response.getRequestId());
         Assert.assertEquals(Protocol.Status.OK, response.getSubmitResponse().getStatus());
     }
@@ -76,6 +78,7 @@ public class ServerTests {
                                         .setP(buildIntParam(5))
                                         .setM(buildIntParam(3))
                                         .setN(5L)))).build();
+
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
         int taskId = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
@@ -88,6 +91,7 @@ public class ServerTests {
         client.sendWrappedMessage(message);
         Protocol.WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
+
         Assert.assertEquals(1, response.getRequestId());
         Assert.assertEquals(Protocol.Status.OK, response.getSubscribeResponse().getStatus());
         Assert.assertEquals(compute(10, 12, 5, 3, 5), response.getSubscribeResponse().getValue());
@@ -106,6 +110,7 @@ public class ServerTests {
                                         .setP(buildIntParam(5))
                                         .setM(buildIntParam(3))
                                         .setN(5L)))).build();
+
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
         int taskId1 = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
@@ -130,6 +135,7 @@ public class ServerTests {
         client.sendWrappedMessage(message);
         Protocol.WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
+
         Assert.assertEquals(2, response.getRequestId());
         Assert.assertEquals(Protocol.Status.OK, response.getListResponse().getStatus());
         Set<Integer> taskIds = new HashSet<>();
