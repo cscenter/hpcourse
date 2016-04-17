@@ -29,21 +29,24 @@ public class Server implements Runnable {
             try {
                 while (running.get()) {
                     InputStream is = socket.getInputStream();
-                    Protocol.ServerRequest request = Protocol.WrapperMessage.parseDelimitedFrom(is).getRequest();
-                    String clientId = request.getClientId();
-                    long requestId = request.getRequestId();
-                    requestMapLock.lock();
-                    requestToSocket.put(requestId, socket);
-                    requestMapLock.unlock();
+                    Protocol.WrapperMessage message = Protocol.WrapperMessage.parseDelimitedFrom(is);
+                    if (message != null) {
+                        Protocol.ServerRequest request = message.getRequest();
+                        String clientId = request.getClientId();
+                        long requestId = request.getRequestId();
+                        requestMapLock.lock();
+                        requestToSocket.put(requestId, socket);
+                        requestMapLock.unlock();
 
-                    if (request.hasSubmit()) {
-                        taskManager.submit(requestId, new Task(clientId, request.getSubmit().getTask(), taskManager));
-                    } else if (request.hasSubscribe()) {
-                        taskManager.subscribe(requestId, request.getSubscribe().getTaskId());
-                    } else if (request.hasList()) {
-                        taskManager.listAll(requestId);
-                    } else {
-                        throw new IllegalArgumentException("Unrecognized request type");
+                        if (request.hasSubmit()) {
+                            taskManager.submit(requestId, new Task(clientId, request.getSubmit().getTask(), taskManager));
+                        } else if (request.hasSubscribe()) {
+                            taskManager.subscribe(requestId, request.getSubscribe().getTaskId());
+                        } else if (request.hasList()) {
+                            taskManager.listAll(requestId);
+                        } else {
+                            throw new IllegalArgumentException("Unrecognized request type");
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -77,8 +80,7 @@ public class Server implements Runnable {
                 Socket socket = listener.accept();
                 new SocketThread(socket).start();
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

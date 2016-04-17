@@ -15,6 +15,8 @@ public class PortFinder {
     // the ports above 49151 are dynamic and/or private
     private static final int MAX_PORT_NUMBER = 49151;
 
+
+    private static int start = MIN_PORT_NUMBER;
     /**
      * Finds a free port between
      * {@link #MIN_PORT_NUMBER} and {@link #MAX_PORT_NUMBER}.
@@ -23,8 +25,9 @@ public class PortFinder {
      * @throw RuntimeException if a port could not be found
      */
     public static int findFreePort() {
-        for (int i = MIN_PORT_NUMBER; i <= MAX_PORT_NUMBER; i++) {
+        for (int i = start; i <= MAX_PORT_NUMBER; i++) {
             if (available(i)) {
+                start = i + 1;
                 return i;
             }
         }

@@ -95,7 +95,10 @@ public class TaskManager {
         complete.add(taskId);
         subscriptionNotify(taskId);
 
-        Set<Integer> dependents = (waiting.containsKey(taskId) ? waiting.get(taskId) : new HashSet<Integer>());
+        Set<Integer> dependents = new HashSet<>();
+        if (waiting.containsKey(taskId)) {
+            dependents.addAll(waiting.get(taskId));
+        }
         for (int w : waiting.keySet()) {
             waiting.get(w).removeAll(dependents);
         }

@@ -1,5 +1,6 @@
 package com.ashatta.hps.server;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.ashatta.hps.communication.Protocol;
@@ -35,7 +36,7 @@ public class ServerTests {
     private long requestCounter;
 
     @Before
-    public void setUp() throws Exception{
+    public void setUp() throws InterruptedException {
         server = new Server(PortFinder.findFreePort());
         requestCounter = 0;
         (new Thread(server)).start();
@@ -43,7 +44,7 @@ public class ServerTests {
     }
 
     @After
-    public void shutdown() {
+    public void shutdown() throws InterruptedException {
         server.stop();
     }
 
@@ -119,6 +120,7 @@ public class ServerTests {
     public void testIndependentTasks() throws IOException {
         Map<Long, Long> expectedOutputs = new HashMap<>();
         Map<Long, Long> subscribeToSubmit = new HashMap<>();
+        Set<WrapperMessage> messages = new HashSet<>();
 
         long[] aList = { 10, 5, 39, 38, 27, 63, 25, 64, 92, 99 };
         long[] bList = { 12, 20, 140, 2394, 2938, 12, 252, 22, 90, 59 };
@@ -126,19 +128,19 @@ public class ServerTests {
         long[] mList = { 30, 9, 3, 198, 39, 2988, 11, 4, 21, 28 };
         long n = 5000000;
 
-        Pair<WrapperMessage, Long> messageIdPair;
-        WrapperMessage message;
-
         Client client = new Client("localhost", server.getPort());
         for (int i = 0; i < aList.length; ++i) {
-            messageIdPair = buildSubmitTaskMessage(
+            Pair<WrapperMessage, Long> messageIdPair = buildSubmitTaskMessage(
                     buildIntParam(aList[i]),
                     buildIntParam(bList[i]),
                     buildIntParam(pList[i]),
                     buildIntParam(mList[i]),
                     n);
-            message = messageIdPair.getKey();
+            messages.add(messageIdPair.getKey());
             expectedOutputs.put(messageIdPair.getValue(), compute(aList[i], bList[i], pList[i], mList[i], n));
+        }
+
+        for (WrapperMessage message : messages) {
             client.sendWrappedMessage(message);
         }
 
@@ -148,7 +150,7 @@ public class ServerTests {
                 int taskId = response.getSubmitResponse().getSubmittedTaskId();
                 subscribeToSubmit.put(requestCounter, response.getRequestId());
 
-                message = Protocol.WrapperMessage.newBuilder()
+                WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                         .setRequest(Protocol.ServerRequest.newBuilder()
                                 .setClientId("SimpleClient")
                                 .setRequestId(requestCounter++)
@@ -164,6 +166,76 @@ public class ServerTests {
             }
         }
 
+    }
+
+    @Test
+    public void testDependentTasks() throws IOException {
+        List<Long> results = new ArrayList<>();
+        Map<Long, Integer> subscribeToSubmit = new HashMap<>();
+
+        long[] aList = { 10, 5, 39 };
+        long[] bList = { 84, 12, 3 };
+        long[] pList = { 29, 134, 6 };
+        long[] mList = { 17, 2039, 11 };
+        long n = 5000000;
+
+        Client client = new Client("localhost", server.getPort());
+        for (int i = 0; i < aList.length; ++i) {
+            results.add(compute(aList[i], bList[i], pList[i], mList[i], n));
+        }
+        results.add(compute(results.get(0), 54, results.get(1), 38, n));
+        results.add(compute(298, results.get(1), results.get(2), 11, n));
+
+        for (int i = 0; i < aList.length; ++i) {
+            client.sendWrappedMessage(buildSubmitTaskMessage(
+                    buildIntParam(aList[i]),
+                    buildIntParam(bList[i]),
+                    buildIntParam(pList[i]),
+                    buildIntParam(mList[i]),
+                    n).getKey());
+        }
+
+        int[] taskIds = new int[5];
+        for (int i = 0; i < aList.length; ++i) {
+            Protocol.ServerResponse response = client.receive().getResponse();
+            taskIds[(int) response.getRequestId()] = response.getSubmitResponse().getSubmittedTaskId();
+        }
+
+        client.sendWrappedMessage(buildSubmitTaskMessage(
+                buildIdParam(taskIds[0]),
+                buildIntParam(54),
+                buildIdParam(taskIds[1]),
+                buildIntParam(38),
+                n).getKey());
+
+        client.sendWrappedMessage(buildSubmitTaskMessage(
+                buildIntParam(298),
+                buildIdParam(taskIds[1]),
+                buildIdParam(taskIds[2]),
+                buildIntParam(11),
+                n).getKey());
+
+        for (int i = aList.length; i < taskIds.length; ++i) {
+            Protocol.ServerResponse response = client.receive().getResponse();
+            taskIds[(int) response.getRequestId()] = response.getSubmitResponse().getSubmittedTaskId();
+        }
+
+        for (int i = 0; i < taskIds.length; ++i) {
+            subscribeToSubmit.put(requestCounter, i);
+            WrapperMessage message = Protocol.WrapperMessage.newBuilder()
+                    .setRequest(Protocol.ServerRequest.newBuilder()
+                            .setClientId("SimpleClient")
+                            .setRequestId(requestCounter++)
+                            .setSubscribe(Protocol.Subscribe.newBuilder()
+                                    .setTaskId(taskIds[i]))).build();
+            client.sendWrappedMessage(message);
+        }
+
+        for (int i = 0; i < taskIds.length; ++i) {
+            Protocol.ServerResponse response = client.receive().getResponse();
+            assertEquals((long) results.get(subscribeToSubmit.get(response.getRequestId())),
+                response.getSubscribeResponse().getValue());
+        }
     }
 
     private Pair<Protocol.WrapperMessage, Long> buildSubmitTaskMessage(Protocol.Task.Param a, Protocol.Task.Param b,

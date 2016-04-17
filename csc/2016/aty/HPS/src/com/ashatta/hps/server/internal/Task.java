@@ -66,9 +66,9 @@ public class Task extends Thread {
 
     public void run() {
         long a = getValue(protoTask.getA());
-        long b = getValue(protoTask.getB());;
-        long p = getValue(protoTask.getP());;
-        long m = getValue(protoTask.getM());;
+        long b = getValue(protoTask.getB());
+        long p = getValue(protoTask.getP());
+        long m = getValue(protoTask.getM());
 
         long n = protoTask.getN();
 
