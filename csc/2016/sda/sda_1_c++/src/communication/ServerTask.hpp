@@ -13,17 +13,18 @@ class ServerTask {
 
 public:
 
-    static boost::atomic<boost::shared_ptr<ServerTask>> head;
+    static boost::atomic<ServerTask*> head;
     static boost::atomic_int task_id_cnt;
 
     static int32_t push_front(const ServerTask &task);
-    static const boost::shared_ptr<ServerTask> find(int32_t id);
+    static ServerTask* find(int32_t id);
     static const std::vector<ListTasksResponse_TaskDescription> get_list();
 
 public:
     ServerTask();
     ServerTask(const ServerTask & server_task);
     ServerTask(const Task & task);
+    ~ServerTask();
     void        run();
     int64_t     subscribe();
     void        check_params();
@@ -33,7 +34,6 @@ public:
     int32_t     get_task_id() const;
     const std::string&     get_client_id() const;
 
-
     void        set_params_from(const Task & task);
     void        set_task_id(int32_t task_id);
     void        set_client_id(std::string & client);
@@ -41,12 +41,12 @@ public:
     int64_t     wait_for_dependent_task(int32_t task_id);
 
     //cond
-    boost::condition_variable &   get_cond();
-    boost::mutex &                get_mutex();
-    const bool                    get_ready_param() const;
+    boost::condition_variable &     get_cond();
+    boost::shared_ptr<boost::mutex> get_mutex();
+    const bool                      get_ready_param() const;
 
 public:
-    boost::shared_ptr<ServerTask> next;
+    ServerTask* next;
 
 private:
     Task        m_task;
@@ -56,9 +56,9 @@ private:
     int64_t     m_a, m_b, m_p, m_m, m_n;
 
     // cond
-    boost::condition_variable   m_ready_cond;
-    boost::mutex                m_ready_mutex;
-    bool                        m_ready = false;
+    boost::condition_variable       m_ready_cond;
+    boost::shared_ptr<boost::mutex> m_ready_mutex;
+    bool                            m_ready = false;
 
 }; // ServerTask
 

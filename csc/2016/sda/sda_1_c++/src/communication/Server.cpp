@@ -34,7 +34,9 @@ void Server::process_task(ServerRequest & req) {
     auto task = req.submit();
     auto req_id = req.request_id();
     if ( task.has_task() ) {
+
         int32_t task_id = ServerTask::push_front(task.task());
+
 
         SubmitTaskResponse *submit_task_resp = new SubmitTaskResponse();
         submit_task_resp->set_submittedtaskid(task_id);
@@ -58,9 +60,9 @@ void Server::process_task(ServerRequest & req) {
 }
 
 void Server::process_subscription(ServerRequest & req) {
-    auto task_id = req.subscribe().taskid();
+    int32_t task_id = req.subscribe().taskid();
     auto req_id = req.request_id();
-    auto task = ServerTask::find(task_id);
+    ServerTask* task = ServerTask::find(task_id);
     int64_t result = task->subscribe();
 
     SubscribeResponse *subs_resp = new SubscribeResponse();

@@ -4,19 +4,20 @@ namespace communication {
 
 // static methods
 
-boost::atomic<boost::shared_ptr<ServerTask>> ServerTask::head;
-boost::atomic_int ServerTask::task_id_cnt;
+boost::atomic<ServerTask*> ServerTask::head;
+boost::atomic_int ServerTask::task_id_cnt(0);
 
 int32_t ServerTask::push_front(const ServerTask &task) {
-    task_id_cnt += 1;
-    auto p = boost::shared_ptr<ServerTask>(new ServerTask(task));
+
+    ++task_id_cnt;
+    auto p = new ServerTask(task);
     p->m_a = task.m_a;
     p->m_b = task.m_b;
     p->m_p = task.m_p;
     p->m_m = task.m_m;
     p->m_n = task.m_n;
 
-    p->next = ServerTask::head;
+    p->next = ServerTask::head.load();
     p->set_task_id(task_id_cnt);
 
     while (ServerTask::head.compare_exchange_weak(p->next, p))
@@ -25,7 +26,7 @@ int32_t ServerTask::push_front(const ServerTask &task) {
     return task_id_cnt;
 }
 
-const boost::shared_ptr<ServerTask> ServerTask::find(int32_t id) {
+ServerTask* ServerTask::find(int32_t id) {
     auto p = ServerTask::head.load();
 
     while (p && p->get_task_id() != id && p->get_task_id() > 0)
@@ -60,13 +61,13 @@ ServerTask::ServerTask() {
     m_task_id = -1;
 }
 
-ServerTask::ServerTask(const ServerTask & server_task) {
+ServerTask::ServerTask(const ServerTask & server_task) :
+                    m_ready_mutex(server_task.m_ready_mutex){
     m_task_id = server_task.get_task_id();
-
 }
 
-
-ServerTask::ServerTask(const Task & task) {
+ServerTask::ServerTask(const Task & task) :
+                    m_ready_mutex(new boost::mutex()) {
     m_a = task.a().value();
     m_b = task.b().value();
     m_p = task.p().value();
@@ -74,6 +75,10 @@ ServerTask::ServerTask(const Task & task) {
     m_n = task.n();
     m_task = task;
 }
+
+ServerTask::~ServerTask() {
+}
+
 
 void ServerTask::run() {
     check_params();
@@ -94,7 +99,7 @@ int64_t ServerTask::subscribe() {
         return m_result;
     }
 
-    boost::unique_lock<boost::mutex> lock(m_ready_mutex);
+    boost::unique_lock<boost::mutex> lock(*m_ready_mutex);
     while (!m_ready)
     {
         m_ready_cond.wait(lock);
@@ -123,8 +128,8 @@ void ServerTask::check_params() {
 
 int64_t ServerTask::wait_for_dependent_task(int32_t task_id) {
     // wait for dependent task will be done
-    boost::shared_ptr<ServerTask> task = ServerTask::find(task_id);
-    boost::unique_lock<boost::mutex> lock(task->get_mutex());
+    ServerTask* task = ServerTask::find(task_id);
+    boost::unique_lock<boost::mutex> lock(*(task->get_mutex()));
     if (m_ready) {
         return m_result;
     }
@@ -136,10 +141,8 @@ int64_t ServerTask::wait_for_dependent_task(int32_t task_id) {
 }
 
 void ServerTask::notify_all() {
-    {
-    boost::unique_lock<boost::mutex> lock(m_ready_mutex);
+    boost::unique_lock<boost::mutex> lock(*m_ready_mutex);
     m_ready = true;
-    }
     m_ready_cond.notify_all();
 }
 
@@ -155,12 +158,11 @@ const std::string& ServerTask::get_client_id() const {
     return m_client_id;
 }
 
-
 boost::condition_variable & ServerTask::get_cond() {
     return m_ready_cond;
 }
 
-boost::mutex & ServerTask::get_mutex() {
+boost::shared_ptr<boost::mutex> ServerTask::get_mutex() {
     return m_ready_mutex;
 }
 

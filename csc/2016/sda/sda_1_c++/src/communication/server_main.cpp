@@ -15,7 +15,6 @@ void cons(Server::ptr sock_list) {
 void handle_accept(Server::ptr socket_listener, const boost::system::error_code & err) {
     boost::shared_ptr<boost::thread> c = boost::shared_ptr<boost::thread>(new boost::thread(cons, socket_listener));
     threads.push_back(c);
-    c->join();
     Server::ptr new_socket_listener = Server::get_new(service);
     acceptor.async_accept(new_socket_listener->sock(), boost::bind(handle_accept, new_socket_listener, _1));
 }
