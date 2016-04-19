@@ -238,9 +238,30 @@ public class ServerTests {
         }
     }
 
+    @Test
+    public void testDivisionByZero() throws IOException {
+        Protocol.WrapperMessage message =
+                buildSubmitTaskMessage(buildIntParam(10), buildIntParam(12), buildIntParam(5), buildIntParam(0), 5L).getKey();
+
+        Client client = new Client("localhost", server.getPort());
+        client.sendWrappedMessage(message);
+        int taskId = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
+        message = Protocol.WrapperMessage.newBuilder()
+                .setRequest(Protocol.ServerRequest.newBuilder()
+                        .setClientId("SimpleClient")
+                        .setRequestId(requestCounter++)
+                        .setSubscribe(Protocol.Subscribe.newBuilder()
+                                .setTaskId(taskId))).build();
+        client.sendWrappedMessage(message);
+        Protocol.WrapperMessage responseMessage = client.receive();
+        Protocol.ServerResponse response = responseMessage.getResponse();
+
+        Assert.assertEquals(1, response.getRequestId());
+        Assert.assertEquals(Protocol.Status.ERROR, response.getSubscribeResponse().getStatus());
+    }
+
     private Pair<Protocol.WrapperMessage, Long> buildSubmitTaskMessage(Protocol.Task.Param a, Protocol.Task.Param b,
-                                                           Protocol.Task.Param p, Protocol.Task.Param m, long n)
-    {
+                                                           Protocol.Task.Param p, Protocol.Task.Param m, long n) {
         return new Pair<>(
                 Protocol.WrapperMessage.newBuilder()
                         .setRequest(Protocol.ServerRequest.newBuilder()

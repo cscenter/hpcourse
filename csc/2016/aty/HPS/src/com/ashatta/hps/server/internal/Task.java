@@ -16,12 +16,14 @@ public class Task extends Thread {
     private final int taskId;
     private final List<Integer> dependents;
     private long result;
+    private boolean error;
 
     public Task(String clientId, Protocol.Task protoTask, TaskManager taskManager) {
         this.manager = taskManager;
         this.clientId = clientId;
         this.protoTask = protoTask;
         this.taskId = maxId.getAndIncrement();
+        this.error = false;
 
         dependents = new ArrayList<>();
         if (protoTask.getA().hasDependentTaskId()) {
@@ -58,6 +60,10 @@ public class Task extends Thread {
         return protoTask;
     }
 
+    public boolean hasError() {
+        return error;
+    }
+
     private long getValue(Protocol.Task.Param param) {
         return param.hasValue()
                 ? param.getValue()
@@ -65,24 +71,25 @@ public class Task extends Thread {
     }
 
     public void run() {
-        long a = getValue(protoTask.getA());
-        long b = getValue(protoTask.getB());
-        long p = getValue(protoTask.getP());
-        long m = getValue(protoTask.getM());
-
-        long n = protoTask.getN();
-
-        while (n-- > 0)
-        {
-            b = (a * p + b) % m;
-            a = b;
-        }
-
-        result = a;
         try {
+            long a = getValue(protoTask.getA());
+            long b = getValue(protoTask.getB());
+            long p = getValue(protoTask.getP());
+            long m = getValue(protoTask.getM());
+
+            long n = protoTask.getN();
+
+            while (n-- > 0)
+            {
+                b = (a * p + b) % m;
+                a = b;
+            }
+
+            result = a;
+        } catch (Exception e) {
+            error = true;
+        } finally {
             manager.taskCompleted(this);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }

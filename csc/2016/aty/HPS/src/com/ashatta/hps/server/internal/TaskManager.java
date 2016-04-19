@@ -24,35 +24,39 @@ public class TaskManager {
         this.synchronizationLock = new Lock();
     }
 
-    public void submit(long requestId, Task task) throws IOException {
+    public void submit(long requestId, Task task) {
         synchronizationLock.lock();
 
-        taskById.put(task.getTaskId(), task);
-        submitRequest.put(task.getTaskId(), requestId);
-        subscriptionRequests.put(task.getTaskId(), new HashSet<Long>());
+        try {
+            taskById.put(task.getTaskId(), task);
+            submitRequest.put(task.getTaskId(), requestId);
+            subscriptionRequests.put(task.getTaskId(), new HashSet<Long>());
 
-        boolean delay = false;
-        for (int dependentId : task.dependents()) {
-            if (!complete.contains(dependentId)) {
-                if (!waiting.containsKey(dependentId)) {
-                    waiting.put(dependentId, new HashSet<Integer>());
+            boolean delay = false;
+            for (int dependentId : task.dependents()) {
+                if (!complete.contains(dependentId)) {
+                    if (!waiting.containsKey(dependentId)) {
+                        waiting.put(dependentId, new HashSet<Integer>());
+                    }
+                    waiting.get(dependentId).add(task.getTaskId());
+                    delay = true;
                 }
-                waiting.get(dependentId).add(task.getTaskId());
-                delay = true;
             }
-        }
 
-        if (!delay) {
-            running.add(task.getTaskId());
-            task.start();
-            server.sendSubmitResponse(requestId, task.getTaskId(), true);
-            submitRequest.remove(task.getTaskId());
+            if (!delay) {
+                running.add(task.getTaskId());
+                task.start();
+                server.sendSubmitResponse(requestId, task.getTaskId(), true);
+                submitRequest.remove(task.getTaskId());
+            }
+        } catch (Exception e) {
+            server.sendSubmitResponse(requestId, 0, false);
+        } finally {
+            synchronizationLock.unlock();
         }
-
-        synchronizationLock.unlock();
     }
 
-    public void subscribe(long requestId, int taskId) throws IOException {
+    public void subscribe(long requestId, int taskId) {
         synchronizationLock.lock();
 
         subscriptionRequests.get(taskId).add(requestId);
@@ -64,14 +68,15 @@ public class TaskManager {
         synchronizationLock.unlock();
     }
 
-    private void subscriptionNotify(int taskId) throws IOException {
+    private void subscriptionNotify(int taskId) {
+        Task task = taskById.get(taskId);
         for (long requestId : subscriptionRequests.get(taskId)) {
-            server.sendSubscribeResponse(requestId, taskById.get(taskId).getResult(), true);
+            server.sendSubscribeResponse(requestId, task.getResult(), !task.hasError());
         }
         subscriptionRequests.get(taskId).clear();
     }
 
-    public void listAll(long requestId) throws IOException {
+    public void listAll(long requestId) {
         synchronizationLock.lock();
 
         List<Task> result = new ArrayList<>();
@@ -87,7 +92,7 @@ public class TaskManager {
         server.sendListTasksResponse(requestId, result, true);
     }
 
-    public void taskCompleted(Task task) throws IOException {
+    public void taskCompleted(Task task) {
         synchronizationLock.lock();
 
         int taskId = task.getTaskId();

@@ -85,46 +85,52 @@ public class Server implements Runnable {
         }
     }
 
-    public void sendSubmitResponse(long requestId, int taskId, boolean status) throws IOException {
-        requestMapLock.lock();
-        OutputStream os = requestToSocket.get(requestId).getOutputStream();
-        requestMapLock.unlock();
+    public void sendSubmitResponse(long requestId, int taskId, boolean status) {
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
-                    .setRequestId(requestId)
-                    .setSubmitResponse(Protocol.SubmitTaskResponse.newBuilder()
-                        .setSubmittedTaskId(taskId)
-                        .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
-        message.writeDelimitedTo(os);
+                        .setRequestId(requestId)
+                        .setSubmitResponse(Protocol.SubmitTaskResponse.newBuilder()
+                                .setSubmittedTaskId(taskId)
+                                .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
+
+        requestMapLock.lock();
+        try {
+            OutputStream os = requestToSocket.get(requestId).getOutputStream();
+            message.writeDelimitedTo(os);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            requestMapLock.unlock();
+        }
     }
 
-    public void sendSubscribeResponse(long requestId, long result, boolean status) throws IOException {
-        requestMapLock.lock();
-        OutputStream os = requestToSocket.get(requestId).getOutputStream();
-        requestMapLock.unlock();
-
+    public void sendSubscribeResponse(long requestId, long result, boolean status) {
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
                         .setRequestId(requestId)
                         .setSubscribeResponse(Protocol.SubscribeResponse.newBuilder()
-                            .setValue(result)
-                            .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
-        message.writeDelimitedTo(os);
+                                .setValue(result)
+                                .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
 
+        requestMapLock.lock();
+        try {
+            OutputStream os = requestToSocket.get(requestId).getOutputStream();
+            message.writeDelimitedTo(os);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            requestMapLock.unlock();
+        }
     }
 
-    public void sendListTasksResponse(long requestId, List<Task> tasks, boolean status) throws IOException{
-        requestMapLock.lock();
-        OutputStream os = requestToSocket.get(requestId).getOutputStream();
-        requestMapLock.unlock();
-
+    public void sendListTasksResponse(long requestId, List<Task> tasks, boolean status) {
         List<Protocol.ListTasksResponse.TaskDescription> taskDescriptions = new ArrayList<>();
         for (Task task : tasks) {
             taskDescriptions.add(Protocol.ListTasksResponse.TaskDescription.newBuilder()
-                .setClientId(task.getClientId())
-                .setResult(task.getResult())
-                .setTask(task.getProtoTask())
-                .setTaskId(task.getTaskId()).build());
+                    .setClientId(task.getClientId())
+                    .setResult(task.getResult())
+                    .setTask(task.getProtoTask())
+                    .setTaskId(task.getTaskId()).build());
         }
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
@@ -132,7 +138,16 @@ public class Server implements Runnable {
                         .setListResponse(Protocol.ListTasksResponse.newBuilder()
                                 .addAllTasks(taskDescriptions)
                                 .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
-        message.writeDelimitedTo(os);
+
+        requestMapLock.lock();
+        try {
+            OutputStream os = requestToSocket.get(requestId).getOutputStream();
+            message.writeDelimitedTo(os);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            requestMapLock.unlock();
+        }
     }
 
     /* Visible for testing. */
