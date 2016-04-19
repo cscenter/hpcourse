@@ -2,19 +2,27 @@ package com.ashatta.hps.server.internal;
 
 import com.ashatta.hps.server.Server;
 
-import java.io.IOException;
 import java.util.*;
 
+/* TaskManager class stores information about Tasks, runs and handles them. All the synchronization happens here. */
 public class TaskManager {
+    /* Server callback to send responses. */
     private final Server server;
+    /* Only locks TaskManager operations so that all the tasks can run in parallel and not be affected
+        by synchronization. All synchronization that happens affects only tasks' submission/completion.
+     */
     private final Lock synchronizationLock;
 
+    /* Maps task ids to ids of submission requests */
     private final Map<Integer, Long> submitRequest = new HashMap<>();
+    /* Maps task ids to ids of subscription requests (a set because multiple clients might subscribe to the same task). */
     private final Map<Integer, Set<Long>> subscriptionRequests = new HashMap<>();
 
+    /* Maps task id to a task. */
     private final Map<Integer, Task> taskById = new HashMap<>();
 
     private final Set<Integer> complete = new HashSet<>();
+    /* Set of tasks that have already started execution. */
     private final Set<Integer> running = new HashSet<>();
     /* Maps task's id to ids of other tasks which depend on this task's result. */
     private final Map<Integer, Set<Integer>> waiting = new HashMap<>();
@@ -68,6 +76,9 @@ public class TaskManager {
         synchronizationLock.unlock();
     }
 
+    /* This will send a message with status ERROR if the execution of a task fails, it will not be sent in
+        the submit response for that task.
+     */
     private void subscriptionNotify(int taskId) {
         Task task = taskById.get(taskId);
         for (long requestId : subscriptionRequests.get(taskId)) {
@@ -79,6 +90,7 @@ public class TaskManager {
     public void listAll(long requestId) {
         synchronizationLock.lock();
 
+        /* Only sending list of running and completed tasks, but not those who are waiting for start. */
         List<Task> result = new ArrayList<>();
         for (int taskId : running) {
             result.add(taskById.get(taskId));
@@ -100,11 +112,13 @@ public class TaskManager {
         complete.add(taskId);
         subscriptionNotify(taskId);
 
+        /* Getting all tasks that are dependent on the one that has just completed to try to restart them later. */
         Set<Integer> dependents = new HashSet<>();
         if (waiting.containsKey(taskId)) {
             dependents.addAll(waiting.get(taskId));
         }
         for (int w : waiting.keySet()) {
+            /* Removing them here because they'll be added again in the submit method. */
             waiting.get(w).removeAll(dependents);
         }
         waiting.remove(taskId);
@@ -116,6 +130,9 @@ public class TaskManager {
 
         synchronizationLock.unlock();
 
+        /* 'Resubmission' of dependent tasks. They will run now if they can, otherwise they will
+            get back on waiting lists of other tasks who haven't completed yet.
+         */
         for (Map.Entry<Long, Task> entry : dependentsMap.entrySet()) {
             submit(entry.getKey(), entry.getValue());
         }

@@ -170,6 +170,10 @@ public class ServerTests {
 
     @Test
     public void testDependentTasks() throws IOException {
+        /* Consists of five tasks: first three are independent of each other,
+            the fourth one is dependent on the first and the second,
+            the fifth one is dependent on the second and the third.
+         */
         List<Long> results = new ArrayList<>();
         Map<Long, Integer> subscribeToSubmit = new HashMap<>();
 

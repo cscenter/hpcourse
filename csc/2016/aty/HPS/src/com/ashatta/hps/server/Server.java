@@ -16,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/* Receives requests from clients and calls TaskManager to actually handle them. */
 public class Server implements Runnable {
 
+    /* Handles a communication with a single client. */
     class SocketThread extends Thread {
         private final Socket socket;
 
@@ -56,8 +58,10 @@ public class Server implements Runnable {
     }
 
     private final int port;
+    /* Used for testing so that we are able to stop the server. */
     private final AtomicBoolean running;
     private TaskManager taskManager;
+    /* Maps request id to a corresponding connection, used to send responses. */
     private Map<Long, Socket> requestToSocket;
     private final Lock requestMapLock;
 

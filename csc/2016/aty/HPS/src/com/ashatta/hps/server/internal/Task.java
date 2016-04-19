@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/* A thread representing a single task. Runs the task and then calls back to the TaskManager
+    so that it can submit subscription responses and keep its data structures up-to-date.
+*/
 public class Task extends Thread {
     private static AtomicInteger maxId = new AtomicInteger(0);
 
@@ -16,6 +19,9 @@ public class Task extends Thread {
     private final int taskId;
     private final List<Integer> dependents;
     private long result;
+    /* True if something fails during the execution of the task (e.g. division by zero),
+        used to submit error message to the client.
+     */
     private boolean error;
 
     public Task(String clientId, Protocol.Task protoTask, TaskManager taskManager) {
