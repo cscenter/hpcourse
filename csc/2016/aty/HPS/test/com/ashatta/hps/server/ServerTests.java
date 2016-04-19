@@ -23,12 +23,12 @@ public class ServerTests {
             socket = new Socket(serverAddress, port);
         }
 
-        public void sendWrappedMessage(Protocol.WrapperMessage message) throws IOException {
+        public void sendWrappedMessage(WrapperMessage message) throws IOException {
             message.writeDelimitedTo(socket.getOutputStream());
         }
 
-        public Protocol.WrapperMessage receive() throws IOException {
-            return Protocol.WrapperMessage.parseDelimitedFrom(socket.getInputStream());
+        public WrapperMessage receive() throws IOException {
+            return WrapperMessage.parseDelimitedFrom(socket.getInputStream());
         }
     }
 
@@ -50,12 +50,12 @@ public class ServerTests {
 
     @Test
     public void testSubmit() throws Exception {
-        Protocol.WrapperMessage message =
+        WrapperMessage message =
                 buildSubmitTaskMessage(buildIntParam(10), buildIntParam(12), buildIntParam(5), buildIntParam(3), 5L).getKey();
 
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
-        Protocol.WrapperMessage responseMessage = client.receive();
+        WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
 
         Assert.assertEquals(0, response.getRequestId());
@@ -64,20 +64,20 @@ public class ServerTests {
 
     @Test
     public void testSubscribe() throws Exception {
-        Protocol.WrapperMessage message =
+        WrapperMessage message =
                 buildSubmitTaskMessage(buildIntParam(10), buildIntParam(12), buildIntParam(5), buildIntParam(3), 5L).getKey();
 
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
         int taskId = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
-        message = Protocol.WrapperMessage.newBuilder()
+        message = WrapperMessage.newBuilder()
                 .setRequest(Protocol.ServerRequest.newBuilder()
                         .setClientId("SimpleClient")
                         .setRequestId(requestCounter++)
                         .setSubscribe(Protocol.Subscribe.newBuilder()
                             .setTaskId(taskId))).build();
         client.sendWrappedMessage(message);
-        Protocol.WrapperMessage responseMessage = client.receive();
+        WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
 
         Assert.assertEquals(1, response.getRequestId());
@@ -87,7 +87,7 @@ public class ServerTests {
 
     @Test
     public void testListTasks() throws Exception {
-        Protocol.WrapperMessage message =
+        WrapperMessage message =
                 buildSubmitTaskMessage(buildIntParam(10), buildIntParam(12), buildIntParam(5), buildIntParam(3), 5L).getKey();
 
         Client client = new Client("localhost", server.getPort());
@@ -96,13 +96,13 @@ public class ServerTests {
         message = buildSubmitTaskMessage(buildIntParam(13), buildIntParam(12), buildIntParam(7), buildIntParam(8), 5L).getKey();
         client.sendWrappedMessage(message);
         int taskId2 = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
-        message = Protocol.WrapperMessage.newBuilder()
+        message = WrapperMessage.newBuilder()
                 .setRequest(Protocol.ServerRequest.newBuilder()
                         .setClientId("SimpleClient")
                         .setRequestId(requestCounter++)
                         .setList(Protocol.ListTasks.getDefaultInstance())).build();
         client.sendWrappedMessage(message);
-        Protocol.WrapperMessage responseMessage = client.receive();
+        WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
 
         Assert.assertEquals(2, response.getRequestId());
@@ -150,7 +150,7 @@ public class ServerTests {
                 int taskId = response.getSubmitResponse().getSubmittedTaskId();
                 subscribeToSubmit.put(requestCounter, response.getRequestId());
 
-                WrapperMessage message = Protocol.WrapperMessage.newBuilder()
+                WrapperMessage message = WrapperMessage.newBuilder()
                         .setRequest(Protocol.ServerRequest.newBuilder()
                                 .setClientId("SimpleClient")
                                 .setRequestId(requestCounter++)
@@ -226,7 +226,7 @@ public class ServerTests {
 
         for (int i = 0; i < taskIds.length; ++i) {
             subscribeToSubmit.put(requestCounter, i);
-            WrapperMessage message = Protocol.WrapperMessage.newBuilder()
+            WrapperMessage message = WrapperMessage.newBuilder()
                     .setRequest(Protocol.ServerRequest.newBuilder()
                             .setClientId("SimpleClient")
                             .setRequestId(requestCounter++)
@@ -244,30 +244,30 @@ public class ServerTests {
 
     @Test
     public void testDivisionByZero() throws IOException {
-        Protocol.WrapperMessage message =
+        WrapperMessage message =
                 buildSubmitTaskMessage(buildIntParam(10), buildIntParam(12), buildIntParam(5), buildIntParam(0), 5L).getKey();
 
         Client client = new Client("localhost", server.getPort());
         client.sendWrappedMessage(message);
         int taskId = client.receive().getResponse().getSubmitResponse().getSubmittedTaskId();
-        message = Protocol.WrapperMessage.newBuilder()
+        message = WrapperMessage.newBuilder()
                 .setRequest(Protocol.ServerRequest.newBuilder()
                         .setClientId("SimpleClient")
                         .setRequestId(requestCounter++)
                         .setSubscribe(Protocol.Subscribe.newBuilder()
                                 .setTaskId(taskId))).build();
         client.sendWrappedMessage(message);
-        Protocol.WrapperMessage responseMessage = client.receive();
+        WrapperMessage responseMessage = client.receive();
         Protocol.ServerResponse response = responseMessage.getResponse();
 
         Assert.assertEquals(1, response.getRequestId());
         Assert.assertEquals(Protocol.Status.ERROR, response.getSubscribeResponse().getStatus());
     }
 
-    private Pair<Protocol.WrapperMessage, Long> buildSubmitTaskMessage(Protocol.Task.Param a, Protocol.Task.Param b,
+    private Pair<WrapperMessage, Long> buildSubmitTaskMessage(Protocol.Task.Param a, Protocol.Task.Param b,
                                                            Protocol.Task.Param p, Protocol.Task.Param m, long n) {
         return new Pair<>(
-                Protocol.WrapperMessage.newBuilder()
+                WrapperMessage.newBuilder()
                         .setRequest(Protocol.ServerRequest.newBuilder()
                                 .setClientId("SimpleClient")
                                 .setRequestId(requestCounter++)
