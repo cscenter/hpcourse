@@ -1,10 +1,8 @@
 import communication.Protocol;
-import javafx.util.Pair;
 
 import java.net.Socket;
 import java.util.HashMap;
 
-//это похоже на то, что есть у тебя.
 
 public class SubscribeTask extends BaseTask {
 

@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 
+
+//Для удобства формирования ответов на запросы клиентов
 public abstract class BaseTask extends Thread{
 
     private long requestId;

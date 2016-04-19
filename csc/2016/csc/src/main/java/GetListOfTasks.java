@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
-//это мы писали вместе, только сейчас это выглядит красиво
 
 public class GetListOfTasks extends BaseTask {
 

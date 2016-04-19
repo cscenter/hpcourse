@@ -3,7 +3,6 @@ import communication.Protocol;
 import java.net.Socket;
 import java.util.HashMap;
 
-//это ещё не дописал.
 
 public class SubmitTask extends BaseTask {
     private String clientId;
@@ -49,10 +48,12 @@ public class SubmitTask extends BaseTask {
     public void run() {
         try {
             getAllParams();
+
             if(status == Protocol.Status.OK) {
                 calculateResult();
                 statusOfTheTask = 2;
             }
+
         } catch (InterruptedException e) {
             status = Protocol.Status.ERROR;
             e.printStackTrace();
@@ -74,6 +75,9 @@ public class SubmitTask extends BaseTask {
         p = getDependentParam(task.getP());
         m = getDependentParam(task.getM());
         n = task.getN();
+        if(n == 0){
+            status = Protocol.Status.ERROR;
+        }
     }
 
     private long getDependentParam(Protocol.Task.Param param) throws InterruptedException{
@@ -97,6 +101,7 @@ public class SubmitTask extends BaseTask {
     }
 
     private void calculateResult() {
+
         while (n-- > 0) {
             b = (a * p + b) % m;
             a = b;
