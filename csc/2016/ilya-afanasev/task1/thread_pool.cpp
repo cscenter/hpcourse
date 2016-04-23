@@ -178,7 +178,19 @@ void thread_pool::run()
     }
     else if (request.has_list())
     {
+      response.set_allocated_listresponse(new communication::ListTasksResponse());
+      response.mutable_listresponse()->set_status(communication::Status::OK);
 
+      {
+        boost::mutex::scoped_lock lock(_tasks_sync);
+
+        for (auto task = _tasks.begin(); task != _tasks.end(); ++task)
+        {
+          communication::ListTasksResponse_TaskDescription& description = *response.mutable_listresponse()->add_tasks();
+          description = task->second;
+        }
+      }
+      callback(response);
     }
   }
 }
