@@ -105,8 +105,12 @@ void thread_pool::run()
       _new_tasks.pop();
     }
 
+    communication::ServerResponse response;
+
     if (request.has_submit())
     {
+      response.set_allocated_submitresponse(new communication::SubmitTaskResponse());
+
       if (check_submit_task(request.submit()))
       {
         {
@@ -132,23 +136,45 @@ void thread_pool::run()
           _tasks[id] = description;
         }
 
+        response.mutable_submitresponse()->set_submittedtaskid(id);
+        response.mutable_submitresponse()->set_status(communication::Status::OK);
+
+        callback(response);
+
         communication::Task& task = *request.mutable_submit()->mutable_task();
         int64_t result = run_task(task.a().value(), task.b().value(), task.p().value(), task.m().value(), task.n());
 
         boost::unique_lock<boost::mutex> lock(_tasks_sync);
         _tasks[id].set_result(result);
+        _tasks_cv.notify_all();
+      }
+      else
+      {
+        response.mutable_submitresponse()->set_submittedtaskid(-1);
+        response.mutable_submitresponse()->set_status(communication::Status::ERROR);
+
+        callback(response);
       }
     }
     else if (request.has_subscribe())
     {
+      response.set_allocated_subscriberesponse(new communication::SubscribeResponse);
+
       if (check_subscribe_task(request.subscribe()))
       {
-
+        boost::unique_lock<boost::mutex> lock(_tasks_sync);
+        while (!_tasks[request.subscribe().taskid()].has_result())
+        {
+          _tasks_cv.wait(lock);
+        }
+        response.mutable_subscriberesponse()->set_value(_tasks[request.subscribe().taskid()].result());
+        response.mutable_subscriberesponse()->set_status(communication::Status::OK);
       }
       else
       {
-
+        response.mutable_subscriberesponse()->set_status(communication::Status::ERROR);
       }
+      callback(response);
     }
     else if (request.has_list())
     {
