@@ -9,7 +9,7 @@ set (Boost_USE_STATIC_LIBS ON)
 find_package( Boost REQUIRED COMPONENTS thread system)
 include_directories( ${Boost_INCLUDE_DIR} )
 
-set(SOURCE_FILES main.cpp protocol.pb.cc)
+set(SOURCE_FILES main.cpp protocol.pb.cc protocol.pb.h server.h server.cpp session.cpp server.h thread_pool.cpp thread_pool.h)
 add_executable(task1 ${SOURCE_FILES})
 
 find_package(Protobuf REQUIRED)
