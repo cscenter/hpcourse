@@ -23,8 +23,15 @@ private:
 
   int64_t run_task(int64_t a, int64_t b, int64_t p, int64_t m, int64_t n);
 
-  bool check_subscribe_task(const communication::Subscribe& task);
+  void update_dependencies(communication::SubmitTask& task);
+
+  void update_task_param(communication::Task_Param& param);
+
+  bool has_dependencies(const communication::SubmitTask& task);
+
   bool check_submit_task(const communication::SubmitTask& task);
+
+  bool check_subscribe_task(const communication::Subscribe& task);
 
   std::vector<boost::thread> _threads;
   std::atomic<unsigned int> _uniq_id;
