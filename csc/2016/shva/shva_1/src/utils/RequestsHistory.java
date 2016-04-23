@@ -1,3 +1,5 @@
+package utils;
+
 import communication.Protocol;
 
 import java.util.*;
@@ -5,7 +7,7 @@ import java.util.*;
 public class RequestsHistory {
 
     private static Map<Integer, TaskDescription> history
-            = Collections.synchronizedMap(new HashMap<Integer, TaskDescription>());
+            = Collections.synchronizedMap(new HashMap<>());
 
     private RequestsHistory() {}
 
@@ -32,52 +34,3 @@ public class RequestsHistory {
 
 }
 
-class TaskDescription {
-
-    private String clientId;
-    private boolean isDone = false;
-    private Protocol.Task task;
-    private Optional<Protocol.Status> status;
-    private Optional<Long> result;
-
-    public TaskDescription(String clientId, Protocol.Task task) {
-        this.clientId = clientId;
-        this.task = task;
-    }
-
-    public TaskDescription setResult(Optional<Long> result) {
-        this.result = result;
-        return this;
-    }
-
-    public TaskDescription setStatus(Optional<Protocol.Status> status) {
-        this.status = status;
-        return this;
-    }
-
-    public TaskDescription setDone() {
-        isDone = true;
-        return this;
-    }
-
-    public boolean isDone() {
-        return isDone;
-    }
-
-    public Protocol.Task getTask() {
-        return task;
-    }
-
-    public long getResult() {
-        return result.get();
-    }
-
-    public Protocol.Status getStatus() {
-        return status.get();
-    }
-
-    public String getClientId() {
-        return clientId;
-    }
-
-}

@@ -1,15 +1,10 @@
+package utils;
+
 import communication.Protocol;
-import java.util.function.Function;
 
 public class SubmitTaskExecutor {
 
-    private int taskId;
-
-    public SubmitTaskExecutor(int taskId) {
-        this.taskId = taskId;
-    }
-
-    public long startSubmitTask(final Protocol.Task task) {
+    public long startSubmitTask(final Protocol.Task task) throws IllegalArgumentException {
         long a = getParam(task.getA());
         long b = getParam(task.getB());
         long p = getParam(task.getP());
@@ -23,7 +18,11 @@ public class SubmitTaskExecutor {
             return param.getValue();
         } else {
             int dependentTaskId = param.getDependentTaskId();
-            Protocol.Task dependentTask = RequestsHistory.getTaskDescriptionById(dependentTaskId).getTask();
+            TaskDescription dependentTaskDescription = RequestsHistory.getTaskDescriptionById(dependentTaskId);
+            if (dependentTaskDescription == null) {
+                throw new IllegalArgumentException();
+            }
+            Protocol.Task dependentTask = dependentTaskDescription.getTask();
             synchronized (dependentTask) {
                 while (!RequestsHistory.getTaskDescriptionById(dependentTaskId).isDone()) {
                     try {
@@ -35,7 +34,10 @@ public class SubmitTaskExecutor {
         }
     }
 
-    private long task(long a, long b, long p, long m, long n) {
+    private long task(long a, long b, long p, long m, long n) throws IllegalArgumentException {
+        if (m == 0) {
+            throw new IllegalArgumentException();
+        }
         while (n-- > 0) {
             b = (a * p + b) % m;
             a = b;

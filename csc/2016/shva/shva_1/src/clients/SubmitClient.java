@@ -33,7 +33,6 @@ public class SubmitClient {
              InputStream inputStream = socket.getInputStream()) {
             outputStream.write(request.getSerializedSize());
             request.writeTo(outputStream);
-
             int size = inputStream.read();
             byte[] buf = new byte[size];
             inputStream.read(buf);
@@ -63,7 +62,7 @@ public class SubmitClient {
         builder.setP(param.build());
 
         param.clearParamValue();
-        param.setValue(123456);
+        param.setValue(0);
         builder.setM(param.build());
 
         param.clearParamValue();

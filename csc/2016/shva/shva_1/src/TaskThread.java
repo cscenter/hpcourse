@@ -1,10 +1,12 @@
 import communication.Protocol;
+import utils.RequestsHistory;
+import utils.SubmitTaskExecutor;
+import utils.SubscribeTaskExecutor;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public class TaskThread extends Thread {
@@ -28,11 +30,17 @@ public class TaskThread extends Thread {
                 LOG.info("Submit request");
                 Protocol.Task task = request.getSubmit().getTask();
                 RequestsHistory.putTask(taskId, request.getClientId(), task);
-                long result = new SubmitTaskExecutor(taskId).startSubmitTask(task);
+                long result = 0;
+                Protocol.Status status = Protocol.Status.OK;
+                try {
+                    result = new SubmitTaskExecutor().startSubmitTask(task);
+                } catch (IllegalArgumentException e) {
+                    status = Protocol.Status.ERROR;
+                }
                 synchronized (task) {
                     RequestsHistory.getTaskDescriptionById(taskId)
-                            .setResult(Optional.of(result))
-                            .setStatus(Optional.of(Protocol.Status.OK))
+                            .setResult(result)
+                            .setStatus(status)
                             .setDone();
                     task.notifyAll();
                 }
@@ -40,8 +48,14 @@ public class TaskThread extends Thread {
             } else if (request.hasSubscribe()) {
                 LOG.info("Subscribe request");
                 int targetTaskId = request.getSubscribe().getTaskId();
-                new SubscribeTaskExecutor(targetTaskId).startSubscribeTask();
-                response = buildSubscribeResponse(request, targetTaskId);
+                Protocol.Status status = Protocol.Status.OK;
+                long result = 0;
+                try {
+                    result = new SubscribeTaskExecutor(targetTaskId).startSubscribeTask();
+                } catch (IllegalArgumentException e) {
+                    status = Protocol.Status.ERROR;
+                }
+                response = buildSubscribeResponse(request, status, result);
             } else {
                 LOG.info("List request");
                 response = buildListResponse(request);
@@ -54,7 +68,6 @@ public class TaskThread extends Thread {
     }
 
     private void sendResponse(OutputStream outputStream, Protocol.ServerResponse response) throws IOException {
-        System.out.println(response.getSerializedSize());
         outputStream.write(response.getSerializedSize());
         response.writeTo(outputStream);
     }
@@ -68,11 +81,12 @@ public class TaskThread extends Thread {
                 .build();
     }
 
-    private Protocol.ServerResponse buildSubscribeResponse(Protocol.ServerRequest request, int id) {
+    private Protocol.ServerResponse buildSubscribeResponse(Protocol.ServerRequest request, Protocol.Status status,
+                                                           long result) {
         return Protocol.ServerResponse.newBuilder()
                 .setSubscribeResponse(Protocol.SubscribeResponse.newBuilder()
-                .setStatus(RequestsHistory.getTaskDescriptionById(id).getStatus())
-                .setValue(RequestsHistory.getTaskDescriptionById(id).getResult()))
+                .setStatus(status)
+                .setValue(result))
                 .setRequestId(request.getRequestId())
                 .build();
     }

@@ -45,7 +45,7 @@ public class SubscribeClient {
 
     public static Protocol.Subscribe buildSubscribe() {
         Protocol.Subscribe.Builder builder = Protocol.Subscribe.newBuilder();
-        builder.setTaskId(0);
+        builder.setTaskId(10);
         return builder.build();
     }
 
