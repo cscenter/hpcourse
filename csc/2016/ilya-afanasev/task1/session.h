@@ -19,6 +19,15 @@ private:
 
   void do_write(std::size_t length);
 
+  bool write_delimited_to(const google::protobuf::MessageLite& message
+                          , google::protobuf::io::ZeroCopyOutputStream* raw_utput);
+
+  bool read_delimited_from(google::protobuf::io::ZeroCopyInputStream* raw_input
+                           , google::protobuf::MessageLite* message
+                           , uint32_t size);
+
+  bool read_varint(google::protobuf::io::ZeroCopyInputStream* rawInput, uint32_t& size);
+
   boost::asio::ip::tcp::socket _socket;
 
   enum
@@ -28,6 +37,7 @@ private:
 
   char data_[max_length];
   thread_pool& _pool;
+
 };
 
 #endif //TASK1_SESSION_H

@@ -1,9 +1,64 @@
+#include <google/protobuf/io/coded_stream.h>
 #include "session.h"
 
 session::session(boost::asio::ip::tcp::socket socket, thread_pool& pool)
     : _socket(std::move(socket))
     , _pool(pool)
 {
+}
+
+bool session::write_delimited_to(const google::protobuf::MessageLite& message
+                                 , google::protobuf::io::ZeroCopyOutputStream* raw_utput)
+{
+  google::protobuf::io::CodedOutputStream output(raw_utput);
+
+  const int size = message.ByteSize();
+  output.WriteVarint32(size);
+
+  uint8_t* buffer = output.GetDirectBufferForNBytesAndAdvance(size);
+  if (buffer != NULL)
+  {
+    message.SerializeWithCachedSizesToArray(buffer);
+  }
+  else
+  {
+    message.SerializeWithCachedSizes(&output);
+    if (output.HadError())
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool session::read_varint(google::protobuf::io::ZeroCopyInputStream* rawInput, uint32_t& size)
+{
+  google::protobuf::io::CodedInputStream input(rawInput);
+  return input.ReadVarint32(&size);
+}
+
+bool session::read_delimited_from(google::protobuf::io::ZeroCopyInputStream* raw_input
+                                  , google::protobuf::MessageLite* message
+                                  , uint32_t size)
+{
+  google::protobuf::io::CodedInputStream input(raw_input);
+
+  google::protobuf::io::CodedInputStream::Limit limit = input.PushLimit(size);
+
+  if (!message->MergeFromCodedStream(&input))
+  {
+    return false;
+  }
+
+  if (!input.ConsumedEntireMessage())
+  {
+    return false;
+  }
+
+  input.PopLimit(limit);
+
+  return true;
 }
 
 void session::start()
