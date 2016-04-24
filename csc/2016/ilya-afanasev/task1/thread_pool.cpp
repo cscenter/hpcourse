@@ -123,6 +123,7 @@ void thread_pool::run()
     }
 
     communication::ServerResponse response;
+    response.set_request_id(request.request_id());
 
     if (request.has_submit())
     {
