@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
     if (argc != 2)
     {
       std::cerr << "Usage: exe_path <port>" << std::endl;
-      return 1;
+      return EXIT_FAILURE;
     }
 
     boost::asio::io_service io_service;
@@ -32,5 +32,5 @@ int main(int argc, char* argv[])
 
   google::protobuf::ShutdownProtobufLibrary();
 
-  return 0;
+  return EXIT_SUCCESS;
 }
