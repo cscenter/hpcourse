@@ -6,6 +6,7 @@
 
 #include "protocol.pb.h"
 #include "server.h"
+#include "thread_pool.h"
 
 int main(int argc, char* argv[])
 {
@@ -19,9 +20,11 @@ int main(int argc, char* argv[])
       return EXIT_FAILURE;
     }
 
+    thread_pool pool;
+
     boost::asio::io_service io_service;
 
-    server s(io_service, std::atoi(argv[1]));
+    server s(io_service, std::atoi(argv[1]), pool);
 
     io_service.run();
   }

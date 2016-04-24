@@ -1,6 +1,8 @@
 #include "session.h"
 
-session::session(boost::asio::ip::tcp::socket socket) : _socket(std::move(socket))
+session::session(boost::asio::ip::tcp::socket socket, thread_pool& pool)
+    : _socket(std::move(socket))
+    , _pool(pool)
 {
 }
 
