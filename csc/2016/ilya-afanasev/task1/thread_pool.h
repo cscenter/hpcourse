@@ -18,12 +18,16 @@ public:
   void put_command(const communication::ServerRequest& command
                                 , std::function<void(const communication::ServerResponse&)> callback);
 
+  void stop();
+
+  ~thread_pool();
+
 private:
   void run();
 
   int64_t run_task(int64_t a, int64_t b, int64_t p, int64_t m, int64_t n);
 
-  void update_dependencies(communication::SubmitTask& task);
+  void update_dependencies(communication ::SubmitTask& task);
 
   void update_task_param(communication::Task_Param& param);
 

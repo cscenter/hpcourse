@@ -12,6 +12,23 @@ thread_pool::thread_pool()
   }
 }
 
+void thread_pool::stop()
+{
+  for (size_t i = 0; i < _threads.size(); ++i)
+  {
+    if (_threads[i].joinable())
+    {
+      _threads[i].interrupt();
+      _threads[i].join();
+    }
+  }
+}
+
+thread_pool::~thread_pool()
+{
+  stop();
+}
+
 void thread_pool::update_task_param(communication::Task_Param& param)
 {
   if (param.has_dependenttaskid())
