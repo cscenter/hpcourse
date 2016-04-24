@@ -2,6 +2,8 @@
 #define TASK1_SESSION_H
 
 #include <boost/asio.hpp>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <memory>
 
 #include "protocol.pb.h"
@@ -17,16 +19,16 @@ public:
 private:
   void do_read();
 
-  void do_write(std::size_t length);
+  void do_write(const communication::ServerResponse& response);
 
   bool write_delimited_to(const google::protobuf::MessageLite& message
                           , google::protobuf::io::ZeroCopyOutputStream* raw_utput);
 
-  bool read_delimited_from(google::protobuf::io::ZeroCopyInputStream* raw_input
-                           , google::protobuf::MessageLite* message
+  bool read_delimited_from(google::protobuf::io::ZeroCopyInputStream& raw_input
+                           , google::protobuf::MessageLite& message
                            , uint32_t size);
 
-  bool read_varint(google::protobuf::io::ZeroCopyInputStream* rawInput, uint32_t& size);
+  bool read_varint(google::protobuf::io::ZeroCopyInputStream& raw_input, uint32_t& size);
 
   boost::asio::ip::tcp::socket _socket;
 
@@ -35,7 +37,9 @@ private:
     max_length = 1024
   };
 
-  char data_[max_length];
+  char _data[max_length];
+  int _last_size;
+
   thread_pool& _pool;
 
 };
