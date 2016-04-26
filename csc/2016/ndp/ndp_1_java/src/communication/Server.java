@@ -119,7 +119,9 @@ public class Server extends Thread {
         private Task task; // Исходное задание
         private Status status;
         private long a, b, p, m, n; // Переменные для подсчета
+        private int depA = -1, depB = -1, depP = -1, depM = -1; // Номера задач, от которых зависят переменные
         private final int taskId; // Уникальный идентефикатор
+
 
         TaskThread(Socket socket, Task task, long requestId, String clientId) throws InterruptedException {
             super(socket, requestId);
@@ -134,8 +136,9 @@ public class Server extends Thread {
         @Override
         public void run() {
             try {
-                sendResponse();
                 initializeVariables();
+                sendResponse();
+                loadVariables();
                 if (status == Status.OK)
                     calculate();
             } catch (InterruptedException e) {
@@ -147,40 +150,71 @@ public class Server extends Thread {
             if (task.getA().hasValue()) {
                 this.a = task.getA().getValue();
             } else {
-                Pair<Status, Long> res = taskMap.get(task.getA().getDependentTaskId()).getResult();
-                if (res.getKey() == Status.ERROR)
-                    status = Status.ERROR;
-                else
-                    this.a = res.getValue();
+                this.depA = task.getA().getDependentTaskId();
+                if (!taskMap.containsKey(this.depA))
+                    this.status = Status.ERROR;
             }
             if (task.getB().hasValue()) {
                 this.b = task.getB().getValue();
             } else {
-                Pair<Status, Long> res = taskMap.get(task.getB().getDependentTaskId()).getResult();
-                if (res.getKey() == Status.ERROR)
-                    status = Status.ERROR;
-                else
-                    this.b = res.getValue();
+                this.depB = task.getB().getDependentTaskId();
+                if (!taskMap.containsKey(this.depB))
+                    this.status = Status.ERROR;
             }
             if (task.getP().hasValue()) {
                 this.p = task.getP().getValue();
             } else {
-                Pair<Status, Long> res = taskMap.get(task.getP().getDependentTaskId()).getResult();
-                if (res.getKey() == Status.ERROR)
-                    status = Status.ERROR;
-                else
-                    this.p = res.getValue();
+                this.depP = task.getP().getDependentTaskId();
+                if (!taskMap.containsKey(this.depP))
+                    this.status = Status.ERROR;
             }
             if (task.getM().hasValue()) {
                 this.m = task.getM().getValue();
             } else {
-                Pair<Status, Long> res = taskMap.get(task.getM().getDependentTaskId()).getResult();
-                if (res.getKey() == Status.ERROR)
-                    status = Status.ERROR;
-                else
-                    this.m = res.getValue();
+                this.depM = task.getM().getDependentTaskId();
+                if (!taskMap.containsKey(this.depM))
+                    this.status = Status.ERROR;
             }
             this.n = task.getN();
+        }
+
+        // Загружает зависимые переменные
+        private void loadVariables() throws InterruptedException {
+            if (status == Status.ERROR)
+                return;
+
+            if (depA >= 0) {
+                Pair<Status, Long> res = taskMap.get(depA).getResult();
+                if (res.getKey() == Status.ERROR) {
+                    status = Status.ERROR;
+                    return;
+                } else
+                    this.a = res.getValue();
+            }
+            if (depB >= 0) {
+                Pair<Status, Long> res = taskMap.get(depB).getResult();
+                if (res.getKey() == Status.ERROR) {
+                    status = Status.ERROR;
+                    return;
+                } else
+                    this.b = res.getValue();
+            }
+            if (depP >= 0) {
+                Pair<Status, Long> res = taskMap.get(depP).getResult();
+                if (res.getKey() == Status.ERROR) {
+                    status = Status.ERROR;
+                    return;
+                } else
+                    this.p = res.getValue();
+            }
+            if (depM >= 0) {
+                Pair<Status, Long> res = taskMap.get(depM).getResult();
+                if (res.getKey() == Status.ERROR) {
+                    status = Status.ERROR;
+                    return;
+                } else
+                    this.m = res.getValue();
+            }
         }
 
         private void calculate() {
