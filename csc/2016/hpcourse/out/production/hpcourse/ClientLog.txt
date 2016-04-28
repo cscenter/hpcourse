@@ -1,0 +1,7 @@
+=====||Subscribe to task: 1||OK
+571398675
+-----------
+=====||Submit new task||OK||5||-----------
+=====||Submit new task||OK||6||-----------
+=====||List tasks||ce1c40f6-763d-498a-ac57-89845e8c91e4 @ 0 @ 115376615||de4209ce-cfe7-4b86-81fc-858191cc7616 @ 1 @ 571398675||8b854b22-f639-41b6-9279-acd3e8ed81d7 @ 2 @ 477280180||aea3c844-676a-43fc-99df-bf00e3dc460f @ 3 @ 177680781||63ec0ae2-ac91-471d-8782-2970ac0e46f1 @ 4 @ 292219764||06ab89e9-d5d5-4c90-8c3e-89ed07dadbe5 @ 5 @ Not ready||7c7c8459-ea5f-4101-82db-6eca0e6aa719 @ 6 @ Not ready||-----------
+=====||List tasks||ce1c40f6-763d-498a-ac57-89845e8c91e4 @ 0 @ 115376615||de4209ce-cfe7-4b86-81fc-858191cc7616 @ 1 @ 571398675||8b854b22-f639-41b6-9279-acd3e8ed81d7 @ 2 @ 477280180||aea3c844-676a-43fc-99df-bf00e3dc460f @ 3 @ 177680781||63ec0ae2-ac91-471d-8782-2970ac0e46f1 @ 4 @ 292219764||06ab89e9-d5d5-4c90-8c3e-89ed07dadbe5 @ 5 @ Not ready||7c7c8459-ea5f-4101-82db-6eca0e6aa719 @ 6 @ Not ready||-----------
