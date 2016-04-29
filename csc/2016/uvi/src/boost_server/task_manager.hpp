@@ -26,7 +26,9 @@ public:
     communication::SubscribeResponse subscribe(int32_t task_id);
     communication::ListTasksResponse list_tasks();
 
-private:
+
+
+//private:
     std::mutex        task_mutex_;
     std::mutex        list_mutex_;
     std::vector<task> tasks;
@@ -36,7 +38,7 @@ private:
     //std::vector<std::pair<std::thread, bool>> threads_;
     //std::queue
 private:
-    int64_t get_parameter(communication::Task_Param const &param, int32_t cur_tasks_size);
+    int64_t get_parameter(communication::Task_Param const &param, size_t cur_tasks_size);
     void wait_for_task_to_finish(int64_t task_id);
 };
 
