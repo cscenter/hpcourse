@@ -10,7 +10,6 @@ import util.ConcurrentHashMap;
 import com.google.protobuf.GeneratedMessage;
 
 
-import com.sun.org.apache.xpath.internal.operations.*;
 import communication.Protocol;
 import communication.Protocol.*;
 
@@ -52,7 +51,6 @@ class TaskThread extends Thread {
     TaskThread(Socket socket) {
         this.socket = socket;
         setDaemon(true);
-        setPriority(NORM_PRIORITY);
         start();
         System.out.println();
     }
@@ -114,7 +112,6 @@ class TaskThread extends Thread {
         Task currentTask = submitTask.getTask();
         curTaskDescription = new Calculation(requestId, clientId, currentTask);
         curId = getNewId();
-        taskMap.put(curId, curTaskDescription);
 
         //Тут могли встетиться ошибки тогда статус будет изменён
         checkSubmitTaskField(currentTask.getA());
@@ -131,28 +128,37 @@ class TaskThread extends Thread {
         SubmitTaskResponse.Builder submitTaskResponse = SubmitTaskResponse.newBuilder();
         submitTaskResponse.setSubmittedTaskId(curId);
 
-
         System.out.println("SubmitTaskResponse: ");
         System.out.println("submittedTaskId: " + curId);
         if (curTaskDescription.status == Status.Error) {
             submitTaskResponse.setStatus(Protocol.Status.ERROR);
             System.out.println("status: " + "ERROR");
         } else {
+//            может иметь ошибки если произошла подписка на задачу которая вернула ошибку
+//            в любом случае в данный момент мы обязаны сохранить информацию о задаче я объясню это по почте
+//            даже если в ней ошибка будет
+            taskMap.put(curId, curTaskDescription);
             submitTaskResponse.setStatus(Protocol.Status.OK);
             System.out.println("status: " + "OK");
         }
 
         sendToClient(serverResponse.setSubmitResponse(submitTaskResponse.build()).build());
 
-        //Решаем задачу
+        //пытаемся считать поля и решить задачу, если на данный момент поля валидны
         if (curTaskDescription.status != Status.Error) {
             long a = takeParamValue(currentTask.getA());
             long b = takeParamValue(currentTask.getB());
             long p = takeParamValue(currentTask.getP());
             long m = takeParamValue(currentTask.getM());
             long n = currentTask.getN();
-            long res = task(a, b, p, m, n);
-            curTaskDescription.setValue(res);
+            if (curTaskDescription.status != Status.Error) {
+//                имеем все значения и можем запускать высисления,
+//                ошибки могут быть только в связи с особеностью самой
+//                задачи, внутри неё, предпологая что её код может быть любым и может меняться
+                long res = task(a, b, p, m, n);
+                System.out.println("res = " + res);
+                curTaskDescription.setValue(res);
+            }
         }
     }
 
@@ -185,6 +191,13 @@ class TaskThread extends Thread {
             return param.getValue();
         } else {
             //(param.hasDependentTaskId())
+            Calculation subscribeTask =  taskMap.get(param.getDependentTaskId());
+            long value = subscribeTask.getValue();//подождать на значение
+//            если в вычисления произошла ошибка
+            if (subscribeTask.status == Status.Error) {
+                curTaskDescription.status = Status.Error;
+            }
+
             return taskMap.get(param.getDependentTaskId()).getValue();
         }
     }
