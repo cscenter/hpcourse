@@ -22,7 +22,6 @@ public class Client {
         new TaskClient("Second", 3, "Subscribe");
 //        new TaskClient("Fourth", 4, "List");
     }
-    ///dddddddddddddd
 }
 
 class TaskClient extends Thread {
