@@ -198,7 +198,7 @@ class TaskThread extends Thread {
                 curTaskDescription.status = Status.Error;
             }
 
-            return taskMap.get(param.getDependentTaskId()).getValue();
+            return value;
         }
     }
 
