@@ -12,10 +12,6 @@ public:
 
     communication::WrapperMessage parse(char const* data, size_t const len);
     int serialize(communication::WrapperMessage const& msg, char* data, size_t const max_len);
-
-private:
-
-
 };
 
 #endif //BOOST_SERVER_REQUEST_PARSER_HPP
