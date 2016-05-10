@@ -116,16 +116,10 @@ int64_t Worker::try_get_param(communication::Task_Param const & param)
     {
       m_tasks[param_id].cv->wait(lck);
     }
-    else
-    {
-      lck.unlock();
-    }
-    
-    m_mut.lock();
     
     res = m_tasks[param.dependenttaskid()].result;
     
-    m_mut.unlock();
+    lck.unlock();
   }
   else
   {
