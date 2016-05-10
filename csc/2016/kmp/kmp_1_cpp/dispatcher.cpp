@@ -51,7 +51,7 @@ void Dispatcher::handle_connection(int sockfd)
 void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id
 , int64_t result, bool success)
 {
-  m_mut.lock();
+  std::unique_lock<std::mutex> lck(m_mut);
   
   if (m_socks_to_ids.find(task_id) != m_socks_to_ids.end())
   {
@@ -72,8 +72,6 @@ void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id
     
     m_socks_to_ids.erase(task_id);
   }
-  
-  m_mut.unlock();
 }
 
 bool Dispatcher::submit_task(communication::WrapperMessage const & msg_in, SocketRW const & socket_rw)
@@ -123,7 +121,7 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
   bool res = false;
   communication::Subscribe const & subscribe = msg_in.request().subscribe();
   
-  m_mut.lock();
+  std::unique_lock<std::mutex> lck(m_mut);
   
   bool result_set;
   int64_t result;
@@ -161,8 +159,6 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
     
     socket_rw.write(msg_out);
   }
-  
-  m_mut.unlock();
   
   return res;
 }

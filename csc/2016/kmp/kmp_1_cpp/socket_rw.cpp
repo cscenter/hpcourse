@@ -1,3 +1,5 @@
+#include <memory>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -23,20 +25,17 @@ bool SocketRW::read(communication::WrapperMessage & msg) const
     return false;
   }
   
-  unsigned char * buffer = new unsigned char[length];
-  int n = recv(m_sockfd, buffer, length, MSG_WAITALL);
+  std::unique_ptr<unsigned char[]> buffer(new unsigned char[length]);
+  int n = recv(m_sockfd, buffer.get(), length, MSG_WAITALL);
   if (n == 0)
   {
-    delete [] buffer;
     return false;
   }
-  CodedInputStream * coded_data = new CodedInputStream(buffer, length);
+  std::unique_ptr<CodedInputStream>
+    coded_data(new CodedInputStream(buffer.get(), length));
   
   msg.Clear();
-  msg.ParseFromCodedStream(coded_data);
-  
-  delete coded_data;
-  delete [] buffer;
+  msg.ParseFromCodedStream(coded_data.get());
   
   return true;
 }
@@ -44,19 +43,18 @@ bool SocketRW::read(communication::WrapperMessage & msg) const
 bool SocketRW::write(communication::WrapperMessage const & msg) const
 {
   size_t length = msg.ByteSize();
-  unsigned char * buffer = new unsigned char[length + MAX_VARINT_LENGTH];
+  std::unique_ptr<unsigned char[]>
+    buffer(new unsigned char[length + MAX_VARINT_LENGTH]);
   
-  ArrayOutputStream * aos = new ArrayOutputStream(buffer, length + MAX_VARINT_LENGTH);
+  std::unique_ptr<ArrayOutputStream>
+    aos(new ArrayOutputStream(buffer.get(), length + MAX_VARINT_LENGTH));
   
-  CodedOutputStream * output_stream = new CodedOutputStream(aos);
+  std::unique_ptr<CodedOutputStream>
+    output_stream(new CodedOutputStream(aos.get()));
   output_stream->WriteTag(length);
-  msg.SerializeToCodedStream(output_stream);
+  msg.SerializeToCodedStream(output_stream.get());
   
-  send(m_sockfd, buffer, output_stream->ByteCount(), MSG_DONTWAIT);
-  
-  delete output_stream;
-  delete aos;
-  delete [] buffer;
+  send(m_sockfd, buffer.get(), output_stream->ByteCount(), MSG_DONTWAIT);
   
   return true;
 }

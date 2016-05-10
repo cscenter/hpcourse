@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <memory>
 
 #include "protocol.pb.h"
 
@@ -18,7 +19,7 @@ struct Task
   std::string client_id;
   int64_t request_id;
   
-  std::condition_variable * cv;
+  std::shared_ptr<std::condition_variable> cv;
 
   communication::Task args;
 
@@ -50,14 +51,6 @@ public:
   : m_id(0)
   , m_consumer_func(c_func)
   { }
-  
-  ~Worker()
-  {
-    for (auto const & task : m_tasks)
-    {
-      delete task.cv;
-    }
-  }
   
   unsigned int handle_submit_task(communication::SubmitTask const & submitTask, std::string const & client_id, int64_t request_id);
   void get_task_list(std::vector<Task> & out);

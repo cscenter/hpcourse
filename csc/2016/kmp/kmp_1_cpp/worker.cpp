@@ -5,21 +5,18 @@
 
 unsigned int Worker::handle_submit_task(communication::SubmitTask const & submitTask, std::string const & client_id, int64_t request_id)
 {
-  m_mut.lock();
+  std::unique_lock<std::mutex> lck(m_mut);
   
   unsigned int task_id = add_task(submitTask, client_id, request_id);
   std::thread(&Worker::start, this, task_id, m_tasks[task_id].args).detach();
-  
-  m_mut.unlock();
   
   return task_id;
 }
 
 void Worker::get_task_list(std::vector<Task> & out)
 {
-  m_mut.lock();
+  std::unique_lock<std::mutex> lck(m_mut);
   out = m_tasks;
-  m_mut.unlock();
 }
 
 bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
@@ -27,7 +24,7 @@ bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
 {
   if (id < m_id)
   {
-    m_mut.lock();
+    std::unique_lock<std::mutex> lck(m_mut);
 
     if (m_tasks[id].finished)
     {
@@ -39,8 +36,6 @@ bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
     {
       result_set = false;
     }
-    
-    m_mut.unlock();
     
     return true;
   }
@@ -83,7 +78,7 @@ void Worker::work(int self_id, int64_t a, int64_t b, int64_t p, int64_t m, int64
     success = true;
   }
 
-  m_mut.lock();
+  std::unique_lock<std::mutex> lck(m_mut);
 
   Task & self_task = m_tasks[self_id];
   self_task.result = res;
@@ -91,15 +86,12 @@ void Worker::work(int self_id, int64_t a, int64_t b, int64_t p, int64_t m, int64
   self_task.success = success;
 
   self_task.cv->notify_all();
-  delete self_task.cv;
-  self_task.cv = nullptr;
+  self_task.cv.reset();
 
   if (m_consumer_func)
   {
     m_consumer_func(self_id, self_task.request_id, res, success);
   }
-
-  m_mut.unlock();
 }
 
 int64_t Worker::try_get_param(communication::Task_Param const & param)
