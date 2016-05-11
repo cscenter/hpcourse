@@ -110,8 +110,6 @@ int64_t Worker::try_get_param(communication::Task_Param const & param)
     }
     
     res = m_tasks[param.dependenttaskid()].result;
-    
-    lck.unlock();
   }
   else
   {
