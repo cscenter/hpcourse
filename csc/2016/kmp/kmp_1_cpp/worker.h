@@ -1,6 +1,7 @@
 #ifndef WORKER_H_
 #define WORKER_H_
 
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
@@ -14,7 +15,7 @@ struct Task
 {
   unsigned int id;
   int64_t result;
-  bool finished;
+  std::atomic<bool> finished;
   bool success;
   std::string client_id;
   int64_t request_id;
@@ -38,6 +39,22 @@ struct Task
   , cv(new std::condition_variable())
   , args(args_input)
   { }
+
+  Task(Task const & val)
+  : id(val.id)
+  , result(val.result)
+  , finished((bool)val.finished)
+  , success(val.success)
+  , client_id(val.client_id)
+  , request_id(val.request_id)
+  , cv(val.cv)
+  , args(val.args)
+  { }
+
+  Task operator= (Task const & val)
+  {
+    return Task(val);
+  }
 };
 
 class Worker
