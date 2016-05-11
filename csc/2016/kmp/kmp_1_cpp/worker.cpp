@@ -104,7 +104,7 @@ int64_t Worker::try_get_param(communication::Task_Param const & param)
     
     std::unique_lock<std::mutex> lck(m_mut);
     
-    if (!m_tasks[param_id].finished)
+    while (!m_tasks[param_id].finished)
     {
       m_tasks[param_id].cv->wait(lck);
     }
