@@ -1,10 +1,11 @@
 package server;
 
-import communication.Protocol;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+
+import static communication.Protocol.ServerRequest;
+import static communication.Protocol.WrapperMessage;
 
 public class Server extends Thread {
     public static final int PORT = 8081;
@@ -33,11 +34,7 @@ public class Server extends Thread {
         public void run() {
             try {
                 while (true) {
-                    int size = socket.getInputStream().read();
-                    if (size <= 0) return;
-                    byte message[] = new byte[size];
-                    socket.getInputStream().read(message);
-                    Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(message);
+                    ServerRequest request = WrapperMessage.parseDelimitedFrom(socket.getInputStream()).getRequest();
 
                     if (request.hasSubmit()) {
                         new Thread(new TaskOrganizer.SubmittingThread(socket, request)).start();

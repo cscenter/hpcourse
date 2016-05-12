@@ -9,6 +9,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static communication.Protocol.WrapperMessage;
+
 public class TaskOrganizer {
     private static SynchronizedMap<Integer, Task> tasks = new SynchronizedMap<>();
     private static AtomicInteger taskNumber = new AtomicInteger(0);
@@ -126,12 +128,10 @@ public class TaskOrganizer {
         protected void sendToClient(Protocol.ServerResponse.Builder serverResponseBuilder) {
             serverResponseBuilder.setRequestId(request.getRequestId());
             try {
-                Protocol.ServerResponse serverResponse = serverResponseBuilder.build();
+                WrapperMessage message = WrapperMessage.newBuilder().setResponse(serverResponseBuilder).build();
                 OutputStream outputStream = socket.getOutputStream();
                 synchronized (outputStream) {
-                    outputStream.write(serverResponse.getSerializedSize());
-                    serverResponse.writeTo(outputStream);
-                    outputStream.flush();
+                    message.writeDelimitedTo(outputStream);
                 }
             } catch (IOException e) {
                 e.printStackTrace();

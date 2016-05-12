@@ -8,6 +8,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static communication.Protocol.WrapperMessage;
+import static communication.Protocol.ServerResponse;
 
 public class TrainClient extends Thread {
     private static final String CLIENT_ID = "CLIENT";
@@ -23,11 +25,7 @@ public class TrainClient extends Thread {
     public void run() {
         try {
             while (true) {
-                int size = clientSocket.getInputStream().read();
-                if (size <= 0) return;
-                byte buf[] = new byte[size];
-                clientSocket.getInputStream().read(buf);
-                Protocol.ServerResponse response = Protocol.ServerResponse.parseFrom(buf);
+                ServerResponse response = WrapperMessage.parseDelimitedFrom(clientSocket.getInputStream()).getResponse();
                 System.out.println(response);
             }
         } catch (IOException e) {
@@ -73,11 +71,10 @@ public class TrainClient extends Thread {
 
     private void sendData(Protocol.ServerRequest serverRequest) {
         try {
+            WrapperMessage message = WrapperMessage.newBuilder().setRequest(serverRequest).build();
             OutputStream outputStream = clientSocket.getOutputStream();
             synchronized (outputStream) {
-                outputStream.write(serverRequest.getSerializedSize());
-                serverRequest.writeTo(outputStream);
-                outputStream.flush();
+                message.writeDelimitedTo(outputStream);
             }
         } catch (IOException e) {
             e.printStackTrace();
