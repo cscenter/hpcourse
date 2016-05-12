@@ -1,3 +1,4 @@
+import communication.Parameter;
 import server.Server;
 
 import java.io.IOException;
@@ -10,11 +11,11 @@ public class Main {
         try {
             TrainClient client = new TrainClient();
             client.start();
-            client.sendTask(42, 43, 44, 55, 66);
-            client.sendTask(8, 15, 16, 23, 42);
-            client.sendTask(18, 11, 19, 93, 666);
-            client.sendTask(8, 15, 16, 23, 42);
-            client.sendTask(18, 11, 19, 93, 666);
+            client.sendTask(new Parameter(42), new Parameter(43), new Parameter(44), new Parameter(55), 66);
+            client.sendTask(new Parameter(8), new Parameter(15), new Parameter(16), new Parameter(23), 42);
+            client.sendTask(new Parameter(18), new Parameter(11), new Parameter(19), new Parameter(93), 666);
+            client.sendTask(new Parameter(8), new Parameter(15), new Parameter(16), new Parameter(23), 42);
+            client.sendTask(new Parameter(18), new Parameter(11), new Parameter(19), new Parameter(93), 666);
             client.listAllTasks();
             client.subscribeToTask(1);
             client.listAllTasks();

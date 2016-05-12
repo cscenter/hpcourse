@@ -1,3 +1,4 @@
+import communication.Parameter;
 import communication.Protocol;
 import communication.Task;
 import server.Server;
@@ -40,7 +41,7 @@ public class TrainClient extends Thread {
         }
     }
 
-    public void sendTask(long a, int b, int p, int m, int n) {
+    public void sendTask(Parameter a, Parameter b, Parameter p, Parameter m, long n) {
         Task task = new Task(a, b, p, m, n, 0, CLIENT_ID);
 
         Protocol.SubmitTask.Builder taskBuilder = Protocol.SubmitTask.newBuilder();

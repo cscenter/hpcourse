@@ -1,14 +1,17 @@
 package communication;
 
+import server.TaskOrganizer;
+
 public class Task implements Runnable {
-    private long a, b, p, m, n;
+    private Parameter a, b, p, m;
+    private long n;
     private int id;
     private String clientId;
     private Protocol.Task protocolTask;
     private volatile boolean isDone;
     private volatile long result;
 
-    public Task(long a, long b, long p, long m, long n, int id, String clientId) {
+    public Task(Parameter a, Parameter b, Parameter p, Parameter m, long n, int id, String clientId) {
         this.a = a;
         this.b = b;
         this.p = p;
@@ -19,18 +22,23 @@ public class Task implements Runnable {
     }
 
     public Task(Protocol.Task task, int id, String clientId) {
-        this.a = task.getA().getValue();
-        this.b = task.getB().getValue();
-        this.p = task.getP().getValue();
-        this.m = task.getM().getValue();
+        this.a = createParam(task.getA());
+        this.b = createParam(task.getB());
+        this.p = createParam(task.getP());
+        this.m = createParam(task.getM());
         this.n = task.getN();
         this.id = id;
         this.clientId = clientId;
     }
 
+    private Parameter createParam(Protocol.Task.Param param) {
+        return param.hasValue() ? new Parameter(param.getValue()) :
+                new Parameter(TaskOrganizer.getTask(param.getDependentTaskId()));
+    }
+
     @Override
     public void run() {
-        long result = calculate(a, b, p, m, n);
+        long result = calculate(a.getValue(), b.getValue(), p.getValue(), m.getValue(), n);
         synchronized (this) {
             isDone = true;
             this.result = result;
@@ -59,9 +67,9 @@ public class Task implements Runnable {
         return protocolTask;
     }
 
-    private static Protocol.Task.Param toProtocolTaskParam(long a) {
+    private static Protocol.Task.Param toProtocolTaskParam(Parameter a) {
         Protocol.Task.Param.Builder builder = Protocol.Task.Param.newBuilder();
-        builder.setValue(a);
+        builder.setValue(a.getValue());
         return builder.build();
     }
 

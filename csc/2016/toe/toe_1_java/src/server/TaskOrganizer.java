@@ -24,6 +24,10 @@ public class TaskOrganizer {
         return id;
     }
 
+    public static Task getTask(int id) {
+        return tasks.get(id);
+    }
+
     static class ListingThread extends BaseTaskThread {
         public ListingThread(Socket socket, Protocol.ServerRequest serverRequest) {
             super(socket, serverRequest);
