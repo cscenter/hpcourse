@@ -5,7 +5,7 @@
 
 unsigned int Worker::handle_submit_task(communication::SubmitTask const & submitTask, std::string const & client_id, int64_t request_id)
 {
-  std::unique_lock<std::mutex> lck(m_mut);
+  std::lock_guard<std::mutex> l_guard(m_mut);
   
   unsigned int task_id = add_task(submitTask, client_id, request_id);
   std::thread(&Worker::start, this, task_id, m_tasks[task_id].args).detach();
@@ -15,7 +15,7 @@ unsigned int Worker::handle_submit_task(communication::SubmitTask const & submit
 
 void Worker::get_task_list(std::vector<Task> & out)
 {
-  std::unique_lock<std::mutex> lck(m_mut);
+  std::lock_guard<std::mutex> l_guard(m_mut);
   out = m_tasks;
 }
 
@@ -24,7 +24,7 @@ bool Worker::subscribe(unsigned int id, bool & result_set, int64_t & result
 {
   if (id < m_id)
   {
-    std::unique_lock<std::mutex> lck(m_mut);
+    std::lock_guard<std::mutex> l_guard(m_mut);
 
     if (m_tasks[id].finished)
     {
@@ -78,7 +78,7 @@ void Worker::work(int self_id, int64_t a, int64_t b, int64_t p, int64_t m, int64
     success = true;
   }
 
-  std::unique_lock<std::mutex> lck(m_mut);
+  std::lock_guard<std::mutex> l_guard(m_mut);
 
   Task & self_task = m_tasks[self_id];
   self_task.result = res;

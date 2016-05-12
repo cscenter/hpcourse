@@ -51,7 +51,7 @@ void Dispatcher::handle_connection(int sockfd)
 void Dispatcher::subscribe_callback(unsigned int task_id, int64_t request_id
 , int64_t result, bool success)
 {
-  std::unique_lock<std::mutex> lck(m_mut);
+  std::lock_guard<std::mutex> l_guard(m_mut);
   
   if (m_socks_to_ids.find(task_id) != m_socks_to_ids.end())
   {
@@ -121,7 +121,7 @@ bool Dispatcher::subscribe(communication::WrapperMessage const & msg_in, SocketR
   bool res = false;
   communication::Subscribe const & subscribe = msg_in.request().subscribe();
   
-  std::unique_lock<std::mutex> lck(m_mut);
+  std::lock_guard<std::mutex> l_guard(m_mut);
   
   bool result_set;
   int64_t result;
