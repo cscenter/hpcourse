@@ -9,7 +9,10 @@ public class Parameter {
         this.value = value;
     }
 
-    public Parameter(Task owner) {
+    public Parameter(Task owner) throws IllegalArgumentException {
+        if (owner == null) {
+            throw new IllegalArgumentException("Owner task must not be null.");
+        }
         this.owner = owner;
     }
 
