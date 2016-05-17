@@ -1,0 +1,81 @@
+package communication;
+
+// Конвертное сообщение https://developers.google.com/protocol-buffers/docs/techniques#union
+message WrapperMessage {
+    optional ServerRequest request = 1;
+    optional ServerResponse response = 2;
+}
+
+// Запрос на сервер
+message ServerRequest {
+    required string client_id = 1;
+    required int64 request_id = 2; // id запроса
+
+    optional SubmitTask submit = 3;
+    optional Subscribe subscribe = 4;
+    optional ListTasks list = 5;
+}
+
+// Ответ сервера
+message ServerResponse {
+    required int64 request_id = 1; // id запроса на который мы отвечаем
+
+    optional SubmitTaskResponse submitResponse = 2;
+    optional SubscribeResponse subscribeResponse = 3;
+    optional ListTasksResponse listResponse = 4;
+}
+
+// Задача
+message Task {
+    message Param {
+        oneof param_value {
+            int64 value = 1; // Либо задано значение параметра
+            int32 dependentTaskId = 2; // Либо значение параметра = результат задачи dependentTaskId
+        }
+    }
+
+    required Param a = 1;
+    required Param b = 2;
+    required Param p = 3;
+    required Param m = 4;
+
+    required int64 n = 5;
+}
+
+message SubmitTask {
+    required Task task = 1;
+}
+
+enum Status {
+    OK = 1;
+    ERROR = 2;
+}
+
+message SubmitTaskResponse {
+    required int32 submittedTaskId = 1;
+    required Status status = 2;
+}
+
+message Subscribe {
+    required int32 taskId = 1;
+}
+
+message SubscribeResponse {
+    required Status status = 1;
+    optional int64 value = 2;
+}
+
+message ListTasks {
+}
+
+message ListTasksResponse {
+    message TaskDescription {
+        required int32 taskId = 1;
+        required string clientId = 2;
+        required Task task = 3;
+        optional int64 result = 4; // Если задача еще не выполнена, это поле пустое
+    }
+
+    required Status status = 1;
+    repeated TaskDescription tasks = 2;
+}
