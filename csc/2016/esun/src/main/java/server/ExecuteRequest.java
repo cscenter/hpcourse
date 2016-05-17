@@ -1,11 +1,13 @@
 package server;
 
 import communication.Protocol;
+import javafx.util.Pair;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -59,7 +61,7 @@ public class ExecuteRequest implements Runnable {
                 Protocol.ListTasksResponse.Builder listResponse = Protocol.ListTasksResponse.newBuilder()
                         .setStatus(Protocol.Status.OK);
                 try {
-                    for (Map.Entry<Integer, Task> entry : manager.getTaskMap().entrySet()) {
+                    for (Pair<Integer, Task> entry : manager.getTaskMap()) {
                         Protocol.ListTasksResponse.TaskDescription.Builder builder = Protocol.ListTasksResponse
                                 .TaskDescription.newBuilder();
                         Task task = entry.getValue();
