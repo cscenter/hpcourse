@@ -63,6 +63,14 @@ class ServerThread extends Thread {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        try {
+            socket.close();
+            logger.info("ServerThread " + this.getName() + ": socket closed");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        logger.info("ServerThread " + this.getName() + " finished");
     }
 
 
