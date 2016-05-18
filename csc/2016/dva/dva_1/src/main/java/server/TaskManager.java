@@ -6,6 +6,7 @@ import task.TaskThread;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -89,7 +90,7 @@ class TaskManager {
 
     Collection<Integer> getAllTasks() {
         synchronized (tasks) {
-            return tasks.keySet();
+            return new HashSet<>(tasks.keySet());
         }
     }
 
