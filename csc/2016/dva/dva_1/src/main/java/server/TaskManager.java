@@ -94,20 +94,6 @@ class TaskManager {
         }
     }
 
-    /**
-     * @return all active tasks
-     */
-    Collection<Integer> getRunningTasks() {
-        synchronized (tasks) {
-            synchronized (results) {
-                return tasks.keySet()
-                        .stream()
-                        .filter(x -> !results.containsKey(x))
-                        .collect(Collectors.toList());
-            }
-        }
-    }
-
     private task.TaskParam buildTaskParam(Protocol.Task.Param param) {
         if (param.hasValue()) {
             return new TaskParam(param.getValue());

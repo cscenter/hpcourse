@@ -1,18 +1,11 @@
 package client;
 
 import communication.Protocol;
-import org.junit.Assert;
-import org.junit.Test;
-import server.Server;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
 import java.util.logging.Logger;
-
-import static org.junit.Assert.*;
 
 public class ClientTest {
     static Logger logger = Logger.getLogger(ClientTest.class.getName());

@@ -14,10 +14,7 @@ import java.util.logging.Logger;
 
 public class Client {
     private final String clientId;
-    private final String host;
-    private final int port;
     private final Logger logger;
-    private final Socket socket;
     private volatile AtomicLong requestCounter = new AtomicLong(0);
     public final HashMap<Long, Protocol.ServerResponse> responses = new HashMap<>();
 
@@ -33,11 +30,9 @@ public class Client {
 
     Client(String clientId, String host, int port, Logger logger) throws IOException {
         this.clientId = clientId;
-        this.host = host;
-        this.port = port;
         this.logger = logger;
 
-        this.socket = new Socket(host, port);
+        Socket socket = new Socket(host, port);
         this.input = socket.getInputStream();
         this.output = socket.getOutputStream();
     }

@@ -1,11 +1,8 @@
 package task;
 
-import communication.Protocol;
 import org.junit.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.*;
 
 public class TaskThreadTest {
 

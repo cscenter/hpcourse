@@ -124,7 +124,7 @@ class ServerThread extends Thread {
         }
         if (request.hasList()) {
             runAndWriteToSocketAsync(() -> {
-                ListTasksResponse response = processListTasks(request.getList(), request.getClientId());
+                ListTasksResponse response = processListTasks(request.getClientId());
                 return ServerResponse.newBuilder()
                         .setListResponse(response)
                         .setRequestId(request.getRequestId());
@@ -156,7 +156,7 @@ class ServerThread extends Thread {
         return response.build();
     }
 
-    private ListTasksResponse processListTasks(ListTasks listTasks, String clientId) {
+    private ListTasksResponse processListTasks(String clientId) {
         Protocol.ListTasksResponse.Builder response = Protocol.ListTasksResponse.newBuilder();
         try {
             for (Integer id : taskManager.getAllTasks()) {
