@@ -1,0 +1,3 @@
+This version does not use any of built-in synchronization mechanisms except for atomic variables. A spin mutex is implemented based on atomics and used for synchronization. 
+
+I did so because I thought that not using any existing primitives is a restriction for this task but later I realised that it is hardly possible to be true. This is why I decided to write the second version using built-in synchronization and the wait-notify mechanism. I hope that this misunderstading will not become a big problem and I will be allowed to finish this second version (which is coming in the next couple of days) and take the exam.
