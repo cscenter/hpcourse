@@ -5,47 +5,77 @@ import com.ashatta.hps.server.Server;
 
 import java.util.*;
 
-/* TaskManager class stores information about Tasks, runs and handles them. All the synchronization happens here. */
+/* TaskManager runs tasks and calls back to the server to send responses to clients.
+ * Uses wait-notify mechanism to implement an internal thread pool.
+ * Submission and subscription requests are handled asynchronously, task listing request is synchronous.
+ */
 public class TaskManager {
+    private class WorkerThread extends Thread {
+        public void run() {
+            while (true) {
+                Runnable task;
+                synchronized (waitingQueue) {
+                    while (waitingQueue.isEmpty()) {
+                        try {
+                            waitingQueue.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    task = waitingQueue.remove();
+                }
+
+                task.run();
+            }
+        }
+    }
+
     /* Server callback to send responses. */
     private final Server server;
 
     /* Maps task id to a task. */
-    private final Map<Integer, Task> taskById = new HashMap<>();
+    private final Map<Integer, CalculationTask> taskById = new HashMap<>();
+
+    private final Queue<Runnable> waitingQueue = new ArrayDeque<>();
 
     private final Set<Integer> complete = new HashSet<>();
     /* Set of tasks that have already started execution. */
     private final Set<Integer> running = new HashSet<>();
 
-    public TaskManager(Server server) {
+    public TaskManager(Server server, int threadsNumber) {
         this.server = server;
+        for (int i = 0; i < threadsNumber; ++i) {
+            new WorkerThread().start();
+        }
     }
 
-    public void submit(long requestId, Task task) {
-        try {
-            synchronized (taskById) {
-                taskById.put(task.getTaskId(), task);
-            }
-            CalculationThread thread = new CalculationThread(this, task, requestId);
-            thread.start();
-        } catch (Exception e) {
-            server.sendSubmitResponse(requestId, 0, false);
+    public void submit(String clientId, long submitRequestId, Protocol.Task protoTask) {
+        CalculationTask task = new CalculationTask(this, clientId, submitRequestId, protoTask);
+        synchronized (taskById) {
+            taskById.put(task.getTaskId(), task);
+        }
+        synchronized (waitingQueue) {
+            waitingQueue.add(task);
+            waitingQueue.notify();
         }
     }
 
     public void subscribe(long requestId, int taskId) {
-        Task task;
+        CalculationTask task;
         synchronized (taskById) {
             task = taskById.get(taskId);
         }
-        SubscriptionThread thread = new SubscriptionThread(this, task, requestId);
-        thread.start();
+        SubscriptionTask subscriptionTask = new SubscriptionTask(this, task, requestId);
+        synchronized (waitingQueue) {
+            waitingQueue.add(subscriptionTask);
+            waitingQueue.notify();
+        }
     }
 
     /* This will send a message with status ERROR if the execution of a task fails (for example, because of division
          by zero), it will not be sent in the submit response for that task.
      */
-    public void subscriptionNotify(Task task, long requestId) {
+    public void subscriptionNotify(CalculationTask task, long requestId) {
         server.sendSubscribeResponse(requestId, task.getResult(), !task.hasError());
     }
 
@@ -54,8 +84,8 @@ public class TaskManager {
          * Current implementation ensures that the list of tasks is consistent, i.e. the returned state
          * was an actual state of the server at the time of locking. For this purpose both lists are locked
          * simultaneously and sent to the server separately. */
-        List<Task> runningTasks = new ArrayList<>();
-        List<Task> completeTasks = new ArrayList<>();
+        List<CalculationTask> runningTasks = new ArrayList<>();
+        List<CalculationTask> completeTasks = new ArrayList<>();
         synchronized (running) {
             synchronized (complete) {
                 for (int taskId : running) {
@@ -73,14 +103,14 @@ public class TaskManager {
         server.sendListTasksResponse(requestId, runningTasks, completeTasks, true);
     }
 
-    public void taskSubmitted(Task task, long requestId) {
+    public void taskSubmitted(CalculationTask task, long requestId) {
         synchronized (running) {
             running.add(task.getTaskId());
         }
         server.sendSubmitResponse(requestId, task.getTaskId(), true);
     }
 
-    public void taskCompleted(Task task) {
+    public void taskCompleted(CalculationTask task) {
         int taskId = task.getTaskId();
         synchronized (running) {
             synchronized (complete) {
@@ -90,8 +120,8 @@ public class TaskManager {
         }
     }
 
-    public Task getTask(int taskId) {
-        Task task;
+    public CalculationTask getTask(int taskId) {
+        CalculationTask task;
         synchronized (taskById) {
             task = taskById.get(taskId);
         }

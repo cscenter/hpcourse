@@ -2,11 +2,10 @@ package com.ashatta.hps.server;
 
 import com.ashatta.hps.communication.Protocol;
 import com.ashatta.hps.server.internal.TaskManager;
-import com.ashatta.hps.server.internal.Task;
+import com.ashatta.hps.server.internal.CalculationTask;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -40,7 +39,7 @@ public class Server implements Runnable {
                         }
 
                         if (request.hasSubmit()) {
-                            taskManager.submit(requestId, new Task(clientId, request.getSubmit().getTask(), taskManager));
+                            taskManager.submit(clientId, requestId, request.getSubmit().getTask());
                         } else if (request.hasSubscribe()) {
                             taskManager.subscribe(requestId, request.getSubscribe().getTaskId());
                         } else if (request.hasList()) {
@@ -63,11 +62,11 @@ public class Server implements Runnable {
     /* Maps request id to a corresponding connection, used to send responses. */
     private final Map<Long, Socket> requestToSocket;
 
-    public Server(int port) {
+    public Server(int port, int threadsNumber) {
         this.port = port;
         this.running = new AtomicBoolean(false);
         this.requestToSocket = new HashMap<>();
-        this.taskManager = new TaskManager(this);
+        this.taskManager = new TaskManager(this, threadsNumber);
     }
 
     public void run() {
@@ -108,16 +107,16 @@ public class Server implements Runnable {
         sendResponse(requestId, message);
     }
 
-    public void sendListTasksResponse(long requestId, List<Task> runningTasks, List<Task> completeTasks,
+    public void sendListTasksResponse(long requestId, List<CalculationTask> runningTasks, List<CalculationTask> completeTasks,
                                       boolean status) {
         List<Protocol.ListTasksResponse.TaskDescription> taskDescriptions = new ArrayList<>();
-        for (Task task : runningTasks) {
+        for (CalculationTask task : runningTasks) {
             taskDescriptions.add(Protocol.ListTasksResponse.TaskDescription.newBuilder()
                     .setClientId(task.getClientId())
                     .setTask(task.getProtoTask())
                     .setTaskId(task.getTaskId()).build());
         }
-        for (Task task : completeTasks) {
+        for (CalculationTask task : completeTasks) {
             Protocol.ListTasksResponse.TaskDescription.Builder taskDescriptionBuilder =
                     Protocol.ListTasksResponse.TaskDescription.newBuilder()
                     .setClientId(task.getClientId())

@@ -37,7 +37,7 @@ public class ServerTests {
 
     @Before
     public void setUp() throws InterruptedException {
-        server = new Server(PortFinder.findFreePort());
+        server = new Server(PortFinder.findFreePort(), 10);
         requestCounter = 0;
         (new Thread(server)).start();
         Thread.sleep(200);

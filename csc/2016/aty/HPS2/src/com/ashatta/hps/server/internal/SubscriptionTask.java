@@ -1,11 +1,11 @@
 package com.ashatta.hps.server.internal;
 
-public class SubscriptionThread extends Thread {
+public class SubscriptionTask implements Runnable {
     final TaskManager taskManager;
-    final Task task;
+    final CalculationTask task;
     final long requestId;
 
-    public SubscriptionThread(TaskManager taskManager, Task task, long requestId) {
+    public SubscriptionTask(TaskManager taskManager, CalculationTask task, long requestId) {
         this.taskManager = taskManager;
         this.task = task;
         this.requestId = requestId;

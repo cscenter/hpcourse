@@ -2,7 +2,6 @@ package com.ashatta.hps.server.internal;
 
 import com.ashatta.hps.communication.Protocol;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -10,11 +9,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 /* A thread representing a single task. Runs the task and then calls back to the TaskManager
     so that it can submit subscription responses and keep its data structures up-to-date.
 */
-public class Task {
+public class CalculationTask implements Runnable {
     private static AtomicInteger maxId = new AtomicInteger(0);
 
-    private final TaskManager manager;
+    private final TaskManager taskManager;
     private final String clientId;
+    private final long submitRequestId;
     private final Protocol.Task protoTask;
     private final int taskId;
     private final List<Integer> dependents;
@@ -25,9 +25,10 @@ public class Task {
     private boolean error;
     private boolean completed;
 
-    public Task(String clientId, Protocol.Task protoTask, TaskManager taskManager) {
-        this.manager = taskManager;
+    public CalculationTask(TaskManager taskManager, String clientId, long submitRequestId, Protocol.Task protoTask) {
+        this.taskManager = taskManager;
         this.clientId = clientId;
+        this.submitRequestId = submitRequestId;
         this.protoTask = protoTask;
         this.taskId = maxId.getAndIncrement();
         this.error = false;
@@ -79,10 +80,25 @@ public class Task {
     private long getValue(Protocol.Task.Param param) {
         return param.hasValue()
                 ? param.getValue()
-                : manager.getTaskResult(param.getDependentTaskId());
+                : taskManager.getTaskResult(param.getDependentTaskId());
     }
 
     public void run() {
+        for (int dependentId : dependents()) {
+            CalculationTask dependent = taskManager.getTask(dependentId);
+            synchronized (dependent) {
+                if (!dependent.isCompleted()) {
+                    try {
+                        dependent.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        taskManager.taskSubmitted(this, submitRequestId);
+
         try {
             long a = getValue(protoTask.getA());
             long b = getValue(protoTask.getB());
@@ -102,6 +118,10 @@ public class Task {
             error = true;
         } finally {
             completed = true;
+            synchronized (this) {
+                taskManager.taskCompleted(this);
+                this.notifyAll();
+            }
         }
     }
 }
