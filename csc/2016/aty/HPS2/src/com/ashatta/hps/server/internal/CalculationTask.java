@@ -6,9 +6,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/* A thread representing a single task. Runs the task and then calls back to the TaskManager
-    so that it can submit subscription responses and keep its data structures up-to-date.
-*/
+/* Represents a single task. Executed by TaskManager's WorkerThread. Waits for completion of all the task
+ * on which it is dependent, does the calculation, calls back to TaskManager after submission and completion
+ * for bookkeeping and sending responses to clients.
+ */
 public class CalculationTask implements Runnable {
     private static AtomicInteger maxId = new AtomicInteger(0);
 
@@ -49,7 +50,7 @@ public class CalculationTask implements Runnable {
         }
     }
 
-    List<Integer> dependents() {
+    public List<Integer> dependents() {
         return this.dependents;
     }
 
@@ -73,7 +74,7 @@ public class CalculationTask implements Runnable {
         return error;
     }
 
-    public boolean isCompleted() {
+    boolean isCompleted() {
         return completed;
     }
 

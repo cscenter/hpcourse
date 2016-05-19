@@ -152,6 +152,7 @@ public class Server implements Runnable {
     /* Visible for testing. */
     void stop() {
         running.set(false);
+        taskManager.shutdown();
     }
 
     /* Visible for testing. */

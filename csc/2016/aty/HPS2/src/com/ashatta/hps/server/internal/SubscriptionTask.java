@@ -1,5 +1,6 @@
 package com.ashatta.hps.server.internal;
 
+/* Implements a subscription request. Waits for completion of the specified tasks, then calls back to TaskManager. */
 public class SubscriptionTask implements Runnable {
     final TaskManager taskManager;
     final CalculationTask task;
