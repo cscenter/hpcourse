@@ -108,14 +108,25 @@ public class Server implements Runnable {
         sendResponse(requestId, message);
     }
 
-    public void sendListTasksResponse(long requestId, List<Task> tasks, boolean status) {
+    public void sendListTasksResponse(long requestId, List<Task> runningTasks, List<Task> completeTasks,
+                                      boolean status) {
         List<Protocol.ListTasksResponse.TaskDescription> taskDescriptions = new ArrayList<>();
-        for (Task task : tasks) {
+        for (Task task : runningTasks) {
             taskDescriptions.add(Protocol.ListTasksResponse.TaskDescription.newBuilder()
                     .setClientId(task.getClientId())
-                    .setResult(task.getResult())
                     .setTask(task.getProtoTask())
                     .setTaskId(task.getTaskId()).build());
+        }
+        for (Task task : completeTasks) {
+            Protocol.ListTasksResponse.TaskDescription.Builder taskDescriptionBuilder =
+                    Protocol.ListTasksResponse.TaskDescription.newBuilder()
+                    .setClientId(task.getClientId())
+                    .setTask(task.getProtoTask())
+                    .setTaskId(task.getTaskId());
+            if (!task.hasError()) {
+                taskDescriptionBuilder.setResult(task.getResult());
+            }
+            taskDescriptions.add(taskDescriptionBuilder.build());
         }
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()

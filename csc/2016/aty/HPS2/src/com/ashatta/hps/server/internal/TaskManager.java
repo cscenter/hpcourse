@@ -50,29 +50,43 @@ public class TaskManager {
     }
 
     public void listAll(long requestId) {
-        /* Only sending list of running and completed tasks, but not those who are waiting for start. */
-        List<Task> result = new ArrayList<>();
-        synchronized (taskById) {
-            for (int taskId : running) {
-                result.add(taskById.get(taskId));
-            }
-            for (int taskId : complete) {
-                result.add(taskById.get(taskId));
+        /* Only sending a list of running and completed tasks, but not those which are waiting for start.
+         * Current implementation ensures that the list of tasks is consistent, i.e. the returned state
+         * was an actual state of the server at the time of locking. For this purpose both lists are locked
+         * simultaneously and sent to the server separately. */
+        List<Task> runningTasks = new ArrayList<>();
+        List<Task> completeTasks = new ArrayList<>();
+        synchronized (running) {
+            synchronized (complete) {
+                for (int taskId : running) {
+                    synchronized (taskById) {
+                        runningTasks.add(taskById.get(taskId));
+                    }
+                }
+                for (int taskId : complete) {
+                    synchronized (taskById) {
+                        completeTasks.add(taskById.get(taskId));
+                    }
+                }
             }
         }
-        server.sendListTasksResponse(requestId, result, true);
+        server.sendListTasksResponse(requestId, runningTasks, completeTasks, true);
     }
 
     public void taskSubmitted(Task task, long requestId) {
-        running.add(task.getTaskId());
+        synchronized (running) {
+            running.add(task.getTaskId());
+        }
         server.sendSubmitResponse(requestId, task.getTaskId(), true);
     }
 
     public void taskCompleted(Task task) {
         int taskId = task.getTaskId();
-        synchronized (taskById) {
-            running.remove(taskId);
-            complete.add(taskId);
+        synchronized (running) {
+            synchronized (complete) {
+                running.remove(taskId);
+                complete.add(taskId);
+            }
         }
     }
 
