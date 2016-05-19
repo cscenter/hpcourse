@@ -8,8 +8,6 @@ namespace communication {
 
 class Client : public SocketListenerBase
 {
-    // typedef Client self_type;
-
 public:
     typedef boost::system::error_code error_code;
     typedef boost::shared_ptr<Client> ptr;

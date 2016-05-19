@@ -1,4 +1,5 @@
 #include "ServerTask.hpp"
+#include <iostream>
 
 namespace communication {
 
@@ -10,7 +11,7 @@ boost::atomic_int ServerTask::task_id_cnt(0);
 int32_t ServerTask::push_front(const ServerTask &task) {
 
     ++task_id_cnt;
-    auto p = new ServerTask(task);
+    ServerTask* p = new ServerTask(task);
     p->m_a = task.m_a;
     p->m_b = task.m_b;
     p->m_p = task.m_p;
@@ -18,10 +19,14 @@ int32_t ServerTask::push_front(const ServerTask &task) {
     p->m_n = task.m_n;
 
     p->next = ServerTask::head.load();
+
     p->set_task_id(task_id_cnt);
+    auto temp = ServerTask::head.load();
 
     while (ServerTask::head.compare_exchange_weak(p->next, p))
     {}
+
+    p->next = temp;
 
     return task_id_cnt;
 }
@@ -29,8 +34,9 @@ int32_t ServerTask::push_front(const ServerTask &task) {
 ServerTask* ServerTask::find(int32_t id) {
     auto p = ServerTask::head.load();
 
-    while (p && p->get_task_id() != id && p->get_task_id() > 0)
+    while (p && p->get_task_id() != id && p->get_task_id() != 1) {
         p = p->next;
+    }
 
     return p;
 }
@@ -39,11 +45,13 @@ const std::vector<ListTasksResponse_TaskDescription> ServerTask::get_list() {
     auto p = ServerTask::head.load();
     std::vector<ListTasksResponse_TaskDescription> states;
 
-    while (p && p->get_task_id() > 0) {
+    while (p) {
         ListTasksResponse_TaskDescription task;
         task.set_taskid(p->get_task_id());
         task.set_allocated_clientid(new std::string(p->get_client_id()));
-        task.set_allocated_task(&(p->m_task));
+
+        Task* t = new Task(p->m_task);
+        task.set_allocated_task(t);
 
         if (p->get_ready_param()) {
             task.set_result(p->get_result());
@@ -62,7 +70,7 @@ ServerTask::ServerTask() {
 }
 
 ServerTask::ServerTask(const ServerTask & server_task) :
-                    m_ready_mutex(server_task.m_ready_mutex){
+                    m_ready_mutex(server_task.m_ready_mutex) {
     m_task_id = server_task.get_task_id();
 }
 
@@ -95,6 +103,7 @@ void ServerTask::run() {
 }
 
 int64_t ServerTask::subscribe() {
+
     if (m_ready) {
         return m_result;
     }
@@ -127,8 +136,9 @@ void ServerTask::check_params() {
 }
 
 int64_t ServerTask::wait_for_dependent_task(int32_t task_id) {
-    // wait for dependent task will be done
     ServerTask* task = ServerTask::find(task_id);
+    std::cout << "no task with task_id " << task_id << std::endl;
+
     boost::unique_lock<boost::mutex> lock(*(task->get_mutex()));
     if (m_ready) {
         return m_result;

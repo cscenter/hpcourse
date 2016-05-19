@@ -73,7 +73,7 @@ size_t SocketListenerBase::read_complete(const error_code & err, size_t bytes) {
         return 0;
     }
 
-    if (m_len == 0 && bytes == 4) {
+    if ( m_len == 0 && bytes == 4 ) {
         for (int i = 0; i < 4; ++i) {
             m_len |= m_read_buffer[i] << (24 - i * 8);
         }

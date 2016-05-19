@@ -46,7 +46,7 @@ public:
     const bool                      get_ready_param() const;
 
 public:
-    ServerTask* next;
+    ServerTask* next = nullptr;
 
 private:
     Task        m_task;

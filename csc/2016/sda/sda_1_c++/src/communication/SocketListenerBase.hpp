@@ -46,7 +46,7 @@ protected:
     size_t read_complete(const error_code & err, size_t bytes);
 
 protected:
-    enum { max_len = 1024 };
+    enum { max_len = 8024 };
 
     ip::tcp::socket m_sock;
     char            m_read_buffer[max_len];

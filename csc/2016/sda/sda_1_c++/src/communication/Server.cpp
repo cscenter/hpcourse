@@ -22,8 +22,6 @@ void Server::on_read_end(const error_code & err, size_t bytes) {
             } else if ( req.has_list() ) {
                 process_get_list(req);
             }
-        } else if ( wrapper.has_response() ) {
-            std::cerr << "There are problems with requests. Please talk with client about it!" << std::endl;
         }
     }
 
@@ -36,7 +34,6 @@ void Server::process_task(ServerRequest & req) {
     if ( task.has_task() ) {
 
         int32_t task_id = ServerTask::push_front(task.task());
-
 
         SubmitTaskResponse *submit_task_resp = new SubmitTaskResponse();
         submit_task_resp->set_submittedtaskid(task_id);
@@ -62,7 +59,9 @@ void Server::process_task(ServerRequest & req) {
 void Server::process_subscription(ServerRequest & req) {
     int32_t task_id = req.subscribe().taskid();
     auto req_id = req.request_id();
+
     ServerTask* task = ServerTask::find(task_id);
+
     int64_t result = task->subscribe();
 
     SubscribeResponse *subs_resp = new SubscribeResponse();
@@ -88,9 +87,31 @@ void Server::process_get_list(ServerRequest & req) {
     auto req_id = req.request_id();
 
     ListTasksResponse *l_resp = new ListTasksResponse();
+    l_resp->set_status(Status::OK);
     for (auto t : status_list) {
         ListTasksResponse_TaskDescription* desc = l_resp->add_tasks();
-        desc->Swap(&t);
+        desc->set_taskid(t.taskid());
+        desc->set_clientid(t.clientid());
+        auto task = new Task(t.task());
+        Task_Param *param = new Task_Param();
+        param->set_value(int64_t(t.task().a().value()));
+        task->set_allocated_a(param);
+
+        param = new Task_Param();
+        param->set_value(int64_t(t.task().b().value()));
+        task->set_allocated_b(param);
+
+        param = new Task_Param();
+        param->set_value(int64_t(t.task().m().value()));
+        task->set_allocated_m(param);
+
+        param = new Task_Param();
+        param->set_value(int64_t(t.task().p().value()));
+        task->set_allocated_p(param);
+
+        task->set_n(t.task().n());
+
+        desc->set_allocated_task(task);
     }
 
     ServerResponse *resp = new ServerResponse();
