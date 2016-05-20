@@ -78,6 +78,7 @@ class RequestExecutorService {
                 completedTasks.put(id, taskResult)
             }
 
+            runningTasksLock.remove(id)
             synchronized(monitor, {
                 println("Submit task blocked monitor for $id task")
                 println("Notify all waiting for $id")
@@ -85,7 +86,6 @@ class RequestExecutorService {
             })
             println("Submit task released monitor for $id task")
 
-            runningTasksLock.remove(id)
             println("$id calculation has finished")
         }
 
