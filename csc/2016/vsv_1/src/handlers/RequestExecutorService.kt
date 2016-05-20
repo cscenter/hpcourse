@@ -1,7 +1,6 @@
 package handlers
 
 import communication.CommunicationProtos
-import handlers.TaskResultToResponseBuilder
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -125,11 +124,7 @@ class RequestExecutorService {
     }
 
     private fun getRequest(ism: InputStream): CommunicationProtos.ServerRequest? {
-        val size = ism.read()
-        val data = ByteArray(size)
-        ism.read(data)
-
-        val wrappedMessage = CommunicationProtos.WrapperMessage.parseFrom(data)
+        val wrappedMessage = CommunicationProtos.WrapperMessage.parseDelimitedFrom(ism)
         if (!wrappedMessage.hasRequest()) {
             return null
         }
