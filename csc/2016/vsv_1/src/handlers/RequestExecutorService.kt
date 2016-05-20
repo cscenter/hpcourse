@@ -6,11 +6,12 @@ import java.io.OutputStream
 import java.net.Socket
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 class RequestExecutorService {
 
     private val receivedTasks: MutableMap<Int, CommunicationProtos.ServerRequest> = LinkedHashMap()
-    private val completedTasks: MutableMap<Int, Long> = LinkedHashMap()
+    private val completedTasks = AtomicReference<MutableMap<Int, Long>>(LinkedHashMap())
     private val runningTasksLock: MutableMap<Int, Object> = LinkedHashMap()
 
     private var lastId = AtomicInteger(0)
@@ -75,7 +76,7 @@ class RequestExecutorService {
             println("Got result for $id - $taskResult")
             if (taskResult != null) {
                 println("Write result in completed task list")
-                completedTasks.put(id, taskResult)
+                completedTasks.get().put(id, taskResult)
             }
 
             runningTasksLock.remove(id)
@@ -113,7 +114,7 @@ class RequestExecutorService {
 
     private fun handleList(request: CommunicationProtos.ServerRequest): CommunicationProtos.ListTasksResponse {
         //strange thing happened with handlers idea
-        val handler = ListRequestHandler(receivedTasks, completedTasks)
+        val handler = ListRequestHandler(receivedTasks, completedTasks.get())
         return handler.handle(request.list)
     }
 
@@ -143,8 +144,8 @@ class RequestExecutorService {
     }
 
     private fun waitAndGet(taskId: Int): Long? {
-        if (completedTasks.containsKey(taskId)) {
-            return completedTasks[taskId]
+        if (completedTasks.get().containsKey(taskId)) {
+            return completedTasks.get()[taskId]
         }
         val monitor: Object = runningTasksLock[taskId] ?: return null
         synchronized(monitor, {
@@ -153,8 +154,8 @@ class RequestExecutorService {
             monitor.wait()
             println("Subscribe awake to get  $taskId result")
         })
-        assert(completedTasks.containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
-        val result: Long = completedTasks[taskId] ?: return null
+        assert(completedTasks.get().containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
+        val result: Long = completedTasks.get()[taskId] ?: return null
         return result
     }
 }
