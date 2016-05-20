@@ -1,12 +1,14 @@
 package ru.compscicenter.hpc2016.ha1.server;
 
 import ru.compscicenter.hpc2016.ha1.communication.Protocol;
-import ru.compscicenter.hpc2016.ha1.util.SynchronizedHashMap;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Server extends Thread {
@@ -61,8 +63,10 @@ public class Server extends Thread {
 
         private static class RequestHandler implements Runnable {
             static private AtomicInteger idCounter = new AtomicInteger(0);
-            static final private SynchronizedHashMap<Integer, Protocol.ListTasksResponse.TaskDescription> taskDescriptionMap =
-                    new SynchronizedHashMap<>();
+            static final private Map<Integer, Protocol.ListTasksResponse.TaskDescription> taskDescriptionMap =
+                    Collections.synchronizedMap(new HashMap<>());
+            static final private Map<Integer,  Protocol.Status> taskStatusMap =
+                    Collections.synchronizedMap(new HashMap<>());
 
             private final Socket clientSocket;
             private Protocol.ServerRequest serverRequest;
@@ -105,6 +109,7 @@ public class Server extends Thread {
                                 .setClientId(serverRequest.getClientId())
                                 .setTaskId(taskId);
                 taskDescriptionMap.put(taskId, taskDescriptionBuilder.build());
+                taskStatusMap.put(taskId, Protocol.Status.OK);
 
                 Protocol.SubmitTaskResponse.Builder submitTaskResponseBuilder =
                         Protocol.SubmitTaskResponse.newBuilder();
@@ -121,21 +126,22 @@ public class Server extends Thread {
 
                         try {
                             if (task.getA().hasDependentTaskId()) {
-                                a = resolveParamDependence(task.getA());
+                                a = getTaskResult(task.getA().getDependentTaskId());
                             }
                             if (task.getB().hasDependentTaskId()) {
-                                b = resolveParamDependence(task.getB());
+                                b = getTaskResult(task.getB().getDependentTaskId());
                             }
                             if (task.getP().hasDependentTaskId()) {
-                                p = resolveParamDependence(task.getP());
+                                p = getTaskResult(task.getP().getDependentTaskId());
                             }
                             if (task.getM().hasDependentTaskId()) {
-                                m = resolveParamDependence(task.getM());
+                                m = getTaskResult(task.getM().getDependentTaskId());
                             }
-
                             taskDescriptionBuilder.setResult(calculate(a, b, p, m, n));
                         } catch (IllegalArgumentException | ArithmeticException e) {
+                            e.printStackTrace();
                             submitTaskResponseBuilder.setStatus(Protocol.Status.ERROR);
+                            taskStatusMap.put(taskId, Protocol.Status.ERROR);
                         }
 
                         taskDescriptionMap.put(taskId, taskDescriptionBuilder.build());
@@ -146,44 +152,24 @@ public class Server extends Thread {
                     }
                 }.start();
 
-
                 if (!submitTaskResponseBuilder.hasStatus()) {
                     submitTaskResponseBuilder.setStatus(Protocol.Status.OK);
                 }
 
                 return submitTaskResponseBuilder.build();
-
             }
 
             Protocol.SubscribeResponse handleSubscribeRequest() {
                 Protocol.SubscribeResponse.Builder subscribeResponseBuilder = Protocol.SubscribeResponse.newBuilder();
                 int taskId = serverRequest.getSubscribe().getTaskId();
 
-                if (!taskDescriptionMap.containsKey(taskId)) {
+                if (!taskStatusMap.containsKey(taskId) ||
+                    taskStatusMap.get(taskId) == Protocol.Status.ERROR) {
                     subscribeResponseBuilder.setStatus(Protocol.Status.ERROR);
                 } else {
-                    Protocol.ListTasksResponse.TaskDescription taskDescription = taskDescriptionMap.get(taskId);
-
-                    if (!taskDescription.hasResult()) {
-                        try {
-                            synchronized (taskDescription.getTask()) {
-                                taskDescription.getTask().wait();
-                            }
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-
-                        taskDescription = taskDescriptionMap.get(taskId);
-                        if (taskDescription.hasResult()) {
-                            subscribeResponseBuilder.setValue(taskDescription.getResult());
-                            subscribeResponseBuilder.setStatus(Protocol.Status.OK);
-                        } else {
-                            subscribeResponseBuilder.setStatus(Protocol.Status.ERROR);
-                        }
-                    } else {
-                        subscribeResponseBuilder.setValue(taskDescription.getResult());
-                        subscribeResponseBuilder.setStatus(Protocol.Status.OK);
-                    }
+                    long taskResult = getTaskResult(taskId);
+                    subscribeResponseBuilder.setValue(taskResult);
+                    subscribeResponseBuilder.setStatus(Protocol.Status.OK);
                 }
 
                 return subscribeResponseBuilder.build();
@@ -204,33 +190,31 @@ public class Server extends Thread {
                 }
             }
 
-            private long resolveParamDependence(Protocol.Task.Param param) {
-                int taskId = param.getDependentTaskId();
-
+            private long getTaskResult(int taskId) {
                 if (!taskDescriptionMap.containsKey(taskId)) {
                     throw new IllegalArgumentException();
-                } else {
-                    Protocol.ListTasksResponse.TaskDescription taskDescription = taskDescriptionMap.get(taskId);
+                }
 
-                    if (!taskDescription.hasResult()) {
+                Protocol.ListTasksResponse.TaskDescription taskDescription = taskDescriptionMap.get(taskId);
+
+                while (true) {
+                    synchronized (taskDescription.getTask()) {
+                        taskDescription = taskDescriptionMap.get(taskId);
+
+                        if (taskStatusMap.get(taskId) == Protocol.Status.ERROR ||
+                            taskDescription.hasResult()) {
+                            break;
+                        }
+
                         try {
-                            synchronized (taskDescription.getTask()) {
-                                taskDescription.getTask().wait();
-                            }
+                            taskDescription.getTask().wait();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-
-                        taskDescription = taskDescriptionMap.get(taskId);
-                        if (taskDescription.hasResult()) {
-                            return taskDescription.getResult();
-                        } else {
-                            throw new IllegalArgumentException();
-                        }
-                    } else {
-                        return taskDescription.getResult();
                     }
                 }
+
+                return taskDescription.getResult();
             }
 
             private long calculate(long a, long b, long p, long m, long n) {

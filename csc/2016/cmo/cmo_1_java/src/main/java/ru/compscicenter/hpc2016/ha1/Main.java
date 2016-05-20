@@ -18,12 +18,12 @@ public class Main {
         }
         try {
             Client client1 = new Client("localhost", serverPort, "#1");
-            client1.sendSubmitTaskRequest(10, 20, 30, 0, 1);
+            client1.sendSubmitTaskRequest(42, 20, 30, 0, 0);
             client1.sendSubscribeRequest(1);
             client1.sendSubscribeRequest(2);
             client1.sendSubscribeRequest(1);
             Client client2 = new Client("localhost", serverPort, "#2");
-            client2.sendSubmitTaskRequest(10, 20, 40, 1000000000, 1);
+            client2.sendSubmitTaskRequest(10, 20, 40, 1, 1000000000);
             client2.sendSubscribeRequest(2);
             client2.sendSubscribeRequest(1);
             client2.sendSubscribeRequest(2);
