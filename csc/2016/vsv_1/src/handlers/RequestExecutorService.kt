@@ -145,10 +145,11 @@ class RequestExecutorService {
         synchronized(monitor, {
             println("Subscribe locked on $taskId monitor")
             println("Subscribe starting to wait for $taskId")
-            monitor.wait()
+            while (!completedTasks.containsKey(taskId)) {
+                monitor.wait()
+            }
             println("Subscribe awake to get  $taskId result")
         })
-        assert(completedTasks.containsKey(taskId), { "Result didn't apeared but subsriber was awake" })
         val result: Long = completedTasks[taskId] ?: return null
         return result
     }
