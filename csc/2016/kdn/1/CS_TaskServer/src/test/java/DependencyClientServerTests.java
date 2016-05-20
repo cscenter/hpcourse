@@ -3,6 +3,8 @@ import communication.Protocol;
 import org.junit.Test;
 import server.MyServer;
 
+import static org.junit.Assert.assertEquals;
+
 /**
  * Created by dkorolev on 4/6/2016.
  */
@@ -112,6 +114,28 @@ public class DependencyClientServerTests {
         Protocol.Task task3 = getSimpleTaskWithMPDependence(taskId1, taskId2);
         int taskId3 = myClient.submitTask(task3);
         Long taskResult3 = myClient.subscribe(taskId3);
+
+        System.out.println(taskResult3);
+        myServer.stop();
+    }
+
+    @Test
+    public void OneClientOneServer_HasTwoDependenceOneDoesNotExists_ReturnNull() throws InterruptedException {
+        MyServer myServer = new MyServer(8887, 1, 2, 2);
+        myServer.start();
+        Thread.sleep(1000);
+        MyClient myClient = new MyClient("1", "localhost", 8887);
+        //Protocol.Task task1 = getSimpleTask();
+        Protocol.Task task2 = getLongTask();
+        int taskId1 = 10000;
+        int taskId2 = myClient.submitTask(task2);
+        System.out.println(taskId1);
+        System.out.println(taskId2);
+
+        Protocol.Task task3 = getSimpleTaskWithMPDependence(taskId1, taskId2);
+        int taskId3 = myClient.submitTask(task3);
+        Long taskResult3 = myClient.subscribe(taskId3);
+        assertEquals(null, taskResult3);
 
         System.out.println(taskResult3);
         myServer.stop();

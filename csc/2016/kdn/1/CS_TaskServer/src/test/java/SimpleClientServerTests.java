@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Created by dkorolev on 4/5/2016.
@@ -107,6 +108,21 @@ public class SimpleClientServerTests {
                     taskDescription.hasResult());
         }
         assertEquals(3, diffTaskIds.size());
+        myServer.stop();
+    }
+
+    @Test
+    public void OneClientOneServer_SubscribeResultOnNotExistedTask_ReturnNull() throws InterruptedException {
+        MyServer myServer = new MyServer(8887, 2, 2, 2);
+        myServer.start();
+        Thread.sleep(1000);
+        MyClient myClient = new MyClient("1", "localhost", 8887);
+        //Protocol.Task task1 = getSimpleTask();
+        int taskId = 1000;
+        System.out.println(taskId);
+        Long taskResult = myClient.subscribe(taskId);
+        assertEquals(null, taskResult);
+        System.out.println(taskResult);
         myServer.stop();
     }
 }

@@ -9,7 +9,7 @@ public class TaskDescFull {
     public final String clientId;
     public final Protocol.Task task;
     public Long result;
-    public boolean hasError;
+    public boolean completed;
 
     public TaskDescFull(String clientId, Protocol.Task task) {
         this.clientId = clientId;

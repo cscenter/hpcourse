@@ -61,9 +61,12 @@ public class TaskManager {
 
     public Long getResult(int taskId) throws InterruptedException {
         TaskDescFull taskDescFull = getTaskDescFull(taskId);
+        if (taskDescFull == null)
+            return null;
+
         if (taskDescFull.result == null) {
             synchronized (taskDescFull) {
-                if (taskDescFull.result == null) {
+                while (!taskDescFull.completed) {
                     taskDescFull.wait();
                 }
             }
@@ -173,7 +176,7 @@ public class TaskManager {
                 TaskDescFull taskDescFull = resultMap.get(resultEntry.getKey());
                 synchronized (taskDescFull) {
                     taskDescFull.result = resultEntry.getValue();
-                    taskDescFull.hasError = taskDescFull.result == null;
+                    taskDescFull.completed = true;
                     taskDescFull.notifyAll();
                 }
             }
@@ -215,10 +218,14 @@ public class TaskManager {
     private boolean setResultOrSubscribe(TaskSubscriber taskSubscriber) {
         //return true if all set (actually does not matter)
         TaskDescFull taskDescFull = getTaskDescFull(taskSubscriber.taskId);
-        if (taskDescFull.result == null) {
+        if (taskDescFull == null) {
+            return taskSubscriber.taskCallable.setParam(taskSubscriber.paramType, null);
+        }
+
+        if (!taskDescFull.completed) {
             List<TaskSubscriber> emptyList = new ArrayList<>();
             synchronized (taskDescFull) {
-                if (taskDescFull.result == null) {
+                if (!taskDescFull.completed) {
                     synchronized (taskSubscribers) {
                         List<TaskSubscriber> subscribers = taskSubscribers.get(taskSubscriber.taskId);
                         if (subscribers == null) {
@@ -231,7 +238,7 @@ public class TaskManager {
             }
         }
 
-        if (taskDescFull.result != null) {
+        if (taskDescFull.completed) {
             return taskSubscriber.taskCallable.setParam(taskSubscriber.paramType, taskDescFull.result);
         }
 
