@@ -6,6 +6,7 @@ import java.io.OutputStream
 import java.net.Socket
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 class RequestExecutorService {
 
@@ -16,7 +17,7 @@ class RequestExecutorService {
     private var lastId = AtomicInteger(0)
 
     fun execute(clientSocket: Socket) {
-        invokeInNewThread {
+        thread {
 
             val request = getRequest(clientSocket.inputStream)
 
@@ -58,7 +59,7 @@ class RequestExecutorService {
     private fun handleSubmit(request: CommunicationProtos.ServerRequest): CommunicationProtos.SubmitTaskResponse {
         val id = getNextId()
 
-        invokeInNewThread {
+        thread {
             println("Start calculation $id")
             //register task, create lock
             val monitor = Object()
@@ -115,12 +116,6 @@ class RequestExecutorService {
         //strange thing happened with handlers idea
         val handler = ListRequestHandler(receivedTasks, completedTasks)
         return handler.handle(request.list)
-    }
-
-
-    private fun invokeInNewThread(action: () -> Unit) {
-        val task = Thread(Runnable { action() })
-        task.start()
     }
 
     private fun getRequest(ism: InputStream): CommunicationProtos.ServerRequest? {
