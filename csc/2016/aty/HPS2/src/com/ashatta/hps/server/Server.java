@@ -143,7 +143,9 @@ public class Server implements Runnable {
             synchronized (requestToSocket) {
                 socket = requestToSocket.get(requestId);
             }
-            message.writeDelimitedTo(socket.getOutputStream());
+            synchronized (socket) {
+                message.writeDelimitedTo(socket.getOutputStream());
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
