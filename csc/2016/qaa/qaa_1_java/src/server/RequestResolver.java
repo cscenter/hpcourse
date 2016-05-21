@@ -20,23 +20,41 @@ public class RequestResolver implements Runnable {
 
     @Override
     public void run() {
-        try {
-            Protocol.ServerResponse.Builder responseBuilder = Protocol.ServerResponse.newBuilder();
-            responseBuilder.setRequestId(request.getRequestId());
+        Protocol.ServerResponse.Builder responseBuilder = Protocol.ServerResponse.newBuilder();
+        responseBuilder.setRequestId(request.getRequestId());
 
-            if (request.hasSubmit()) {
+        if (request.hasSubmit()) {
+            try {
                 responseBuilder.setSubmitResponse(server.submitTask(request.getSubmit(), request.getClientId()));
-            } else if (request.hasSubscribe()) {
-                responseBuilder.setSubscribeResponse(server.subscribe(request.getSubscribe()));
-            } else if (request.hasList()) {
-                responseBuilder.setListResponse(server.listTasks(request.getList()));
+            } catch (Exception e) {
+                responseBuilder.setSubmitResponse(Protocol.SubmitTaskResponse.newBuilder()
+                        .setStatus(Protocol.Status.ERROR).setSubmittedTaskId(-1).build());
             }
+        } else if (request.hasSubscribe()) {
+            try {
+                responseBuilder.setSubscribeResponse(server.subscribe(request.getSubscribe()));
+            } catch (Exception e) {
+                responseBuilder.setSubscribeResponse(Protocol.SubscribeResponse.newBuilder()
+                        .setStatus(Protocol.Status.ERROR).build());
+            }
+        } else if (request.hasList()) {
+            try {
+                responseBuilder.setListResponse(server.listTasks(request.getList()));
+            } catch (Exception e) {
+                responseBuilder.setListResponse(Protocol.ListTasksResponse.newBuilder()
+                        .setStatus(Protocol.Status.ERROR).build());
+            }
+        }
+
+        try {
             synchronized (outputStream) {
-                Protocol.WrapperMessage.newBuilder().setResponse(responseBuilder.build()).build().writeTo(outputStream);
+                Protocol.WrapperMessage.newBuilder().setResponse(responseBuilder.build()).build()
+                        .writeDelimitedTo(outputStream);
                 outputStream.flush();
             }
         } catch (IOException e) {
-            // ignore
+            // Ignore because we couldn't send message to client. Trying again hardly help us
+            System.err.println("Couldn't sent message to client");
         }
     }
 }

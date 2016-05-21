@@ -201,6 +201,11 @@ public class ServerImpl implements Server {
             } else {
                 ServerTask dependent;
                 synchronized (submittedTaskList) {
+                    int dependentId = param.getDependentTaskId();
+                    if (dependentId < 0 || dependentId >= submittedTaskList.size()) {
+                        successful.set(false);
+                        return -1;
+                    }
                     dependent = submittedTaskList.get(param.getDependentTaskId());
                 }
                 long result = dependent.getResult();
