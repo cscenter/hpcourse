@@ -142,9 +142,15 @@ public class Server extends Thread{
                         if (description.hasResult())
                             result = description.getResult();
                         else {
-                            task.wait();
-                            description = Helper.getInstance().getTaskById(taskId);
-                            result = description.getResult();
+                        	while (true) {
+                           	   task.wait();
+	                            description = Helper.getInstance().getTaskById(taskId); 
+	                            if (description.hasResult())
+	                            {
+	                            	break
+	                            }    	                        
+        	                }
+        	                result = description.getResult();
                         }
                     }
                     builder.setStatus(Protocol.Status.OK).setValue(result);
