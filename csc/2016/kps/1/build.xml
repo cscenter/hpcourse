@@ -1,0 +1,27 @@
+<project name="MyProject" default="all" basedir=".">
+
+    <target name="make_dir" description="Make a dir">
+        <mkdir dir="bin"/>
+    </target>
+    
+    <target name="compile" depends="make_dir">
+        <javac destdir="bin" classpath="lib/protobuf-java-2.6.1.jar">
+            <src path="src" />
+        </javac>
+    </target>
+        
+    <target name="all" depends="compile"/>
+
+    <target name="clean">
+        <echo>Clean up.</echo>
+        <delete dir="bin" />
+    </target>
+    
+    <target name="start_server" depends="compile">
+        <java classname="first.Server" args="40000" classpath="${basedir}/bin/:${basedir}/lib/protobuf-java-2.6.1.jar"/>
+    </target>
+    
+    <target name="start_client" depends="compile">
+        <java classname="first.ClientRequest" args="40000" classpath="${basedir}/bin/:${basedir}/lib/protobuf-java-2.6.1.jar"/>
+    </target>
+</project>
