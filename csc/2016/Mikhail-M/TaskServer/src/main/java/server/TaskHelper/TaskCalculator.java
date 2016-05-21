@@ -54,7 +54,6 @@ public class TaskCalculator {
         synchronized (this) {
             task.setReady(true);
             task.setResult(result);
-            this.notifyAll();
         }
     }
 
