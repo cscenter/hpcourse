@@ -7,8 +7,8 @@ public class Task {
     private long taskId;
     private Protocol.Task protoTask;
     private String clientId;
-    private boolean isReady;
-    private Long result;
+    private volatile boolean isReady;
+    private volatile Long result;
 
     public Task(Protocol.Task protoTask, long  id, String clientId) {
         this.taskId = id;
