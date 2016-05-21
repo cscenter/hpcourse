@@ -51,9 +51,10 @@ public class TaskCalculator {
 
         long result = calculate(a.getValue(), b.getValue(), p.getValue(), m.getValue(), n.getValue());
 
-        synchronized (this) {
+        synchronized (task) {
             task.setReady(true);
             task.setResult(result);
+            task.notifyAll();
         }
     }
 
