@@ -30,6 +30,8 @@ public class Server extends Thread{
         ids = new SynchronizedInt();
         serverSocket = new ServerSocket(serverPort);
         //System.out.printf("Start new Server\n");
+
+
     }
 
     Socket connection;
@@ -39,39 +41,42 @@ public class Server extends Thread{
         try {
             while (true) {
                 connection = serverSocket.accept();
-                while (true) {
-                        try {
-                            ServerRequest request = ServerRequest.parseDelimitedFrom(connection.getInputStream());
-                            if (request == null)
-                                break;
-                            if (request.hasSubmit()) {
-     //                           System.out.printf("Get new task\n");
-                                new TaskHandler(request).start();
-                            }
-                            if (request.hasSubscribe()) {
-                      //          System.out.printf("Subscribe new\n");
-                                new SubscribeHandler(request).start();
-                            }
-                            if (request.hasList()) {
-                                new ListHandler(request).start();
-                            }
+                new Thread() {
+                    @Override
+                    public void run() {
+                        while (true) {
+                            try {
+                                ServerRequest request = ServerRequest.parseDelimitedFrom(connection.getInputStream());
+                                if (request == null)
+                                    break;
+                                if (request.hasSubmit()) {
+                                    //                           System.out.printf("Get new task\n");
+                                    new TaskHandler(request).start();
+                                }
+                                if (request.hasSubscribe()) {
+                                    //          System.out.printf("Subscribe new\n");
+                                    new SubscribeHandler(request).start();
+                                }
+                                if (request.hasList()) {
+                                    new ListHandler(request).start();
+                                }
 
+                            } catch (IOException e) {
+                                break;
+                            }
+                        }
+                        try {
+                            connection.close();
                         } catch (IOException e) {
-                            break;
+                            e.printStackTrace();
                         }
                     }
-                }
-            } catch (IOException e1) {
-            try {
-                connection.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+                }.start();
             }
-            e1.printStackTrace();
-            return;
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-
 
     public int getServerPort() {
         return serverPort;
@@ -147,7 +152,7 @@ public class Server extends Thread{
 	                            description = Helper.getInstance().getTaskById(taskId); 
 	                            if (description.hasResult())
 	                            {
-	                            	break
+	                            	break;
 	                            }    	                        
         	                }
         	                result = description.getResult();
