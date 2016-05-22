@@ -56,6 +56,13 @@ public class CalculationTask implements Runnable {
         }
     }
 
+    /* Used when we are not able to create a new task (for example, if protoTask is malformed).
+     * TaskManager still sends a new id to the client though the task has never been actually created.
+     */
+    public static int nextId() {
+        return maxId.getAndIncrement();
+    }
+
     public List<Integer> dependents() {
         return this.dependents;
     }
@@ -106,13 +113,13 @@ public class CalculationTask implements Runnable {
                     }
                 }
             }
+
+            if (dependent.hasError()) {
+                taskManager.submissionFailed(this, submitRequestId);
+                return;
+            }
         }
 
-        /* If a task on which we are dependent has an error we will still send submission response with OK status,
-         * but will not be able to calculate the result of this task so it will also get the error flag set.
-         * In other words, the submission request will be successful but not subscription requests.
-         * I am not sure that such behaviour is reasonable and intended.
-         */
         taskManager.taskSubmitted(this, submitRequestId);
 
         try {

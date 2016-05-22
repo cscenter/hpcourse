@@ -76,14 +76,11 @@ public class TaskManager {
 
     public void submit(String clientId, long submitRequestId, Protocol.Task protoTask) {
         if (!verifyTaskSubmission(protoTask)) {
-            server.sendSubmitResponse(submitRequestId, 0, false);
+            server.sendSubmitResponse(submitRequestId, CalculationTask.nextId(), false);
             return;
         }
 
         CalculationTask task = new CalculationTask(this, clientId, submitRequestId, protoTask);
-        synchronized (taskById) {
-            taskById.put(task.getTaskId(), task);
-        }
         synchronized (waitingQueue) {
             waitingQueue.add(task);
             waitingQueue.notify();
@@ -139,7 +136,14 @@ public class TaskManager {
         server.sendListTasksResponse(requestId, runningTasks, completeTasks, true);
     }
 
+    void submissionFailed(CalculationTask task, long requestId) {
+        server.sendSubmitResponse(requestId, task.getTaskId(), false);
+    }
+
     void taskSubmitted(CalculationTask task, long requestId) {
+        synchronized (taskById) {
+            taskById.put(task.getTaskId(), task);
+        }
         synchronized (running) {
             running.add(task.getTaskId());
         }
