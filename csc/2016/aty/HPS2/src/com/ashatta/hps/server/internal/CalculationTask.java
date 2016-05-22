@@ -4,6 +4,7 @@ import com.ashatta.hps.communication.Protocol;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /* Represents a single task. Executed by TaskManager's WorkerThread. Waits for completion of all the task
@@ -28,7 +29,8 @@ public class CalculationTask implements Runnable {
      * used to submit error message to the client.
      */
     private boolean error;
-    private boolean completed;
+    /* Atomic for visibility. */
+    private AtomicBoolean completed;
 
     public CalculationTask(TaskManager taskManager, String clientId, long submitRequestId, Protocol.Task protoTask) {
         this.taskManager = taskManager;
@@ -37,7 +39,7 @@ public class CalculationTask implements Runnable {
         this.protoTask = protoTask;
         this.taskId = maxId.getAndIncrement();
         this.error = false;
-        this.completed = false;
+        this.completed = new AtomicBoolean(false);
 
         dependents = new ArrayList<>();
         if (protoTask.getA().hasDependentTaskId()) {
@@ -63,7 +65,7 @@ public class CalculationTask implements Runnable {
     }
 
     public long getResult() {
-        if (completed && !hasError()) {
+        if (isCompleted() && !hasError()) {
             return result;
         } else {
             throw new IllegalStateException("Getting result of an incomplete or erroneous task");
@@ -83,7 +85,7 @@ public class CalculationTask implements Runnable {
     }
 
     boolean isCompleted() {
-        return completed;
+        return completed.get();
     }
 
     private long getValue(Protocol.Task.Param param) {
@@ -106,6 +108,11 @@ public class CalculationTask implements Runnable {
             }
         }
 
+        /* If a task on which we are dependent has an error we will still send submission response with OK status,
+         * but will not be able to calculate the result of this task so it will also get the error flag set.
+         * In other words, the submission request will be successful but not subscription requests.
+         * I am not sure that such behaviour is reasonable and intended.
+         */
         taskManager.taskSubmitted(this, submitRequestId);
 
         try {
@@ -126,7 +133,7 @@ public class CalculationTask implements Runnable {
         } catch (Exception e) {
             error = true;
         } finally {
-            completed = true;
+            completed.set(true);
             synchronized (this) {
                 taskManager.taskCompleted(this);
                 this.notifyAll();
