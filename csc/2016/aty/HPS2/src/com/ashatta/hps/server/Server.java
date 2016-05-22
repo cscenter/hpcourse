@@ -31,7 +31,13 @@ public class Server implements Runnable {
                     InputStream is = socket.getInputStream();
                     Protocol.WrapperMessage message = Protocol.WrapperMessage.parseDelimitedFrom(is);
                     if (message != null) {
+                        if (!message.hasRequest()) {
+                            throw new IllegalArgumentException("Malformed message received");
+                        }
                         Protocol.ServerRequest request = message.getRequest();
+                        if (!request.hasClientId() || !request.hasRequestId()) {
+                            throw new IllegalArgumentException("Malformed request received");
+                        }
                         String clientId = request.getClientId();
                         long requestId = request.getRequestId();
                         synchronized (requestToSocket) {
@@ -39,9 +45,19 @@ public class Server implements Runnable {
                         }
 
                         if (request.hasSubmit()) {
-                            taskManager.submit(clientId, requestId, request.getSubmit().getTask());
+                            Protocol.SubmitTask submit = request.getSubmit();
+                            if (submit.hasTask()) {
+                                taskManager.submit(clientId, requestId, submit.getTask());
+                            } else {
+                                sendSubmitResponse(requestId, 0, false);
+                            }
                         } else if (request.hasSubscribe()) {
-                            taskManager.subscribe(requestId, request.getSubscribe().getTaskId());
+                            Protocol.Subscribe subscribe = request.getSubscribe();
+                            if (subscribe.hasTaskId()) {
+                                taskManager.subscribe(requestId, request.getSubscribe().getTaskId());
+                            } else {
+                                sendSubscribeResponse(requestId, 0, false);
+                            }
                         } else if (request.hasList()) {
                             taskManager.listAll(requestId);
                         } else {
@@ -97,12 +113,15 @@ public class Server implements Runnable {
     }
 
     public void sendSubscribeResponse(long requestId, long result, boolean status) {
+        Protocol.SubscribeResponse.Builder subscribeBuilder = Protocol.SubscribeResponse.newBuilder()
+                .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR);
+        if (status) {
+            subscribeBuilder.setValue(result);
+        }
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder()
                 .setResponse(Protocol.ServerResponse.newBuilder()
                         .setRequestId(requestId)
-                        .setSubscribeResponse(Protocol.SubscribeResponse.newBuilder()
-                                .setValue(result)
-                                .setStatus(status ? Protocol.Status.OK : Protocol.Status.ERROR))).build();
+                        .setSubscribeResponse(subscribeBuilder)).build();
 
         sendResponse(requestId, message);
     }

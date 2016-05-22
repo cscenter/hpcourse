@@ -75,6 +75,11 @@ public class TaskManager {
     }
 
     public void submit(String clientId, long submitRequestId, Protocol.Task protoTask) {
+        if (!verifyTaskSubmission(protoTask)) {
+            server.sendSubmitResponse(submitRequestId, 0, false);
+            return;
+        }
+
         CalculationTask task = new CalculationTask(this, clientId, submitRequestId, protoTask);
         synchronized (taskById) {
             taskById.put(task.getTaskId(), task);
@@ -85,11 +90,24 @@ public class TaskManager {
         }
     }
 
+    private boolean verifyTaskSubmission(Protocol.Task protoTask) {
+        return protoTask.hasA() && verifyTaskParam(protoTask.getA()) &&
+                protoTask.hasB() && verifyTaskParam(protoTask.getB()) &&
+                protoTask.hasM() && verifyTaskParam(protoTask.getM()) &&
+                protoTask.hasP() && verifyTaskParam(protoTask.getP()) &&
+                protoTask.hasN();
+    }
+
+    private boolean verifyTaskParam(Protocol.Task.Param param) {
+        return param.hasValue() || (param.hasDependentTaskId() && getTask(param.getDependentTaskId()) != null);
+    }
+
     public void subscribe(long requestId, int taskId) {
-        CalculationTask task;
-        synchronized (taskById) {
-            task = taskById.get(taskId);
+        CalculationTask task = getTask(taskId);
+        if (task == null) {
+            server.sendSubscribeResponse(requestId, 0, false);
         }
+
         SubscriptionTask subscriptionTask = new SubscriptionTask(this, task, requestId);
         synchronized (waitingQueue) {
             waitingQueue.add(subscriptionTask);
@@ -142,7 +160,7 @@ public class TaskManager {
          by zero), it will not be sent in the submit response for that task.
      */
     void subscriptionNotify(CalculationTask task, long requestId) {
-        server.sendSubscribeResponse(requestId, task.getResult(), !task.hasError());
+        server.sendSubscribeResponse(requestId, task.hasError() ? 0 : task.getResult(), !task.hasError());
     }
 
     CalculationTask getTask(int taskId) {

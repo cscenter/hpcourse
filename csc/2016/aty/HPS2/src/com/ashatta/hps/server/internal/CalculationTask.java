@@ -19,9 +19,13 @@ public class CalculationTask implements Runnable {
     private final Protocol.Task protoTask;
     private final int taskId;
     private final List<Integer> dependents;
+    /* Does not need to be atomic or synchronized: a value is assigned only once and then completed flag is set.
+     * Cannot be read before the flag is set (violation of this rule will raise IllegalStateException).
+     * Thus, data race on result is impossible.
+     */
     private long result;
     /* True if something fails during the execution of the task (e.g. division by zero),
-        used to submit error message to the client.
+     * used to submit error message to the client.
      */
     private boolean error;
     private boolean completed;
@@ -59,7 +63,11 @@ public class CalculationTask implements Runnable {
     }
 
     public long getResult() {
-        return result;
+        if (completed && !hasError()) {
+            return result;
+        } else {
+            throw new IllegalStateException("Getting result of an incomplete or erroneous task");
+        }
     }
 
     public String getClientId() {
