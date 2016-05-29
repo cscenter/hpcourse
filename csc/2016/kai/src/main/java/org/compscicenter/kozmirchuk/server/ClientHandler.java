@@ -16,6 +16,8 @@ public class ClientHandler implements Runnable {
     private static final Solver solver = new Solver(4);
 
     private final Logger logger = LoggerFactory.getLogger(ClientHandler.class);
+    private final Object sendLock = new Object();
+
     private AtomicInteger counter = new AtomicInteger();
     private final Socket client;
 
@@ -29,7 +31,11 @@ public class ClientHandler implements Runnable {
         while (true) {
             try {
                 Protocol.WrapperMessage wrapperMessage = Protocol.WrapperMessage.parseDelimitedFrom(client.getInputStream());
+
+                if (wrapperMessage == null) continue;
+
                 Protocol.ServerRequest request = wrapperMessage.getRequest();
+
 
                 if (request.hasSubmit())
                     send(handleSubmit(request), client.getOutputStream());
@@ -52,10 +58,11 @@ public class ClientHandler implements Runnable {
         Protocol.Task task = request.getSubmit().getTask();
         int taskId = counter.incrementAndGet();
 
-        solver.push(new TaskWrapper(taskId, task, request.getClientId()));
+        Protocol.Status status = solver.push(new TaskWrapper(taskId, task, request.getClientId())) ? Protocol.Status.OK :
+                Protocol.Status.ERROR;
 
         Protocol.SubmitTaskResponse taskResponse = Protocol.SubmitTaskResponse.newBuilder()
-                .setStatus(Protocol.Status.OK).setSubmittedTaskId(taskId).build();
+                .setStatus(status).setSubmittedTaskId(taskId).build();
 
         return Protocol.ServerResponse.newBuilder().setSubmitResponse(taskResponse)
                 .setRequestId(request.getRequestId()).build();
@@ -107,7 +114,9 @@ public class ClientHandler implements Runnable {
 
     private void send(Protocol.ServerResponse response, OutputStream out) throws IOException {
         Protocol.WrapperMessage message = Protocol.WrapperMessage.newBuilder().setResponse(response).build();
-        message.writeDelimitedTo(out);
+        synchronized (sendLock) {
+            message.writeDelimitedTo(out);
+        }
     }
 
 }

@@ -18,29 +18,31 @@ public class Solver {
     }
 
 
-    public void push(TaskWrapper task) {
+    public boolean push(TaskWrapper task) {
 
+        final List<Protocol.Task.Param> params = new ArrayList<>();
+        params.add(task.task.getA());
+        params.add(task.task.getB());
+        params.add(task.task.getP());
+        params.add(task.task.getM());
+
+
+        final List<TaskWrapper> parentValueLocks = new ArrayList<>();
         synchronized (tasks) {
+
+            for (Protocol.Task.Param value : params) {
+                if (!value.hasValue()) {
+                    TaskWrapper parentTaskId = tasks.get((int) value.getDependentTaskId());
+                    if (parentTaskId == null) return false;
+                    parentValueLocks.add(parentTaskId);
+
+                }
+            }
+
             tasks.put(task.taskId, task);
         }
 
         new Thread(() -> {
-
-            List<Protocol.Task.Param> params = new ArrayList<>();
-            params.add(task.task.getA());
-            params.add(task.task.getB());
-            params.add(task.task.getP());
-            params.add(task.task.getM());
-
-
-            List<TaskWrapper> parentValueLocks = new ArrayList<>();
-
-            synchronized (tasks) {
-                for (Protocol.Task.Param value : params) {
-                    if (!value.hasValue())
-                        parentValueLocks.add(tasks.get((int)value.getDependentTaskId()));
-                }
-            }
 
             for (TaskWrapper parentTask : parentValueLocks) {
                 try {
@@ -59,6 +61,8 @@ public class Solver {
             }
 
         }, "Dependency Resolver").start();
+
+        return true;
 
     }
 
@@ -89,7 +93,7 @@ public class Solver {
         @Override
         public void run() {
 
-            while(true) {
+            while (true) {
                 try {
                     TaskWrapper taskWrapper;
                     synchronized (queue) {
@@ -102,10 +106,10 @@ public class Solver {
                     Protocol.Task task = taskWrapper.task;
 
                     synchronized (tasks) {
-                        long a = task.getA().hasValue() ? task.getA().getValue() : tasks.get((int)task.getA().getDependentTaskId()).getResult();
-                        long b = task.getB().hasValue() ? task.getB().getValue() : tasks.get((int)task.getB().getDependentTaskId()).getResult();
-                        long p = task.getP().hasValue() ? task.getP().getValue() : tasks.get((int)task.getP().getDependentTaskId()).getResult();
-                        long m = task.getM().hasValue() ? task.getM().getValue() : tasks.get((int)task.getM().getDependentTaskId()).getResult();
+                        long a = task.getA().hasValue() ? task.getA().getValue() : tasks.get((int) task.getA().getDependentTaskId()).getResult();
+                        long b = task.getB().hasValue() ? task.getB().getValue() : tasks.get((int) task.getB().getDependentTaskId()).getResult();
+                        long p = task.getP().hasValue() ? task.getP().getValue() : tasks.get((int) task.getP().getDependentTaskId()).getResult();
+                        long m = task.getM().hasValue() ? task.getM().getValue() : tasks.get((int) task.getM().getDependentTaskId()).getResult();
                         long n = task.getN();
                         taskWrapper.run(a, b, p, m, n);
                     }
