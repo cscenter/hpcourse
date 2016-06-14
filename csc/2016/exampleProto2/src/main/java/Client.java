@@ -1,7 +1,9 @@
 /**
  * Created by Alex on 08.04.2016.
  */
-
+/*не является основным кодом клиента, для удобства разработки, весь код клинта
+в отдельном проекте
+ */
 import communication.Protocol;
 
 import java.io.IOException;

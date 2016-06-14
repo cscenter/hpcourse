@@ -150,12 +150,23 @@ class Server extends Thread {
             } else {
                 Protocol.Task task = request.getSubmit().getTask();
                 oneSession.task = task;
+                //быстро отвечаем на независимые от других задач запросы, посылая уведомление, что взяли в обработку
+                //если будет 0, то посылаем сообщение с флагом об отказе
+                quickAnswer.quickAnswer(oneSession.getTask(), oneSession.getRequest_id(), logicInformation.getSocket());
                 //читаем аргументы, если зависимые, то ждём решения
                 args.setA(dependentTaskReadAndWait(task.getA()));
                 args.setB(dependentTaskReadAndWait(task.getB()));
                 args.setP(dependentTaskReadAndWait(task.getP()));
                 args.setM(dependentTaskReadAndWait(task.getM()));
                 args.setN(task.getN());
+                if(args.getN()==0) {
+                    //игнорируем сообщение
+                    //ввиду того, что хочется записывать результаты хороших задач
+                    //под тем же id можно будет прислать эту task с другим n
+                    logicInformation.setComputeIsEnd(true);
+                    System.out.println("I have been given zero!");
+                    throw (new ArithmeticException());
+                }
                 //тут предполагается, что между запросом и таской, есть биекция
                 //иначе бы добавили бы ещё один if
                 if (!mapTasks.containsKey(logicInformation.getKeyOfTask())) {
