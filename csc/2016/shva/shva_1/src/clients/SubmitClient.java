@@ -31,12 +31,9 @@ public class SubmitClient {
         Protocol.ServerRequest request = builder.build();
         try (OutputStream outputStream = socket.getOutputStream();
              InputStream inputStream = socket.getInputStream()) {
-            outputStream.write(request.getSerializedSize());
-            request.writeTo(outputStream);
-            int size = inputStream.read();
-            byte[] buf = new byte[size];
-            inputStream.read(buf);
-            System.out.println(Protocol.ServerResponse.parseFrom(buf).getSubmitResponse().getStatus());
+            request.writeDelimitedTo(outputStream);
+            Protocol.ServerResponse response = Protocol.ServerResponse.parseDelimitedFrom(inputStream);
+            System.out.println(response.getSubmitResponse().getStatus());
         } catch (IOException e) {
             LOG.warning("Send request error");
             e.printStackTrace();

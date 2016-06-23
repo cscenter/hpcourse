@@ -30,13 +30,9 @@ public class SubscribeClient {
         Protocol.ServerRequest request = builder.build();
         try (OutputStream outputStream = socket.getOutputStream();
              InputStream inputStream = socket.getInputStream()) {
-            outputStream.write(request.getSerializedSize());
-            request.writeTo(outputStream);
-
-            int size = inputStream.read();
-            byte[] buf = new byte[size];
-            inputStream.read(buf);
-            System.out.println(Protocol.ServerResponse.parseFrom(buf).getSubscribeResponse().getValue());
+            request.writeDelimitedTo(outputStream);
+            Protocol.ServerResponse response = Protocol.ServerResponse.parseDelimitedFrom(inputStream);
+            System.out.println(response.getSubscribeResponse().getValue());
         } catch (IOException e) {
             LOG.warning("Send request error");
             e.printStackTrace();

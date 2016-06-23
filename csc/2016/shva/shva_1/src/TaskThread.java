@@ -68,8 +68,7 @@ public class TaskThread extends Thread {
     }
 
     private void sendResponse(OutputStream outputStream, Protocol.ServerResponse response) throws IOException {
-        outputStream.write(response.getSerializedSize());
-        response.writeTo(outputStream);
+        response.writeDelimitedTo(outputStream);
     }
 
     private Protocol.ServerResponse buildSubmitResponse(Protocol.ServerRequest request) {
@@ -99,10 +98,7 @@ public class TaskThread extends Thread {
     }
 
     private Protocol.ServerRequest getServerRequest(final InputStream inputStream) throws IOException {
-            int size = inputStream.read();
-            byte[] buf = new byte[size];
-            inputStream.read(buf);
-            return Protocol.ServerRequest.parseFrom(buf);
+        return Protocol.ServerRequest.parseDelimitedFrom(inputStream);
     }
 
 }
