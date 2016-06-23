@@ -11,15 +11,15 @@ public class RequestsHistory {
 
     private RequestsHistory() {}
 
-    public static synchronized void putTask(int taskId, String clientId, Protocol.Task task) {
+    public static void putTask(int taskId, String clientId, Protocol.Task task) {
         history.put(taskId, new TaskDescription(clientId, task));
     }
 
-    public static synchronized TaskDescription getTaskDescriptionById(int id) {
+    public static TaskDescription getTaskDescriptionById(int id) {
         return history.get(id);
     }
 
-    public static List<Protocol.ListTasksResponse.TaskDescription> getTasks() {
+    public static synchronized List<Protocol.ListTasksResponse.TaskDescription> getTasks() {
         List<Protocol.ListTasksResponse.TaskDescription> list = new ArrayList<>();
         for (Map.Entry<Integer, TaskDescription> elements : history.entrySet()) {
             list.add(Protocol.ListTasksResponse.TaskDescription.newBuilder()
