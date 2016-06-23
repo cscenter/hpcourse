@@ -5,7 +5,7 @@ import communication.Protocol;
 public class TaskDescription {
 
     private String clientId;
-    private boolean isDone = false;
+    private volatile boolean isDone = false;
     private Protocol.Task task;
     private Protocol.Status status;
     private Long result;
