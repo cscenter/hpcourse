@@ -43,11 +43,9 @@ void get_data(const std::string& buffer, std::vector<int>& data) {
         if (buffer[i] == ' ') 
         {
             data.push_back(std::stoi(tmp));
-            nofirst = true;
             tmp = "";
         } else {
             tmp += buffer[i];
-            nofirst = false;
         }
     }
 
