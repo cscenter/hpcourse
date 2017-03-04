@@ -30,12 +30,13 @@ public class Client extends Thread{
             @Override
             public void run() {
                 try {
-                    int size = 0;
+                    //int size = 0;
                     while (true) {
-                        size = clientSocket.getInputStream().read();
-                        byte buf[] = new byte[size];
-                        clientSocket.getInputStream().read(buf);
-                        Protocol.ServerResponse response = Protocol.ServerResponse.parseFrom(buf);
+//                        size = clientSocket.getInputStream().read();
+//                        byte buf[] = new byte[size];
+//                        clientSocket.getInputStream().read(buf);
+//                        Protocol.ServerResponse response = Protocol.ServerResponse.parseFrom(buf);
+                        Protocol.ServerResponse response = Protocol.ServerResponse.parseDelimitedFrom(clientSocket.getInputStream());
                         System.out.println(response);
                     }
                 } catch (IOException e) {
@@ -112,7 +113,6 @@ public class Client extends Thread{
         builder.setList(Protocol.ListTasks.newBuilder().build());
         builder.setRequestId(requestId++);
         builder.setClientId(clientID);
-
         send(builder.build());
     }
 

@@ -38,7 +38,7 @@ public class Controller {
     }
 
     public Task getTaskById (int id){
-        return Controller.getInstance().taskMap.get(id);
+        return taskMap.get(id);
     }
 
     // добавление и запуск новой задачи

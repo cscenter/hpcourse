@@ -19,8 +19,9 @@ public abstract class RequestProcessingThread implements Runnable{
         OutputStream out = null;
         out = socket.getOutputStream();
         synchronized (out){
-            out.write(serverResponse.getSerializedSize());
-            serverResponse.writeTo(out);
+//            out.write(serverResponse.getSerializedSize());
+//            serverResponse.writeTo(out);
+            serverResponse.writeDelimitedTo(out);
             out.flush();
         }
 

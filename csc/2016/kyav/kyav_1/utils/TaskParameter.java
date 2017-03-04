@@ -17,7 +17,10 @@ public class TaskParameter {
     }
 
     public long getValue(){
-        return value;
+        if (originTask == null) {
+            return value;
+        }
+        return originTask.getResult();
     }
 
     /* преобразование в формат сообщения протокола */

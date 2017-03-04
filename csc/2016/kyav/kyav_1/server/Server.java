@@ -30,11 +30,12 @@ public class Server extends Thread {
                     public void run() {
                         try {
                             while (true) {
-                                int size = 0;
-                                size = newSocket.getInputStream().read();
-                                byte buf[] = new byte[size];
-                                newSocket.getInputStream().read(buf);
-                                Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(buf);;
+//                                int size = 0;
+//                                size = newSocket.getInputStream().read();
+//                                byte buf[] = new byte[size];
+//                                newSocket.getInputStream().read(buf);
+//                                Protocol.ServerRequest request = Protocol.ServerRequest.parseFrom(buf);;
+                                Protocol.ServerRequest request = Protocol.ServerRequest.parseDelimitedFrom(newSocket.getInputStream());
 
                                 // обработка типа запроса
                                 if (request.hasSubmit()) {

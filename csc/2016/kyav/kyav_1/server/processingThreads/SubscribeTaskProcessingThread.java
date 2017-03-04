@@ -26,14 +26,17 @@ public class SubscribeTaskProcessingThread extends RequestProcessingThread {
         } else {
             if (!currentTask.isDone()) {
                 synchronized (currentTask) {
-                    try {
-                        currentTask.wait();
-                    } catch (InterruptedException e) {
-                        System.out.println("Thread interrupted");
-                        e.printStackTrace();
+                    while (!currentTask.isDone()) {
                         try {
-                            socket.close();
-                        } catch (IOException e1) {}
+                            currentTask.wait();
+                        } catch (InterruptedException e) {
+                            System.out.println("Thread interrupted");
+                            e.printStackTrace();
+                            try {
+                                socket.close();
+                            } catch (IOException e1) {
+                            }
+                        }
                     }
                 }
             }
