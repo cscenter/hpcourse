@@ -137,7 +137,9 @@ int run_threads() {
     delete value;
 
     // return sum of update values seen by consumer
-    return *res;
+    int result = *res;
+    delete res;
+    return result;
 }
 
 int main() {
