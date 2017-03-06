@@ -30,44 +30,20 @@ private:
     int _value;
 };
 
-/**
- * Это вспомогательная функция для получения данных из считанной
- * через getline() строки.
- * Вероятно, я намудрил и есть какой-то способ получше и красивее
- */
-void get_data(const std::string& buffer, std::vector<int>& data) {
-    std::string tmp = "";
-
-    for (size_t i = 0; i < buffer.size(); ++i)
-    {
-        if (buffer[i] == ' ') 
-        {
-            data.push_back(std::stoi(tmp));
-            tmp = "";
-        } else {
-            tmp += buffer[i];
-        }
-    }
-
-    data.push_back(std::stoi(tmp));
-}
-
-
 void* producer_routine(void* arg) {
     pthread_mutex_lock(&mutex);
 
-    std::string tmp;
-    std::vector<int> numbers;
     //---read data
-    std::getline(std::cin, tmp);
-    get_data(tmp, numbers);
-
-    size_t i = 0;
-    while(i < numbers.size())
+    int buff;
+    while(true)
     {
         if(THREAD_ID == 0)
         {
-            (*(Value*)arg).update(numbers[i++]);
+            if (!(std::cin >> buff))
+            {
+                break;
+            }
+            (*(Value*)arg).update(buff);
             THREAD_ID = 1;
         }
         pthread_cond_signal(&cond);
