@@ -43,9 +43,6 @@ void *producer_routine(void *arg) {
     std::vector<int> data;
     int a;
     while (std::cin >> a) {
-        if (a == 0) {
-            break;
-        }
         data.push_back(a);
     }
 
