@@ -1,14 +1,8 @@
 #include <pthread.h> 
 #include <iostream>
-#include <vector>
-#include <string>
 
-/**
- * Вероятно, можно как-то обойтись без глобалов?
- * Но иначе у меня runtime error
- */
 pthread_mutex_t mutex;
-pthread_cond_t cond;
+pthread_cond_t cond_c, cond_p;
 unsigned short THREAD_ID = 0;
 bool done = 0;
 
@@ -35,25 +29,26 @@ void* producer_routine(void* arg) {
 
     //---read data
     int buff;
+    THREAD_ID = 1;
     while(true)
     {
-        if(THREAD_ID == 0)
+        if(THREAD_ID == 1)
         {
             if (!(std::cin >> buff))
             {
                 break;
             }
             (*(Value*)arg).update(buff);
-            THREAD_ID = 1;
+            THREAD_ID = 2;
         }
-        pthread_cond_signal(&cond);
-        pthread_cond_wait(&cond,&mutex);
+        pthread_cond_signal(&cond_c);
+        pthread_cond_wait(&cond_p, &mutex);
     }
 
-    THREAD_ID = 1;
+    THREAD_ID = 2;
     done = true;
     pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&cond);
+    pthread_cond_signal(&cond_c);
     pthread_exit(NULL);
 }
 
@@ -67,39 +62,37 @@ void* consumer_routine(void* arg) {
     pthread_mutex_lock(&mutex);
     while(!done)
     {
-        if(THREAD_ID == 1)
+        if(THREAD_ID == 2)
         {
             result += (*(Value*)arg).get();
-            THREAD_ID = 2;
+            THREAD_ID = 1;
         }
-        pthread_cond_signal(&cond);
-        pthread_cond_wait(&cond,&mutex);
+        pthread_cond_signal(&cond_p);
+        pthread_cond_wait(&cond_c, &mutex);
     }
 
-    THREAD_ID = 2;
     pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&cond);
+    pthread_cond_signal(&cond_p);
 
     // return pointer to result
     pthread_exit(&result);
 }
 
 void* consumer_interruptor_routine(void* arg) {
+    //---ждем
     pthread_mutex_lock(&mutex);
-    // interrupt consumer while producer is running                                          
-    while(!done)
+    while(THREAD_ID == 0)
     {
-        if(THREAD_ID == 2)
-        {
-            pthread_cancel(*((pthread_t*)arg));
-            THREAD_ID = 0;
-        }
-        pthread_cond_signal(&cond);
-        pthread_cond_wait(&cond,&mutex);
+        pthread_cond_wait(&cond_c, &mutex);
     }
     pthread_mutex_unlock(&mutex);
 
-    pthread_cond_signal(&cond);
+    // interrupt consumer while producer is running                                          
+    while(!done)
+    {
+        pthread_cancel(*((pthread_t*)arg));
+    }
+
     pthread_exit(NULL);
 }
 
@@ -124,7 +117,8 @@ int run_threads() {
     pthread_mutex_init(&mutex, NULL);
 
     //---инициализация условных переменных
-    pthread_cond_init(&cond, NULL);
+    pthread_cond_init(&cond_c, NULL);
+    pthread_cond_init(&cond_p, NULL);
 
     //---порождение потоков
     //---создание producer'a, consumer'a & interrupter'a:
@@ -151,7 +145,8 @@ int run_threads() {
     pthread_attr_destroy(&attrs);
     //---разрушение мьютекса и cond
     pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&cond);
+    pthread_cond_destroy(&cond_c);
+    pthread_cond_destroy(&cond_p);
 
     return *(int*)result;
 }
