@@ -1,6 +1,7 @@
 #include <pthread.h>  
 #include <vector>
 #include <iostream>
+using namespace std;
 
 class Value {
 public:
@@ -27,6 +28,7 @@ void* producer_routine(void* arg) {
     int t;
 	
     vector<int> vec;
+	
 	while(cin >> t) 
 	{
        vec.push_back(t);
@@ -100,7 +102,7 @@ void* consumer_interruptor_routine(void* arg) {
 
     while (!finish) 
 	{
-		pthread_cancel(*(pthread_t*)(arg))
+		pthread_cancel(*(pthread_t*)(arg));
 	}
     pthread_exit(NULL);
 }
@@ -120,6 +122,6 @@ int run_threads() {
 }
 
 int main() {
-    std::cout << run_threads() << std::endl;
+    cout << run_threads() << endl;
     return 0;
 }
