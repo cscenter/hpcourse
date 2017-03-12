@@ -20,7 +20,7 @@ private:
 pthread_cond_t prod, consStartCond, prodStartCond;
 bool f = false, finish = false;
 bool consStart = false;
-pthread_mutex_t m;
+pthread_mutex_t m, m_s;
 
 void* producer_routine(void* arg) {
 	Value *v = (Value*) arg;
@@ -60,13 +60,16 @@ void* consumer_routine(void* arg) {
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     Value *v = (Value*)arg;
 
-    pthread_mutex_lock(&m);
 	
+    pthread_mutex_lock(&m_s);
     consStart = true;
-	
     pthread_cond_broadcast(&consStartCond);
+    pthread_mutex_unlock(&m_s);
+	
 	int* res = new int;
 	*res = 0;
+	
+    pthread_mutex_lock(&m);
     while (true) {
         while (!f && !finish) 
 		{
@@ -88,15 +91,16 @@ void* consumer_routine(void* arg) {
 }
 
 void* consumer_interruptor_routine(void* arg) {
-	pthread_mutex_lock(&m);
+	pthread_mutex_lock(&m_s);
     while(!consStart) 
 	{
-        pthread_cond_wait(&consStartCond, &m);
+        pthread_cond_wait(&consStartCond, &m_s);
     }
-    pthread_mutex_unlock(&m);
+    pthread_mutex_unlock(&m_s);
 
-    while (!pthread_cancel(*(pthread_t*)(arg))) 
+    while (!finish) 
 	{
+		pthread_cancel(*(pthread_t*)(arg))
 	}
     pthread_exit(NULL);
 }
