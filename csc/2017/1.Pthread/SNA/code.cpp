@@ -1,7 +1,6 @@
 #include <pthread.h>  
 #include <vector>
 #include <iostream>
-using namespace std;
 
 class Value {
 public:
@@ -28,11 +27,9 @@ void* producer_routine(void* arg) {
     int t;
 	
     vector<int> vec;
-    cin >> t;
-	while(t != 0) 
+	while(cin >> t) 
 	{
        vec.push_back(t);
-	   cin >> t;
     }
 	
     pthread_mutex_lock(&m);
