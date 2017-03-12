@@ -43,6 +43,9 @@ void *producer_routine(void *arg) {
 }
 
 void *consumer_routine(void *arg) {
+    // resist to cancelling
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
     Value *data = (Value *) arg;
 
     // notify about start
@@ -61,30 +64,38 @@ void *consumer_routine(void *arg) {
         data_updated = false;
     }
 
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
     // return pointer to result
-    return result;
+    pthread_exit((void **) result);
 }
 
-void *consumer_interruptor_routine(void *arg) {
+void *consumer_interrupter_routine(void *arg) {
+    pthread_t *consumer = (pthread_t *) arg;
+
     // wait for consumer to start
+    while (!consumer_started);
 
     // interrupt consumer while producer is running
+    while (!data_ended & !pthread_cancel(*consumer));
+
+    pthread_exit(NULL);
 }
 
 int run_threads() {
-    pthread_t producer, consumer, consumer_interruptor;
+    pthread_t producer, consumer, consumer_interrupter;
     Value *data = new Value();
 
     // start threads
-    pthread_create(&consumer_interruptor, NULL, consumer_interruptor_routine, (void *) consumer);
+    pthread_create(&consumer_interrupter, NULL, consumer_interrupter_routine, (void *) &consumer);
     pthread_create(&producer, NULL, producer_routine, (void *) data);
     pthread_create(&consumer, NULL, consumer_routine, (void *) data);
 
     // wait until they're done
     int *result;
     pthread_join(producer, NULL);
-    pthread_join(consumer, (void**)&result);
-    pthread_join(consumer_interruptor, NULL);
+    pthread_join(consumer, (void **) &result);
+    pthread_join(consumer_interrupter, NULL);
 
     // return sum of update values seen by consumer
     return *result;
