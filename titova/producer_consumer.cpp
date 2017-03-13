@@ -49,7 +49,7 @@ void* producer_routine(void* arg) {
 }
 
 void* consumer_routine(void* arg) {
-    for(int i= 0; i < n; i++) {
+        for(int i= 0; i < n; i++) {
         int OldState, OldType;
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &OldState);
         pthread_testcancel();
@@ -90,11 +90,13 @@ int run_threads() {
     arr[4] = 4;
     arr[2] = 3;
     Value *v = new Value();
+    std::cout<< (*v).get() << " start \n";
     
+
     pthread_create(&producer_thread, NULL, producer_routine, v);
     pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, v);
     pthread_create(&consumer_thread, NULL, consumer_routine, v);
-    
+   
     
     pthread_join(producer_thread, NULL);
     pthread_join(consumer_thread, NULL);
