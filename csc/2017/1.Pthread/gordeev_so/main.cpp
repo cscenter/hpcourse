@@ -105,7 +105,8 @@ int run_threads() {
 
     pthread_mutex_init(&value_mutex, NULL);
     pthread_cond_init (&cond_producer, NULL);
-
+    pthread_cond_init (&cond_consumer, NULL);
+    
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     pthread_create(&threads[0], &attr, producer_routine, (void *)&val);
