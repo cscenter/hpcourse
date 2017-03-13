@@ -68,7 +68,7 @@ pthread_setcancelstate (PTHREAD_CANCEL_DISABLE,  NULL);
 	// protect the value (it is not neccesary here but for similarity)
   	pthread_mutex_lock(&mutex);
   	status = 2;
-  	pthread_cond_signal(&cond_producer);
+  	pthread_cond_broadcast(&cond_producer); 
   	pthread_mutex_unlock(&mutex);
   	
   	// we will notify producer to start after adding first value,
@@ -81,7 +81,12 @@ pthread_setcancelstate (PTHREAD_CANCEL_DISABLE,  NULL);
 		while (status == 2)		       
 			pthread_cond_wait(&cond_consumer, &mutex);
 		// all is done
-		if (status == 3) break;
+		if (status == 3) 
+		{
+	            // free the value
+		    pthread_mutex_unlock(&mutex);
+		    break;
+		}
 		// update result
 		*res+=((Value*)arg)->get();
 		// notify producer
