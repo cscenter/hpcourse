@@ -122,62 +122,42 @@ Status status = Status::NONE;
 
 void* producer_routine(void* arg) {
     // Wait for consumer to start
-
     mutex.lock();
-    std::cout << "producer: mutex locked" << std::endl;
     if (status == Status::NONE) {
-        std::cout << "producer: status NONE. unlock mutex and wait..." << std::endl;
         consumer_cond.wait_with_predicate(mutex, [](){return status != Status::NONE;});
-        std::cout << "producer: consumer started, lock mutex" << std::endl;
     }
     mutex.unlock();
-    std::cout << "producer: mutex unlocked" << std::endl;
 
     Value *shared_value = (Value *) arg;
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     int number;
     while (std::cin >> number) {
-        std::cout << "producer: read number " << number << std::endl;
         mutex.lock();
-        std::cout << "producer: mutex locked" << std::endl;
         shared_value->update(number);
         status = Status::VALUE_UPDATED;
         producer_cond.notify_all();
-        std::cout << "producer: notify all done. unlock mutex and wait for handling..." << std::endl;
         consumer_cond.wait_with_predicate(mutex, []() {return status == Status::VALUE_HANDLED;});
-        std::cout << "producer: value handled, mutex locked" << std::endl;
         // whether it makes sense to unlock mutex for IO ?
         mutex.unlock();
-        std::cout << "producer: mutex unlocked" << std::endl;
     }
 
-    std::cout << "producer: all numbers handled" << std::endl;
-
     mutex.lock();
-    std::cout << "producer: mutex locked" << std::endl;
     status = Status::DONE;
     shared_value->update(0);
     mutex.unlock();
-    std::cout << "producer: mutex unlocked" << std::endl;
     producer_cond.notify_all();
-    std::cout << "producer: notifa all with status DONE" << std::endl;
-    std::cout << "producer: FINISH" << std::endl;
 
     pthread_exit(nullptr);
 }
 
 void* consumer_routine(void* arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, nullptr);
-    std::cout << "consumer: cancel disabled" << std::endl;
 
     // notify about start
     mutex.lock();
-    std::cout << "consumer: mutex locked" << std::endl;
     status = Status::CONSUMER_STARTED;
     consumer_cond.notify_all();
-    std::cout << "consumer: notify all with status CONSUMER_STARTED" << std::endl;
-
 
     // allocate value for result
     Value * shared_value = (Value *) arg;
@@ -185,34 +165,25 @@ void* consumer_routine(void* arg) {
 
     // for every update issued by producer, read the value and add to sum
     while (true) {
-        std::cout << "consumer: unlock mutex and wait for update value" << std::endl;
         producer_cond.wait_with_predicate(mutex, []() {return status == Status::VALUE_UPDATED || status == Status::DONE;});
-        std::cout << "consumer: wake up and lock mutex" << std::endl;
         if (status == Status::DONE) {
-            std::cout << "consumer: satus DONE. break the cycle" << std::endl;
             break;
         }
         sum->update(sum->get() + shared_value->get());
         status = Status::VALUE_HANDLED;
         consumer_cond.notify_all();
-        std::cout << "consumer: notify all with status VALUE_HANDLED" << std::endl;
     }
     mutex.unlock();
-    std::cout << "consumer: mutex unlocked" << std::endl;
 
     // return pointer to result
-    std::cout << "consumer: exit with value " <<  sum->get() << std::endl;
     pthread_exit(sum);
 }
 
 void* consumer_interruptor_routine(void* arg) {
     // wait for consumer to start
     mutex.lock();
-    std::cout << "interrupter: mutex locked" << std::endl;
     if (status == Status::NONE) {
-        std::cout << "interrupter: status NONE. unlock mutex and wait for consumer start ..." << std::endl;
         consumer_cond.wait_with_predicate(mutex, [](){return status != Status::NONE;});
-        std::cout << "interrupter: wake up and lock mutex" << std::endl;
     }
 
     pthread_t consumer_thread = *((pthread_t *) arg);
@@ -221,15 +192,11 @@ void* consumer_interruptor_routine(void* arg) {
     // we can lock mutex to read status only  when producer and consumer don't work:(
     while (status != Status::DONE) {
         mutex.unlock();
-        std::cout << "interrupter: mutex unlocked" << std::endl;
         pthread_cancel(consumer_thread);
-        std::cout << "interrupter: try to cancel consumer" << std::endl;
         mutex.lock();
-        std::cout << "interrupter: mutex locked" << std::endl;
     }
 
     mutex.unlock();
-    std::cout << "interrupter: mutex unlocked, FINISH" << std::endl;
     return nullptr;
 }
 
@@ -272,9 +239,6 @@ int run_threads() {
 }
 
 int main() {
-    std::stringstream input;
-    input << "100 200 300 1 2 3 10 20 30";
-    std::cin.rdbuf(input.rdbuf());
     std::cout << run_threads() << std::endl;
     return 0;
 }
