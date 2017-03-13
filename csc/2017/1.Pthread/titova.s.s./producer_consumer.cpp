@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <vector>
 #include <stdio.h>
@@ -7,14 +8,13 @@
 
 pthread_mutex_t the_mutex;
 pthread_cond_t condc, condp, condend;
+
 pthread_t producer_thread;
 pthread_t consumer_thread;
 pthread_t interruptor_thread;
 
-
-int n;
-long answer = 0;
-std::vector<int> arr;
+volatile long answer = 0;
+volatile int eof = 0;
 
 class Value {
 public:
@@ -32,44 +32,58 @@ private:
     int _value;
 };
 
+
+
 void* consumer_routine(void* arg);
 
 void* producer_routine(void* arg) {
     
-    for(int i = 0; i < n; i++) {
-        pthread_mutex_lock(&the_mutex);
-        while ((*(Value*)arg).get()!=0) {
+    pthread_mutex_lock(&the_mutex);
+    int val = 0;
+    while (1) {
+        if ((*(Value*)arg).get()!=0) {
             pthread_cond_wait(&condp, &the_mutex);
         }
-        (*(Value*)arg).update(arr[i]);
-        pthread_cond_signal(&condc);
-        pthread_mutex_unlock(&the_mutex);
+        if ((int)scanf("%d", &val)!=EOF) {
+            (*(Value*)arg).update(val);
+            pthread_cond_signal(&condc);
+        } else {
+            eof = 1;
+            pthread_cond_signal(&condc);
+            break;
+        }
     }
+    pthread_mutex_unlock(&the_mutex);
     pthread_exit(0);
 }
 
 void* consumer_routine(void* arg) {
-    for(int i= 0; i < n; i++) {
-        int OldState, OldType;
-        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &OldState);
-        pthread_testcancel();
-        pthread_mutex_lock(&the_mutex);
-        while ((*(Value*)arg).get() == 0) {
-            pthread_cond_wait(&condc, &the_mutex);
+    
+    int OldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &OldState);
+    pthread_testcancel();
+    pthread_mutex_lock(&the_mutex);
+    while (1) {
+        if (!eof) {
+            if ((*(Value*)arg).get() == 0) {
+                pthread_cond_wait(&condc, &the_mutex);
+            }
+            answer += (*(Value*)arg).get();
+            (*(Value*)arg).update(0);
+            pthread_cond_signal(&condp);
+        } else {
+            break;
         }
-        answer += (*(Value*)arg).get();
-        (*(Value*)arg).update(0);
-        pthread_cond_signal(&condp);
-        pthread_mutex_unlock(&the_mutex);
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &OldState);
     }
+    pthread_mutex_unlock(&the_mutex);
     pthread_exit(0);
 }
 
 void* consumer_interruptor_routine(void* arg) {
-    for(int i = 0; i < n - 1; i++) {
-        while((*(Value*)arg).get() != 0)
+    while(!eof) {
+        if ((*(Value*)arg).get() != 0) {
             pthread_cancel(consumer_thread);
+        }
     }
     pthread_exit(0);
 }
@@ -82,21 +96,11 @@ int run_threads() {
     pthread_cond_init(&condc, NULL);
     pthread_cond_init(&condp, NULL);
     
-    n  = 5;
-    arr.resize(n+1);
-    arr[0] = 1;
-    arr[1] = 3;
-    arr[3] = 3;
-    arr[4] = 4;
-    arr[2] = 3;
     Value *v = new Value();
-    std::cout<< (*v).get() << " start \n";
     
-
     pthread_create(&producer_thread, NULL, producer_routine, v);
     pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, v);
     pthread_create(&consumer_thread, NULL, consumer_routine, v);
-   
     
     pthread_join(producer_thread, NULL);
     pthread_join(consumer_thread, NULL);
@@ -110,6 +114,7 @@ int run_threads() {
 }
 
 int main() {
+    freopen("input.txt", "r", stdin);
     std::cout << run_threads() << std::endl;
     return 0;
 }
