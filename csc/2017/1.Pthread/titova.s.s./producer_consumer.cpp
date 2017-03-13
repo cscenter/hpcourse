@@ -49,7 +49,7 @@ void* producer_routine(void* arg) {
 }
 
 void* consumer_routine(void* arg) {
-        for(int i= 0; i < n; i++) {
+    for(int i= 0; i < n; i++) {
         int OldState, OldType;
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &OldState);
         pthread_testcancel();
