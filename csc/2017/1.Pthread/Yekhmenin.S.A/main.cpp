@@ -94,6 +94,8 @@ int run_threads() {
     // start 3 threads and wait until they're done
     // return sum of update values seen by consumer
     Value data;
+    pthread_cond_init(&value_updated_cond, NULL);
+    pthread_cond_init(&consumer_cond, NULL);
     pthread_create(&producer, NULL, producer_routine, &data);
     pthread_create(&consumer, NULL, consumer_routine, &data);
     pthread_create(&consumer_interruptor, NULL, consumer_interruptor_routine, NULL);
