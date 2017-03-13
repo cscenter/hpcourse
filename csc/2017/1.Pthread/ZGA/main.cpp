@@ -19,7 +19,6 @@ private:
 
 pthread_cond_t producedCondVar;
 pthread_cond_t consumerStartedCondVar;
-pthread_cond_t producerLaunchedCondVar;
 bool produced = false;
 bool allProcessed = false;
 bool consumerLaunched = false;
@@ -32,20 +31,18 @@ void* producer_routine(void* arg) {
     while(std::cin >> a) {
        data.push_back(a);
     }
+
     for (int i = 0; i < data.size(); ++i) {
         pthread_mutex_lock(&mutex);
         value->update(data[i]);
         produced = true;
         pthread_cond_signal(&producedCondVar);
-        pthread_mutex_unlock(&mutex);
-
         if (i + 1 == data.size()) {
             allProcessed = true;
             pthread_mutex_unlock(&mutex);
             break;
         }
 
-        pthread_mutex_lock(&mutex);
         while(produced) {
             pthread_cond_wait(&producedCondVar, &mutex);
         }
@@ -70,7 +67,11 @@ void* consumer_routine(void* arg) {
         while (!produced && !allProcessed) {
             pthread_cond_wait(&producedCondVar, &mutex);
         }
-        *res += value->get();
+
+        if (!allProcessed) {
+            *res += value->get();
+        }
+
         produced = false;
         pthread_cond_signal(&producedCondVar);
         pthread_mutex_unlock(&mutex);
