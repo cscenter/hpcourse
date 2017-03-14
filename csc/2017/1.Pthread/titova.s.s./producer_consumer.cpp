@@ -7,7 +7,7 @@
 
 
 pthread_mutex_t the_mutex;
-pthread_cond_t condc, condp, condend;
+pthread_cond_t condc, condp, condcs;
 
 pthread_t producer_thread;
 pthread_t consumer_thread;
@@ -15,6 +15,8 @@ pthread_t interruptor_thread;
 
 volatile long answer = 0;
 volatile int eof = 0;
+volatile bool start = false;
+
 
 class Value {
 public:
@@ -41,6 +43,7 @@ void* producer_routine(void* arg) {
     pthread_mutex_lock(&the_mutex);
     int val = 0;
     while (1) {
+        start  = true;
         if ((*(Value*)arg).get() != 0) {
             pthread_cond_wait(&condp, &the_mutex);
         }
@@ -52,6 +55,7 @@ void* producer_routine(void* arg) {
             pthread_cond_signal(&condc);
             break;
         }
+        start = false;
     }
     pthread_mutex_unlock(&the_mutex);
     pthread_exit(0);
@@ -81,7 +85,7 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
     while(!eof) {
-        if ((*(Value*)arg).get() != 0) {
+        if (start) {
             pthread_cancel(consumer_thread);
         }
     }
