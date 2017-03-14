@@ -40,45 +40,51 @@ void* consumer_routine(void* arg);
 
 void* producer_routine(void* arg) {
     
-    pthread_mutex_lock(&the_mutex);
+    
     int val = 0;
     while (1) {
-        start  = true;
+        pthread_mutex_lock(&the_mutex);
         if ((*(Value*)arg).get() != 0) {
             pthread_cond_wait(&condp, &the_mutex);
         }
         if ((int)scanf("%d", &val) != EOF) {
             (*(Value*)arg).update(val);
             pthread_cond_signal(&condc);
+            pthread_mutex_unlock(&the_mutex);
         } else {
             eof = 1;
             pthread_cond_signal(&condc);
+            pthread_mutex_unlock(&the_mutex);
             break;
         }
-        start = false;
     }
-    pthread_mutex_unlock(&the_mutex);
+    
     pthread_exit(0);
 }
 
 void* consumer_routine(void* arg) {
     
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    pthread_testcancel();
-    pthread_mutex_lock(&the_mutex);
     while (1) {
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        pthread_mutex_lock(&the_mutex);
         if (!eof) {
+            start = true;
             if ((*(Value*)arg).get() == 0) {
                 pthread_cond_wait(&condc, &the_mutex);
             }
             answer += (*(Value*)arg).get();
             (*(Value*)arg).update(0);
             pthread_cond_signal(&condp);
+            start = false;
+            pthread_mutex_unlock(&the_mutex);
+            
         } else {
+            pthread_mutex_unlock(&the_mutex);
             break;
         }
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
-    pthread_mutex_unlock(&the_mutex);
+    
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_exit(0);
 }
