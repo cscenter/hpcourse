@@ -40,7 +40,7 @@ void* producer_routine(void* arg) {
         data.pop_back();
 
         read_data = false;
-        finish = data.empty();
+      //  finish = data.empty();
 
         pthread_cond_signal(&cond);
 
