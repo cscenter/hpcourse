@@ -19,8 +19,11 @@ private:
 
 pthread_mutex_t mutex;
 pthread_cond_t cond;
+pthread_cond_t cond2;
+
 bool read_data = true;
 bool finish = false;
+bool consumer = false;
 
 void* producer_routine(void* arg) {
 
@@ -38,9 +41,7 @@ void* producer_routine(void* arg) {
 
         value->update(data.back());
         data.pop_back();
-
         read_data = false;
-      //  finish = data.empty();
 
         pthread_cond_signal(&cond);
 
@@ -60,6 +61,8 @@ void* producer_routine(void* arg) {
 void* consumer_routine(void* arg) {
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+    consumer = true;
+    pthread_cond_signal(&cond2);
 
     auto value = (Value*)arg;
     int *sum = new int(0);
@@ -84,6 +87,10 @@ void* consumer_routine(void* arg) {
 void* consumer_interruptor_routine(void* arg) {
 
     pthread_t *thread_cancel = (pthread_t*)arg;
+
+    while (!consumer)
+        pthread_cond_wait(&cond2, &mutex);
+
     while (!finish)
         pthread_cancel(*thread_cancel);
 
@@ -102,6 +109,7 @@ int run_threads() {
 
     pthread_mutex_init(&mutex,0);
     pthread_cond_init(&cond, 0);
+    pthread_cond_init(&cond2, 0);
 
 
     for (int i = 0; i < 2; ++i) {
@@ -123,8 +131,9 @@ int run_threads() {
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond);
+    pthread_cond_destroy(&cond2);
 
-    int res = results[1][0];
+    int res = *results[1];
     delete results[1];
 
     return res;
