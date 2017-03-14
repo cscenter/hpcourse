@@ -18,18 +18,14 @@ private:
 };
 
 pthread_t producer_thread, consumer_thread, interruptor_thread;
-int producer_id, consumer_id, interrutor_id;
 bool consumer_started = false,
      value_updated = false,
      value_consumed = false,
      producer_finished = false,
-     consumer_finished = false,
-     all_finished = false;
+     consumer_finished = false;
 pthread_cond_t cond_consumer_started,
                cond_value_updated,
-               cond_value_consumed,
-               cond_consumer_finished,
-               cond_all_finished;
+               cond_value_consumed;
 pthread_mutex_t m;
 
 void* producer_routine(void* arg) {
@@ -122,7 +118,6 @@ int run_threads() {
     pthread_cond_init(&cond_consumer_started, NULL);
     pthread_cond_init(&cond_value_updated, NULL);
     pthread_cond_init(&cond_value_consumed, NULL);
-    pthread_cond_init(&cond_consumer_finished, NULL);
     pthread_create(&producer_thread, NULL, producer_routine, (void*)&v);
     pthread_create(&consumer_thread, NULL, consumer_routine, (void*)&v);
     // pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, NULL);
