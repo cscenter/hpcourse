@@ -48,11 +48,11 @@ void* producer_routine(void* arg) {
         pthread_mutex_unlock(&mutex);
     }
 
-    if(!finish){
         finish = true;
+        pthread_mutex_lock(&mutex);
         read_data = false;
         pthread_cond_signal(&cond);
-    }
+        pthread_mutex_unlock(&mutex);
 
     pthread_exit(NULL);
 
