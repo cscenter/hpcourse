@@ -1,4 +1,4 @@
-#include <pthread.h>  
+#include <pthread.h>
 #include <iostream>
 
 using namespace std;
@@ -125,7 +125,7 @@ int run_threads() {
         delete result;
         exit(-1);
     }
-    if ((retcode = pthread_create(&interrupt, NULL, consumer_interruptor_routine, (void *) &cons))) {   // мб не надо &
+    if ((retcode = pthread_create(&interrupt, NULL, consumer_interruptor_routine, (void *) &cons))) {
         cerr << "ERROR; return code from pthread_create() for interruptor is " << retcode << endl;
         delete result;
         exit(-1);
@@ -138,7 +138,7 @@ int run_threads() {
 
     //wait for all
     pthread_join(prod, NULL);
-    pthread_join(cons, (void **) &result);  // мб тут и не надо &
+    pthread_join(cons, (void **) &result);
     pthread_join(interrupt, NULL);
 
     // return sum of update values seen by consumer
