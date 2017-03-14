@@ -36,12 +36,13 @@ void* producer_routine(void* arg) {
         pthread_mutex_lock(&mutex);
         value->update(data[i]);
         produced = true;
-        pthread_cond_signal(&producedCondVar);
         if (i + 1 == data.size()) {
             allProcessed = true;
+            pthread_cond_signal(&producedCondVar);
             pthread_mutex_unlock(&mutex);
             break;
         }
+        pthread_cond_signal(&producedCondVar);
 
         while(produced) {
             pthread_cond_wait(&producedCondVar, &mutex);
@@ -67,19 +68,19 @@ void* consumer_routine(void* arg) {
         while (!produced && !allProcessed) {
             pthread_cond_wait(&producedCondVar, &mutex);
         }
-
-        if (!allProcessed) {
-            *res += value->get();
-        }
-
-        produced = false;
-        pthread_cond_signal(&producedCondVar);
         pthread_mutex_unlock(&mutex);
 
+
+        *res += value->get();
         if (allProcessed) {
             pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
             pthread_exit(res);
         }
+
+//        pthread_mutex_lock(&mutex);
+        produced = false;
+        pthread_cond_signal(&producedCondVar);
+//        pthread_mutex_unlock(&mutex);
     }
 }
 
