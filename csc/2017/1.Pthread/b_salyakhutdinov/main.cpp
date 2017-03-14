@@ -1,4 +1,6 @@
+#include <cassert>
 #include <pthread.h>  
+#include <unistd.h>
 #include <iostream>
 
 class Value {
@@ -66,7 +68,6 @@ void* consumer_routine(void* arg) {
     
     // notify about start
     pthread_mutex_lock(&mutex);
-    std::cout << "C started\n";
     consumer_started = true;
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
@@ -94,7 +95,7 @@ void* consumer_routine(void* arg) {
 	    ready = true;
 	
 	pthread_mutex_unlock(&mutex);
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
 	if (!ready)
 	    *result += x;
@@ -111,20 +112,24 @@ void* consumer_interruptor_routine(void* arg) {
 	pthread_cond_wait(&cond, &mutex);
     }
     pthread_mutex_unlock(&mutex);
-
+    
     // interrupt consumer while producer is running
-    bool ready = false;
-    while (!ready) {
+    bool ready = false, succeded = false;
+    while (!ready && !succeded) {
 	if (pthread_cancel(consumer)) {
-	    ready = true;
+	    ready = succeded = true;
 	    break;
 	}
+	usleep(100);
         pthread_mutex_lock(&mutex);
 	if (producer_ready) {
 	    ready = true;
 	}
 	pthread_mutex_unlock(&mutex);
     }
+
+    if (succeded)
+	std::cerr << "Interruptor succeded\n";
 
     return NULL;
 }
@@ -134,11 +139,11 @@ int run_threads() {
     int errcode = 0;
     errcode |= pthread_create(&producer, NULL, producer_routine, &value);
     errcode |= pthread_create(&consumer, NULL, consumer_routine, &value);
-    //errcode |= pthread_create(&interruptor, NULL, consumer_interruptor_routine, NULL);
+    errcode |= pthread_create(&interruptor, NULL, consumer_interruptor_routine, NULL);
 
     if (errcode) {
 	std::cerr << "Couldn't start threads. Exit..." << std::endl;
-	return 1;
+	return 0;
     }
 
     // return sum of update values seen by consumer
@@ -147,7 +152,7 @@ int run_threads() {
     
     pthread_join(producer, NULL);
     pthread_join(consumer, &result_ptr);
-    pthread_join(consumer, NULL);
+    pthread_join(interruptor, NULL);
 
     int ret = *(int*)result_ptr;
     free(result_ptr);
