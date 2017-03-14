@@ -1,6 +1,4 @@
-#include <cassert>
 #include <pthread.h>  
-#include <unistd.h>
 #include <iostream>
 
 class Value {
@@ -120,7 +118,6 @@ void* consumer_interruptor_routine(void* arg) {
 	    ready = succeded = true;
 	    break;
 	}
-	usleep(100);
         pthread_mutex_lock(&mutex);
 	if (producer_ready) {
 	    ready = true;
