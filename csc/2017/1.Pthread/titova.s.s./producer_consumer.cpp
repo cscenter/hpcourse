@@ -41,10 +41,10 @@ void* producer_routine(void* arg) {
     pthread_mutex_lock(&the_mutex);
     int val = 0;
     while (1) {
-        if ((*(Value*)arg).get()!=0) {
+        if ((*(Value*)arg).get() != 0) {
             pthread_cond_wait(&condp, &the_mutex);
         }
-        if ((int)scanf("%d", &val)!=EOF) {
+        if ((int)scanf("%d", &val) != EOF) {
             (*(Value*)arg).update(val);
             pthread_cond_signal(&condc);
         } else {
@@ -59,8 +59,7 @@ void* producer_routine(void* arg) {
 
 void* consumer_routine(void* arg) {
     
-    int OldState;
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &OldState);
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     pthread_testcancel();
     pthread_mutex_lock(&the_mutex);
     while (1) {
@@ -76,6 +75,7 @@ void* consumer_routine(void* arg) {
         }
     }
     pthread_mutex_unlock(&the_mutex);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_exit(0);
 }
 
