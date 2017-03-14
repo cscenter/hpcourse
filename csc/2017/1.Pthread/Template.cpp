@@ -141,15 +141,15 @@ void *consumer_interruptor_routine(void *arg) {
 int run_threads() {
     // 3 потока: производитель, покупатель и прерыватель
     pthread_t producer, consumer, interruptor;
-    Value value;
+    Value *value = new Value();
 
     // start 3 threads and wait until they're done
-    int error_code = pthread_create(&producer, NULL, &producer_routine, (void*)&value);
+    int error_code = pthread_create(&producer, NULL, &producer_routine, (void*)value);
     if (error_code) {
         std::cerr << "create producer error: " << error_code << std::endl;
         exit(EXIT_FAILURE);
     }
-    error_code = pthread_create(&consumer, NULL, &consumer_routine, (void*)&value);
+    error_code = pthread_create(&consumer, NULL, &consumer_routine, (void*)value);
     if (error_code) {
         std::cerr << "create consumer error: " << error_code << std::endl;
         exit(EXIT_FAILURE);
