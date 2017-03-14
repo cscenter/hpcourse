@@ -3,3 +3,6 @@ lab:
 
 run: lab
 	./lab
+
+clean:
+	rm lab
