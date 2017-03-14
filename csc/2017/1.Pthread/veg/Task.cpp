@@ -1,5 +1,6 @@
 #include <iostream>
 #include <pthread.h>
+#include <thread>       // for timer
 
 
 class Value {
@@ -132,7 +133,10 @@ void *consumer_interrupter_routine(void *arg) {
     wait_for_consumer_started(true);
 
     // interrupt consumer while producer is running
-    while (!data_ended & !pthread_cancel(*consumer));
+    while (!data_ended & !pthread_cancel(*consumer)) {
+        // without timer needs a lot of CPU
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 
     pthread_exit(NULL);
 }
