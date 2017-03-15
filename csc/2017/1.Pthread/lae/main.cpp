@@ -21,16 +21,16 @@ private:
 
 pthread_t producer, consumer, interruptor;
 
-bool consumerStarted, producerFinished, dataEnded, got, updated;
+bool consumerStarted, producerFinished, dataEnded, producerIsEnabled;
 pthread_mutex_t mutexWait, mutexUpdate;
-pthread_cond_t canStart, canUpdate;
+pthread_cond_t canStart, waitForConsumer, waitForProducer;
 
 void* producer_routine(void* arg) {
     // Wait for consumer to start
     
     pthread_mutex_lock(&mutexWait);
     
-    if (!consumerStarted) {
+    while (!consumerStarted) {
         pthread_cond_wait(&canStart, &mutexWait);
     }
     
@@ -39,34 +39,42 @@ void* producer_routine(void* arg) {
     //cout << "prod start\n";
     
     string input;
-    getline(cin, input);        
+    getline(cin, input);     
     istringstream iss(input);
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     Value *value = (Value *)arg;
     int newValue;
-    dataEnded |= !(iss >> newValue);
     
     while (!dataEnded) {
         pthread_mutex_lock(&mutexUpdate);
     
-        if (updated) {
-            //cout << "prod see: " << newValue << '\n';
-            
-            pthread_cond_wait(&canUpdate, &mutexUpdate);
+        while (!producerIsEnabled) {
+            pthread_cond_wait(&waitForConsumer, &mutexUpdate);    
+        }
         
+        dataEnded |= !(iss >> newValue);
+        
+        //cout << "prod see: " << newValue << '\n';
+        
+        if (!dataEnded) {
             value->update(newValue);
-            
-            dataEnded |= !(iss >> newValue);
+            producerIsEnabled = 0;
+        }
 
-            updated = 0;            
-            got = 1;        
-        }        
+        pthread_cond_signal(&waitForProducer);
         
-        pthread_mutex_unlock(&mutexUpdate);            
+        pthread_mutex_unlock(&mutexUpdate);         
     }
     
+    pthread_mutex_lock(&mutexUpdate);
+    
     producerFinished = 1;
+    
+    pthread_cond_signal(&waitForProducer);
+    
+    pthread_mutex_unlock(&mutexUpdate);
+           
     //cout << "prod end\n";
 }
 
@@ -91,22 +99,26 @@ void* consumer_routine(void* arg) {
     while (!producerFinished) {
         pthread_mutex_lock(&mutexUpdate);
     
-        if (got) {
-            
+        while (producerIsEnabled && !producerFinished) {
+            pthread_cond_wait(&waitForProducer, &mutexUpdate);    
+        }                                            
+
+        if (!producerFinished) {  
             int newValue = value->get();
             //cout << "cons see: " << newValue << '\n';
             *result += newValue;
             
-            updated = 1;
-            got = 0;
+            producerIsEnabled = 1;
+        
+            pthread_cond_signal(&waitForConsumer);
         }
         
-        pthread_mutex_unlock(&mutexUpdate);                    
+        pthread_mutex_unlock(&mutexUpdate);                 
     }
     
-       //cout << "cons end\n";
-       
-       return (void *) result;
+    //cout << "cons end\n";
+    
+    return (void *) result;
 }
 
 void* consumer_interruptor_routine(void* arg) {
@@ -116,7 +128,7 @@ void* consumer_interruptor_routine(void* arg) {
 
     pthread_mutex_lock(&mutexWait);
     
-    if (!consumerStarted) {
+    while (!consumerStarted) {
         pthread_cond_wait(&canStart, &mutexWait);
     }
     
@@ -124,21 +136,23 @@ void* consumer_interruptor_routine(void* arg) {
 
     // interrupt consumer while producer is running
     while (!producerFinished) {
-        pthread_cancel(consumer);        
+        pthread_cancel(consumer);       
     }
     
-       //cout << "int end\n";
+    //cout << "int end\n";
 }
 
 int run_threads() {
     consumerStarted = 0;
     producerFinished = 0;
     dataEnded = 0;
-    got = 0;
-    updated = 1;
+    producerIsEnabled = 1;
     
     pthread_mutex_init(&mutexWait, NULL);
+    pthread_mutex_init(&mutexUpdate, NULL);
     pthread_cond_init(&canStart, NULL);
+    pthread_cond_init(&waitForConsumer, NULL);
+    pthread_cond_init(&waitForProducer, NULL);
     
     Value *value = new Value();
     
@@ -157,7 +171,18 @@ int run_threads() {
     
     // return sum of update values seen by consumer
 
-    return *(int *)result;
+    int* pointerToResult = (int *)result;
+    int sum = *pointerToResult;
+    
+    delete pointerToResult;
+    
+    pthread_mutex_destroy(&mutexWait);
+    pthread_mutex_destroy(&mutexUpdate);
+    pthread_cond_destroy(&canStart);
+    pthread_cond_destroy(&waitForConsumer);
+    pthread_cond_destroy(&waitForProducer);
+
+    return sum;
 }
 
 int main() {
