@@ -28,6 +28,7 @@ pthread_cond_t consumer_started_t;
 
 bool last_update = false;
 bool consumer_is_ready = false;
+bool producer_is_ready = false;
 bool consumer_started = false;
 
 
@@ -57,6 +58,7 @@ void *producer_routine(void *arg) {
             last_update = true;
         }
 
+        producer_is_ready = true;
         pthread_cond_signal(&producer_updated_value_t);
 
         //wait for consumer to process
@@ -77,8 +79,13 @@ void *producer_routine(void *arg) {
 void *consumer_routine(void *arg) {
     // notify about start
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
+    pthread_mutex_lock(&mutex_t);
     consumer_started = true;
     pthread_cond_broadcast(&consumer_started_t);
+    pthread_mutex_unlock(&mutex_t);
+
+
     // allocate value for result
     Value *value = static_cast<Value *>(arg);
 
@@ -87,7 +94,11 @@ void *consumer_routine(void *arg) {
     while (true) {
         pthread_mutex_lock(&mutex_t);
 
-        pthread_cond_wait(&producer_updated_value_t, &mutex_t);
+        while (!producer_is_ready) {
+            pthread_cond_wait(&producer_updated_value_t, &mutex_t);
+        }
+
+
         printf("Consumer thread: Condition signal received, value update to %d\n", value->get());
         *res += value->get();
 
@@ -95,6 +106,7 @@ void *consumer_routine(void *arg) {
         printf("Consumer thread: send signal that sum was updated by %d\n", *res);
         pthread_cond_signal(&consumer_read_value_t);
 
+        producer_is_ready = false;
         pthread_mutex_unlock(&mutex_t);
 
         if (last_update) {
@@ -133,6 +145,7 @@ int run_threads() {
     pthread_mutex_init(&mutex_t, NULL);
     pthread_cond_init(&producer_updated_value_t, NULL);
     pthread_cond_init(&consumer_read_value_t, NULL);
+    pthread_cond_init(&consumer_started_t, NULL);
 
     pthread_create(&producer, NULL, producer_routine, (void *) &value);
     pthread_create(&consumer, NULL, consumer_routine, (void *) &value);
@@ -142,6 +155,11 @@ int run_threads() {
     pthread_join(producer, NULL);
     pthread_join(consumer, (void **) &res);
     pthread_join(interruptor, NULL);
+
+    pthread_cond_destroy(&consumer_started_t);
+    pthread_cond_destroy(&consumer_read_value_t);
+    pthread_cond_destroy(&producer_updated_value_t);
+    pthread_mutex_destroy(&mutex_t);
 
     // return sum of update values seen by consumer
     return *res;
