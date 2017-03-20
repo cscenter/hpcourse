@@ -1,5 +1,8 @@
 #include <pthread.h>
 #include <iostream>
+#include <vector>
+#include <sstream>
+
 
 class Value {
 public:
@@ -66,9 +69,7 @@ void* producer_routine(void * producer_args) {
         // update value
         value->update(numbers[i]);
         value->memorized = false;
-        pthread_mutex_unlock(&value->mutex);
         pthread_cond_broadcast(&value->changed);
-        pthread_mutex_lock(&value->mutex);
     }
     pthread_mutex_unlock(&value->mutex);
     value->finished = true;
@@ -83,15 +84,13 @@ void* consumer_routine(void * _value) {
     // notify about start
     pthread_barrier_wait(&value->barrier);
     // allocate value for result
-    Value *result = new Value();
+    int result = 0; // simple int instead of Value
     // for every update issued by producer, read the value and add to sum
     for (;;) {
         pthread_mutex_lock(&value->mutex);
         while(value->memorized && !value->finished) {
             // wait for producer to evaluate
-            clock_gettime(CLOCK_REALTIME, &ts);
-            ts.tv_nsec += 100;
-            pthread_cond_timedwait(&value->changed, &value->mutex, &ts);
+            pthread_cond_wait(&value->changed, &value->mutex);
         }
         if (value->finished && value->memorized) {
             // exit on condition if producer is done
@@ -99,7 +98,7 @@ void* consumer_routine(void * _value) {
             break;
         }
         // update sum
-        result->update(result->get() + value->get());
+        result += value->get();
         value->memorized = true;
         pthread_mutex_unlock(&value->mutex);
         pthread_cond_broadcast(&value->recorded);
@@ -116,10 +115,8 @@ void* consumer_interruptor_routine(void * consumer_interruptor_args) {
     // wait for consumer to start
     pthread_barrier_wait(&value->barrier);
     // interrupt consumer while producer is running
-    while(true){
+    while(!value->finished){ // while producer not done
         pthread_cancel(*consumer_thread);
-        // check if it's time to cancel
-        pthread_testcancel();
     }
 }
 
@@ -133,24 +130,26 @@ int run_threads(int * numbers, int size) {
     pthread_create(&consumer_interruptor_thread, NULL, consumer_interruptor_routine, (void *)&consumer_interruptor_args);
     pthread_create(&consumer_thread, NULL, consumer_routine, (void *)&value);
     pthread_join(producer_thread, NULL);
-    pthread_cancel(consumer_interruptor_thread);
     pthread_join(consumer_interruptor_thread, NULL);
     void * result;
     pthread_join(consumer_thread, &result);
-    Value * res = (Value *) result;
-    int answer = res->get();
-    delete res;
     // return sum of update values seen by consumer
-    return answer;
+    return *((int*)(&result));
 }
 
 
 int main(int argc, char * argv[]) {
-    int * numbers = new int[argc - 1];
-    for(size_t i = 1; i < argc; i ++){
-        numbers[i - 1] = std::stoi(argv[i]);
+    std::vector<int> numbers;
+    std::string data;
+    std::getline(std::cin, data);
+    std::stringstream string_stream(data);
+    int x;
+    while(true){
+        string_stream >> x;
+        if (!string_stream) break;
+        numbers.push_back(x);
     }
-    std::cout << run_threads(numbers, argc - 1) << std::endl;
-    delete [] numbers;
+    int n = numbers.size();
+    std::cout << run_threads(numbers.data(), n) << std::endl;
     return 0;
 }
