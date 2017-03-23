@@ -113,6 +113,11 @@ int run_threads() {
     int *result;
     Value value;
 
+    //init mutex and conditions
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&data_r, NULL);
+    pthread_cond_init(&consumer_started, NULL);
+
     // start 3 threads and wait until they're done
     int retcode = 0;
     if ((retcode = pthread_create(&prod, NULL, producer_routine, (void *) &value))) {
@@ -127,11 +132,6 @@ int run_threads() {
         cerr << "ERROR; return code from pthread_create() for interruptor is " << retcode << endl;
         exit(-1);
     }
-
-    //init mutex and conditions
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&data_r, NULL);
-    pthread_cond_init(&consumer_started, NULL);
 
     //wait for all
     pthread_join(prod, NULL);
