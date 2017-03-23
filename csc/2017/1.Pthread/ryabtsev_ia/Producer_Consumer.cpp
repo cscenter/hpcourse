@@ -117,17 +117,14 @@ int run_threads() {
     int retcode = 0;
     if ((retcode = pthread_create(&prod, NULL, producer_routine, (void *) &value))) {
         cerr << "ERROR; return code from pthread_create() for producer is " << retcode << endl;
-        delete result;
         exit(-1);
     }
     if ((retcode = pthread_create(&cons, NULL, consumer_routine, (void *) &value))) {
         cerr << "ERROR; return code from pthread_create() for consumer is " << retcode << endl;
-        delete result;
         exit(-1);
     }
     if ((retcode = pthread_create(&interrupt, NULL, consumer_interruptor_routine, (void *) &cons))) {
         cerr << "ERROR; return code from pthread_create() for interruptor is " << retcode << endl;
-        delete result;
         exit(-1);
     }
 
