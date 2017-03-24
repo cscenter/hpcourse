@@ -21,17 +21,18 @@ private:
 pthread_cond_t prod, consStartCond, prodStartCond;
 bool f = false, finish = false;
 bool consStart = false;
-pthread_mutex_t m, m_s;
+pthread_mutex_t m, m_s, m_e;
 
 void* producer_routine(void* arg) {
 	Value *v = (Value*) arg;
     int t;
 	
     vector<int> vec;
-	
-	while(cin >> t) 
+	cin >> t;
+	while(t != 0) 
 	{
        vec.push_back(t);
+	   cin >> t;
     }
 	
     pthread_mutex_lock(&m);
@@ -51,7 +52,9 @@ void* producer_routine(void* arg) {
 			}
 		}
     }
+	//pthread_mutex_lock(&m_e);
 	finish = true;
+	//pthread_mutex_unlock(&m_e);
     pthread_mutex_unlock(&m);
 
     pthread_exit(NULL);
@@ -100,14 +103,24 @@ void* consumer_interruptor_routine(void* arg) {
     }
     pthread_mutex_unlock(&m_s);
 
-    while (!finish) 
+    while (true) 
 	{
+		//pthread_mutex_lock(&m_e);
+		if (finish) break;
 		pthread_cancel(*(pthread_t*)(arg));
+		//pthread_mutex_unlock(&m_e);
 	}
     pthread_exit(NULL);
 }
 
 int run_threads() {
+	pthread_mutex_init(&m, NULL);
+	pthread_mutex_init(&m_s, NULL);
+	pthread_mutex_init(&m_e, NULL);
+	pthread_cond_init(&prod, NULL);
+	pthread_cond_init(&consStartCond, NULL);
+	pthread_cond_init(&prodStartCond, NULL);
+	
     pthread_t thread1, thread2, thread3;
 	void* res;
     Value v;
