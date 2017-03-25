@@ -13,9 +13,9 @@ pthread_t producer_thread;
 pthread_t consumer_thread;
 pthread_t interruptor_thread;
 
-volatile long answer = 0;
-volatile int eof = 0;
-volatile bool start = false;
+long answer = 0;
+int eof = 0;
+bool start = false;
 
 
 class Value {
@@ -40,14 +40,13 @@ void* consumer_routine(void* arg);
 
 void* producer_routine(void* arg) {
     
-    
     int val = 0;
     while (1) {
         pthread_mutex_lock(&the_mutex);
         if ((*(Value*)arg).get() != 0) {
             pthread_cond_wait(&condp, &the_mutex);
         }
-        if ((int)scanf("%d", &val) != EOF) {
+        if  (scanf("%d", &val)) {
             (*(Value*)arg).update(val);
             pthread_cond_signal(&condc);
             pthread_mutex_unlock(&the_mutex);
@@ -69,7 +68,7 @@ void* consumer_routine(void* arg) {
         pthread_mutex_lock(&the_mutex);
         if (!eof) {
             start = true;
-            if ((*(Value*)arg).get() == 0) {
+            if ((*(reinterpret_cast<Value*>(arg))).get() == 0) {
                 pthread_cond_wait(&condc, &the_mutex);
             }
             answer += (*(Value*)arg).get();
@@ -124,7 +123,7 @@ int run_threads() {
 }
 
 int main() {
-    freopen("input.txt", "r", stdin);
+    //freopen("input.txt", "r", stdin);
     std::cout << run_threads() << std::endl;
     return 0;
 }
