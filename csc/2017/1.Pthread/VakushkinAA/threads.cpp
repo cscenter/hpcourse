@@ -24,35 +24,17 @@ pthread_mutex_t consumer_ready_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t wait_for_consumer = PTHREAD_COND_INITIALIZER;
 
+pthread_barrier_t barrier;
+
 bool still_has_data = true;
 
-void SynchronizationPoint() {
-    static pthread_mutex_t sync_lock = PTHREAD_MUTEX_INITIALIZER;
-    static pthread_cond_t sync_cond = PTHREAD_COND_INITIALIZER;
-    static int sync_count = 0;
-
-    /* блокировка доступа к счетчику */
-    pthread_mutex_lock(&sync_lock);
-    sync_count++;
-
-    /* проверка: следует ли продолжать ожидание */
-    if (sync_count < number_of_threads)
-        pthread_cond_wait(&sync_cond, &sync_lock);
-    else
-        /* оповестить о достижении данной точки всеми */
-        pthread_cond_broadcast(&sync_cond);
- 
-    /* активизация взаимной блокировки - в противном случае
-    из процедуры сможет выйти только одна нить! */
-    pthread_mutex_unlock(&sync_lock);
-}
 
 void* producer_routine(void* arg) {
     long long input = 0;
     Value * v = (Value *) arg;
 
     // Wait for consumer to start
-    SynchronizationPoint();    
+    pthread_barrier_wait(&barrier);    
   
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process    
     while(std::cin >> input) {
@@ -80,8 +62,8 @@ void* consumer_routine(void* arg) {
     Value * v = (Value *) arg;
     
     // notify about start
-    SynchronizationPoint();
-  
+    pthread_barrier_wait(&barrier); 
+      
     // allocate value for result
     long long * result = new long long(0);
 
@@ -107,7 +89,7 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
     // wait for consumer to start
-    SynchronizationPoint();
+    pthread_barrier_wait(&barrier); 
     
     // interrupt consumer while producer is running
     while(!pthread_cancel(*(pthread_t *) arg)) ;        
@@ -122,12 +104,16 @@ int run_threads() {
     pthread_t producer_thread, consumer_thread, interruptor_thread;
   	Value v;
   	
+    pthread_barrier_init(&barrier, nullptr, number_of_threads);
+
   	// consumer_mutex starts locked so that we do not try to process input before getting one
   	pthread_mutex_lock(&consumer_mutex);
 
 	pthread_create(&producer_thread, NULL, producer_routine, (void *) &v);
 	pthread_create(&consumer_thread, NULL, consumer_routine, (void *) &v);
 	pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, (void *) &consumer_thread);
+
+    pthread_barrier_destroy(&barrier);
 
 	
 	// get result	
