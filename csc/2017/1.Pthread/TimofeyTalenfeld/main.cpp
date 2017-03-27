@@ -34,6 +34,11 @@ public:
         pthread_mutex_unlock(mutex);
     }
 
+    void unsafe_notify_thread_stopped(pthread_mutex_t * mutex) {
+        _state = STOPPED;
+        pthread_cond_broadcast(&_is_started);
+    }
+
     void notify_thread_stopped(pthread_mutex_t * mutex) {
         pthread_mutex_lock(mutex);
         _state = STOPPED;
@@ -67,6 +72,9 @@ public:
     }
 
 private:
+
+    thread(const thread &) {}
+
     pthread_t _pthread;
     pthread_cond_t _is_started;
 
@@ -79,15 +87,15 @@ class thread_pool {
 public:
     thread_pool() {}
 
-    thread get(thread_type type) const {
-        return threads.at(type);
+    thread* get(thread_type type) const {
+        return &(*(threads.at(type)));
     }
 
     bool create_thread(thread_type type, void * routine, void * params) {
         if (threads.count(type)) {
             return false;
         }
-        threads.emplace(std::make_pair(type, thread(routine, params)));
+        threads.emplace(std::make_pair(type, std::shared_ptr<thread>(new thread(routine, params))));
         return true;
     }
 
@@ -95,21 +103,21 @@ public:
         if (!threads.count(type)) {
             return false;
         }
-        threads.at(type).run();
+        get(type)->run();
         return true;
     }
 
     void run_threads() {
         std::for_each(
             threads.begin(), threads.end(),
-            [this] (std::pair<unsigned, thread> pair) {
+            [this] (std::pair<unsigned, std::shared_ptr<thread>> pair) {
                 run_thread(static_cast<thread_type>(pair.first));
             }
         );
     }
 
 private:
-    std::map<unsigned, thread> threads;
+    std::map<unsigned, std::shared_ptr<thread>> threads;
 };
 
 enum exchange_state {
@@ -158,6 +166,9 @@ public:
     }
 
 private:
+
+    exchanger(const exchanger &) { }
+
     pthread_cond_t _is_exchanging;
     exchange_state state;
 };
@@ -185,7 +196,8 @@ exchanger _exchanger;
 
 void* producer_routine(void* arg) {
     // Wait for consumer to start
-    _threads.get(CONSUMER).wait_for_running(&_mutex);
+    _threads.get(CONSUMER)->wait_for_running(&_mutex);
+    _threads.get(PRODUCER)->notify_thread_started(&_mutex);
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     int value = 0;
     while (std::cin >> value) {
@@ -198,50 +210,55 @@ void* producer_routine(void* arg) {
 
     _exchanger.start_exchanging(&_mutex);
     _exchanger.init_exchanging();
+
+    _threads.get(PRODUCER)->unsafe_notify_thread_stopped(&_mutex);
+
     _exchanger.wait_for_exchange_finished(&_mutex);
     _exchanger.end_exchanging(&_mutex);
-
-    _threads.get(PRODUCER).notify_thread_stopped(&_mutex);
 
     return nullptr;
 }
 
 void* consumer_routine(void* arg) {
     // notify about start
-    _threads.get(CONSUMER).notify_thread_started(&_mutex);
-    _threads.get(CONSUMER).set_cancel_state_enabled(false);
+    _threads.get(CONSUMER)->set_cancel_state_enabled(false);
+    _threads.get(CONSUMER)->notify_thread_started(&_mutex);
+
     // allocate value for result
     int * sum = new int(0);
     // for every update issued by producer, read the value and add to sum
     while (true) {
         _exchanger.start_exchanging(&_mutex);
         _exchanger.wait_for_exchange_started(&_mutex);
-        if (_threads.get(PRODUCER).is_running()) {
+        if (!_threads.get(PRODUCER)->is_running()) {
+            _exchanger.exchange();
             _exchanger.end_exchanging(&_mutex);
             break;
         }
+
         *sum += ((Value *) arg)->get();
         _exchanger.exchange();
         _exchanger.end_exchanging(&_mutex);
     }
 
-    _threads.get(CONSUMER).set_cancel_state_enabled(true);
+    _threads.get(CONSUMER)->set_cancel_state_enabled(true);
 
     // return pointer to result
-    _threads.get(CONSUMER).notify_thread_stopped(&_mutex);
+    _threads.get(CONSUMER)->notify_thread_stopped(&_mutex);
+
     return sum;
 }
 
 void* consumer_interruptor_routine(void* arg) {
     // wait for consumer to start
-    _threads.get(CONSUMER).wait_for_running(&_mutex);
+    _threads.get(CONSUMER)->wait_for_running(&_mutex);
 
     // interrupt consumer while producer is running
-    while (_threads.get(PRODUCER).is_running()) {
-        _threads.get(CONSUMER).cancel();
+    while (_threads.get(PRODUCER)->is_running()) {
+        _threads.get(CONSUMER)->cancel();
     }
 
-    _threads.get(INTERRUPTOR).notify_thread_stopped(&_mutex);
+    _threads.get(INTERRUPTOR)->notify_thread_stopped(&_mutex);
 
     return nullptr;
 }
@@ -249,7 +266,7 @@ void* consumer_interruptor_routine(void* arg) {
 int run_threads() {
     // start 3 _threads and wait until they're done
 
-    std::unique_ptr<Value *> value(new Value *);
+    std::unique_ptr<Value> value(new Value());
 
     pthread_mutex_init(&_mutex, nullptr);
 
@@ -261,17 +278,15 @@ int run_threads() {
 
     // return sum of update values seen by consumer
 
-    int * result(0);
+    std::shared_ptr<int> result(new int(0));
 
-    pthread_join(_threads.get(PRODUCER).get(), nullptr);
-    pthread_join(_threads.get(CONSUMER).get(), (void **) result);
-    pthread_join(_threads.get(INTERRUPTOR).get(), nullptr);
+    pthread_join(_threads.get(PRODUCER)->get(), nullptr);
+    pthread_join(_threads.get(CONSUMER)->get(), (void **) &result);
+    pthread_join(_threads.get(INTERRUPTOR)->get(), nullptr);
 
     pthread_mutex_destroy(&_mutex);
 
-    std::unique_ptr<int *> _result(&result);
-
-    return **_result;
+    return *result;
 }
 
 int main() {
