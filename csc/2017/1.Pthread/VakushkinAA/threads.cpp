@@ -27,7 +27,7 @@ pthread_cond_t wait_for_consumer = PTHREAD_COND_INITIALIZER;
 pthread_barrier_t barrier;
 
 bool still_has_data = true;
-
+bool wait_for_consumer_flag = false;
 
 void* producer_routine(void* arg) {
     long long input = 0;
@@ -44,9 +44,13 @@ void* producer_routine(void* arg) {
         pthread_mutex_unlock(&consumer_mutex);
         
         // wait for consumer to acknowledge input
-        pthread_mutex_lock(&consumer_ready_mutex);
-        pthread_cond_wait(&wait_for_consumer, &consumer_ready_mutex);
-        pthread_mutex_unlock(&consumer_ready_mutex);
+        while(!wait_for_consumer_flag)
+        {
+            pthread_mutex_lock(&consumer_ready_mutex);
+            pthread_cond_wait(&wait_for_consumer, &consumer_ready_mutex);
+            pthread_mutex_unlock(&consumer_ready_mutex);
+        }
+        wait_for_consumer_flag = false;
     }
     
     // exit gracefully (i.e. allow consumer to exit as well)
@@ -63,7 +67,7 @@ void* consumer_routine(void* arg) {
     
     // notify about start
     pthread_barrier_wait(&barrier); 
-      
+
     // allocate value for result
     long long * result = new long long(0);
 
@@ -79,6 +83,7 @@ void* consumer_routine(void* arg) {
             
         // acknowledge input from consumer
         pthread_mutex_unlock(&producer_mutex);
+        wait_for_consumer_flag = true;
         pthread_cond_signal(&wait_for_consumer);
     }
     
