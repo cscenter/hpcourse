@@ -1,6 +1,8 @@
 #include <pthread.h>  
 #include <iostream>
 #include <map>
+#include <memory>
+#include <algorithm>
 
 enum thread_type {
     PRODUCER = 0,
