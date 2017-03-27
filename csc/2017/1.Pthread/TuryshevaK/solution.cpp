@@ -51,6 +51,7 @@ void *producer_routine(void *arg) {
 
     pthread_mutex_lock(&mutex);
     producer_finished = true;
+    pthread_cond_signal(&value_updated_by_producer_condition);
     pthread_mutex_unlock(&mutex);
 
     return 0;
@@ -78,13 +79,13 @@ void *consumer_routine(void *arg) {
 //    for every update issued by producer, read the value and add to sum
     while (true) {
         pthread_mutex_lock(&mutex);
-        if (producer_finished){
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
         while (value_updated_by_producer) {
             pthread_cond_wait(&value_updated_by_producer_condition, &mutex);
 
+        }
+        if (producer_finished){
+            pthread_mutex_unlock(&mutex);
+            break;
         }
         sum += ((Value *) arg)->get();
 
