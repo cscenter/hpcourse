@@ -7,6 +7,9 @@
 
 pthread_mutex_t value_mutex;
 
+pthread_cond_t value_updated_cond;
+pthread_cond_t value_read_cond;
+
 class Value
 {
 public:
@@ -73,6 +76,17 @@ struct ProducerArgs {
 	std::vector<int> number_list;
 };
 
+struct InterruptorArgs {
+	InterruptorArgs(Value* value_object, pthread_t* to_interrupt)
+		: value_object(value_object)
+		, to_interrupt(to_interrupt)
+	{
+	}
+
+	Value* value_object;
+	pthread_t* to_interrupt;
+};
+
 void* producer_routine(void* args)
 {
 	ProducerArgs* producer_args = (ProducerArgs*) args;
@@ -80,12 +94,16 @@ void* producer_routine(void* args)
 	std::vector<int> number_list = producer_args->number_list;
 	int number_count = number_list.size();
 	for (int i = 0; i < number_count; ++i) {
-		while (!value_object->is_checked()) {}
-		pthread_mutex_lock (&value_mutex);
+		pthread_mutex_lock(&value_mutex);
 		value_object->update(number_list[i]);
 		if (i == number_count - 1) {
 			value_object->set_finish();
 		}
+		pthread_cond_signal(&value_updated_cond);
+
+		while (!value_object->is_checked()) {
+			pthread_cond_wait(&value_read_cond, &value_mutex);			
+		}		
 		pthread_mutex_unlock(&value_mutex);
 	}
 	return 0;
@@ -96,20 +114,26 @@ void* consumer_routine(void* value_object_void)
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	Value* value_object = (Value*) value_object_void;
 	int* res = new int(0);
-	while (!value_object->is_finished() || !value_object->is_checked()) {
-		while (value_object->is_checked()) {}
+	while (!value_object->is_finished()) {
 		pthread_mutex_lock(&value_mutex);
+		while (value_object->is_checked()) {
+			pthread_cond_wait(&value_updated_cond, &value_mutex);
+		}
+		
 		*res += value_object->get();
 		value_object->check();
-		pthread_mutex_unlock(&value_mutex);
+		pthread_cond_signal(&value_read_cond);
+		pthread_mutex_unlock(&value_mutex);		
 	}
 	return (void*)res;
 }
 
-void* interruptor_routine(void* to_interrupt_id_void)
+void* interruptor_routine(void* args)
 {
-	pthread_t* to_interrupt_id = (pthread_t *)to_interrupt_id_void;
-	while (pthread_kill(*to_interrupt_id, 0) != ESRCH) {
+	InterruptorArgs* interruptor_args = (InterruptorArgs*)args;
+	Value* value_object = interruptor_args->value_object;
+	pthread_t* to_interrupt_id = interruptor_args->to_interrupt;
+	while (!value_object->is_finished()) {
 		if (pthread_cancel(*to_interrupt_id) == 1) {
 			std::cout << "Interruptor win!" << '\n';
 			return 0;
@@ -127,19 +151,25 @@ int run_threads(std::vector<int> number_list)
 	pthread_t interruptor_id;
 
 	pthread_mutex_init(&value_mutex, NULL);
+	pthread_cond_init(&value_read_cond, NULL);
+	pthread_cond_init(&value_updated_cond, NULL);
 
 	ProducerArgs* producer_args = new ProducerArgs(&value_object, number_list);
-	int producer_status = pthread_create(&producer_id, NULL, producer_routine, (void *) producer_args);
+	pthread_create(&producer_id, NULL, producer_routine, (void *) producer_args);
 
 	int* consumer_res = new int(0);
-	int consumer_status = pthread_create(&consumer_id, NULL, consumer_routine, (void *) &value_object);
+	pthread_create(&consumer_id, NULL, consumer_routine, (void *) &value_object);
+	InterruptorArgs* interruptor_args = new InterruptorArgs(&value_object, &producer_id);
+	pthread_create(&interruptor_id, NULL, interruptor_routine, (void *) &interruptor_args);
 
-	int interruptor_status = pthread_create(&interruptor_id, NULL, interruptor_routine, (void *) &producer_id);
-
-	pthread_join(producer_id, NULL);
-	pthread_join(interruptor_id, NULL);	
+	pthread_join(producer_id, NULL);	
 	pthread_join(consumer_id, (void**)&consumer_res);
+	pthread_join(interruptor_id, NULL);
 	int result = *consumer_res;
+
+	pthread_cond_destroy(&value_read_cond);
+	pthread_cond_destroy(&value_updated_cond);
+	pthread_mutex_destroy(&value_mutex);
 
 	delete producer_args;
 	delete consumer_res;
@@ -151,7 +181,7 @@ std::vector<int> get_number_list()
 {
 	std::vector<int> number_list;
 	int cur_value;
-	
+
 	while (std::cin >> cur_value) {
 		number_list.push_back(cur_value);
 	}
