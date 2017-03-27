@@ -49,7 +49,9 @@ void *producer_routine(void *arg) {
         pthread_mutex_unlock(&mutex);
     }
 
+    pthread_mutex_lock(&mutex);
     producer_finished = true;
+    pthread_mutex_unlock(&mutex);
 
     return 0;
 }
@@ -86,8 +88,9 @@ void *consumer_routine(void *arg) {
         pthread_cond_signal(&value_updated_by_consumer_condition);
         pthread_mutex_unlock(&mutex);
     }
-
+    pthread_mutex_lock(&mutex);
     consumer_start = false;
+    pthread_mutex_unlock(&mutex);
     
 // return result
     return (void *) sum;
