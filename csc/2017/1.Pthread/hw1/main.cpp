@@ -29,30 +29,29 @@ void* producer_routine(void* arg) {
 
     auto value = (Value*)arg;
     std::vector<int> data;
-    int elem;
+    int elem, i = 0;
     while (std::cin >> elem)
         data.push_back(elem);
 
-    while (!data.empty()){
+    while (i != data.size()){
         pthread_mutex_lock(&mutex);
 
-        while(!read_data)
-            pthread_cond_wait(&cond, &mutex);
-
-        value->update(data.back());
-        data.pop_back();
+        value->update(data[i++]);
         read_data = false;
-
         pthread_cond_signal(&cond);
+	if(i == data.size())
+		finish = true;
+	while(!read_data)
+            pthread_cond_wait(&cond, &mutex);
 
         pthread_mutex_unlock(&mutex);
     }
 
+        pthread_mutex_lock(&mutex);
         finish = true;
-      //  pthread_mutex_lock(&mutex);
         read_data = false;
         pthread_cond_signal(&cond);
-       // pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);
 
     pthread_exit(NULL);
 
@@ -61,8 +60,11 @@ void* producer_routine(void* arg) {
 void* consumer_routine(void* arg) {
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+    
+    pthread_mutex_lock(&mutex);
     consumer = true;
     pthread_cond_signal(&cond2);
+    pthread_mutex_unlock(&mutex);
 
     auto value = (Value*)arg;
     int *sum = new int(0);
@@ -72,7 +74,6 @@ void* consumer_routine(void* arg) {
 
         while(read_data)
             pthread_cond_wait(&cond, &mutex);
-
         *sum += value->get();
         read_data = true;
         pthread_cond_signal(&cond);
@@ -88,8 +89,10 @@ void* consumer_interruptor_routine(void* arg) {
 
     pthread_t *thread_cancel = (pthread_t*)arg;
 
+    pthread_mutex_lock(&mutex);
     while (!consumer)
         pthread_cond_wait(&cond2, &mutex);
+    pthread_mutex_unlock(&mutex);
 
     while (!finish)
         pthread_cancel(*thread_cancel);
