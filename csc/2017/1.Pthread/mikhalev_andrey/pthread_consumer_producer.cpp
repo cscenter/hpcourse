@@ -51,15 +51,17 @@ void *producer_routine(void *arg) {
                 pthread_mutex_lock(&mutex); // lock mutex
                 cout << "Producer: produce " << number << endl;
                 value->update(number); // update value
-                ++enable_produce; // set flag about updated
+                enable_produce = true; // set flag about updated
                 pthread_mutex_unlock(&mutex); // unlock mutex
             } else { // input stream has ended, we can exit
                 break;
             }
         }
+        pthread_mutex_lock(&mutex); // lock mutex
         // we finished producing: change finish-flag, wake up consumer and unlock mutex
         producing_ended = true;
         pthread_cond_signal(&cond_csm);
+        pthread_mutex_unlock(&mutex); // unlock mutex
     } else { // error barrier passing
         assert(!barrier_status);
     }
@@ -166,6 +168,10 @@ int run_threads() {
     pthread_join(threads[1], &return_value);
     pthread_join(threads[2], NULL);
 
+    // save result and free memory
+    int result = ((Value *)return_value)->get();
+    delete (Value *)return_value;
+    
     // destroy resources
     result_status = pthread_barrier_destroy(&barrier);
     assert(!result_status);
@@ -176,8 +182,7 @@ int run_threads() {
     result_status = pthread_cond_destroy(&cond_pr);
     assert(!result_status);
 
-    // return result
-    return ((Value *)return_value)->get();
+    return result;    
 }
 
 int main() {

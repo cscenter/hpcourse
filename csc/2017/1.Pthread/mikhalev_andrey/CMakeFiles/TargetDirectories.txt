@@ -1,0 +1,1 @@
+/home/montura/git/hpcourse/csc/2017/1.Pthread/mikhalev_andrey/CMakeFiles/lab.dir

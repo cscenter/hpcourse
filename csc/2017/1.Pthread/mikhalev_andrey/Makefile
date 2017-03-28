@@ -102,24 +102,24 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named pthread_producer_consumer
+# Target rules for targets named lab
 
 # Build rule for target.
-pthread_producer_consumer: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 pthread_producer_consumer
-.PHONY : pthread_producer_consumer
+lab: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 lab
+.PHONY : lab
 
 # fast build rule for target.
-pthread_producer_consumer/fast:
-	$(MAKE) -f CMakeFiles/pthread_producer_consumer.dir/build.make CMakeFiles/pthread_producer_consumer.dir/build
-.PHONY : pthread_producer_consumer/fast
+lab/fast:
+	$(MAKE) -f CMakeFiles/lab.dir/build.make CMakeFiles/lab.dir/build
+.PHONY : lab/fast
 
 pthread_consumer_producer.o: pthread_consumer_producer.cpp.o
 .PHONY : pthread_consumer_producer.o
 
 # target to build an object file
 pthread_consumer_producer.cpp.o:
-	$(MAKE) -f CMakeFiles/pthread_producer_consumer.dir/build.make CMakeFiles/pthread_producer_consumer.dir/pthread_consumer_producer.cpp.o
+	$(MAKE) -f CMakeFiles/lab.dir/build.make CMakeFiles/lab.dir/pthread_consumer_producer.cpp.o
 .PHONY : pthread_consumer_producer.cpp.o
 
 pthread_consumer_producer.i: pthread_consumer_producer.cpp.i
@@ -127,7 +127,7 @@ pthread_consumer_producer.i: pthread_consumer_producer.cpp.i
 
 # target to preprocess a source file
 pthread_consumer_producer.cpp.i:
-	$(MAKE) -f CMakeFiles/pthread_producer_consumer.dir/build.make CMakeFiles/pthread_producer_consumer.dir/pthread_consumer_producer.cpp.i
+	$(MAKE) -f CMakeFiles/lab.dir/build.make CMakeFiles/lab.dir/pthread_consumer_producer.cpp.i
 .PHONY : pthread_consumer_producer.cpp.i
 
 pthread_consumer_producer.s: pthread_consumer_producer.cpp.s
@@ -135,7 +135,7 @@ pthread_consumer_producer.s: pthread_consumer_producer.cpp.s
 
 # target to generate assembly for a file
 pthread_consumer_producer.cpp.s:
-	$(MAKE) -f CMakeFiles/pthread_producer_consumer.dir/build.make CMakeFiles/pthread_producer_consumer.dir/pthread_consumer_producer.cpp.s
+	$(MAKE) -f CMakeFiles/lab.dir/build.make CMakeFiles/lab.dir/pthread_consumer_producer.cpp.s
 .PHONY : pthread_consumer_producer.cpp.s
 
 # Help Target
@@ -145,7 +145,7 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... edit_cache"
-	@echo "... pthread_producer_consumer"
+	@echo "... lab"
 	@echo "... rebuild_cache"
 	@echo "... pthread_consumer_producer.o"
 	@echo "... pthread_consumer_producer.i"
