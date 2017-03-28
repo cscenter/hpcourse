@@ -1,1 +1,0 @@
-/usr/bin/c++    -std=c++11 -pthread    CMakeFiles/lab.dir/pthread_consumer_producer.cpp.o  -o lab -rdynamic 
