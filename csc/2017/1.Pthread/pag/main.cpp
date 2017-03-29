@@ -5,8 +5,8 @@
 #include <sstream>
 
 pthread_barrier_t wait_consumer_barrier;
-pthread_mutex_t value_mutex;
-pthread_cond_t value_cond;
+pthread_mutex_t value_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t value_cond = PTHREAD_COND_INITIALIZER;
 bool value_ready;
 bool complete = false;
 
