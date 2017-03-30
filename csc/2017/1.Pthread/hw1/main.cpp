@@ -40,7 +40,7 @@ void* producer_routine(void* arg) {
         read_data = false;
         pthread_cond_signal(&cond);
 	if(i == data.size())
-		finish = true;
+	    finish = true;
 	while(!read_data)
             pthread_cond_wait(&cond, &mutex);
 
