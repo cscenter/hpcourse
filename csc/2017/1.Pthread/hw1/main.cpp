@@ -13,6 +13,7 @@ public:
     int get() const {
         return _value;
     }
+
 private:
     int _value;
 };
@@ -25,55 +26,55 @@ bool read_data = true;
 bool finish = false;
 bool consumer = false;
 
-void* producer_routine(void* arg) {
+void *producer_routine(void *arg) {
 
-    auto value = (Value*)arg;
+    auto value = (Value *) arg;
     std::vector<int> data;
     int elem, i = 0;
     while (std::cin >> elem)
         data.push_back(elem);
 
-    while (i != data.size()){
+    while (i != data.size()) {
         pthread_mutex_lock(&mutex);
 
         value->update(data[i++]);
         read_data = false;
         pthread_cond_signal(&cond);
-	if(i == data.size())
-	    finish = true;
-	while(!read_data)
+        if (i == data.size())
+            finish = true;
+        while (!read_data)
             pthread_cond_wait(&cond, &mutex);
 
         pthread_mutex_unlock(&mutex);
     }
 
-        pthread_mutex_lock(&mutex);
-        if(!finish){
-	    read_data = false;
-	    pthread_cond_signal(&cond);
-	};
-        pthread_mutex_unlock(&mutex);
+    pthread_mutex_lock(&mutex);
+    if (!finish) {
+        read_data = false;
+        pthread_cond_signal(&cond);
+    };
+    pthread_mutex_unlock(&mutex);
 
     pthread_exit(NULL);
 
 }
 
-void* consumer_routine(void* arg) {
+void *consumer_routine(void *arg) {
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    
+
     pthread_mutex_lock(&mutex);
     consumer = true;
     pthread_cond_signal(&cond2);
     pthread_mutex_unlock(&mutex);
 
-    auto value = (Value*)arg;
+    auto value = (Value *) arg;
     int *sum = new int(0);
 
-    while (!finish){
+    while (!finish) {
         pthread_mutex_lock(&mutex);
 
-        while(read_data)
+        while (read_data)
             pthread_cond_wait(&cond, &mutex);
         *sum += value->get();
         read_data = true;
@@ -86,9 +87,9 @@ void* consumer_routine(void* arg) {
 
 }
 
-void* consumer_interruptor_routine(void* arg) {
+void *consumer_interruptor_routine(void *arg) {
 
-    pthread_t *thread_cancel = (pthread_t*)arg;
+    pthread_t *thread_cancel = (pthread_t *) arg;
 
     pthread_mutex_lock(&mutex);
     while (!consumer)
@@ -108,30 +109,30 @@ int run_threads() {
     auto value = new Value();
 
     pthread_t threads[3];
-    void *(*function[3])(void*) = {producer_routine, consumer_routine, consumer_interruptor_routine};
+    void *(*function[3])(void *) = {producer_routine, consumer_routine, consumer_interruptor_routine};
     int *results[3];
 
-    pthread_mutex_init(&mutex,0);
+    pthread_mutex_init(&mutex, 0);
     pthread_cond_init(&cond, 0);
     pthread_cond_init(&cond2, 0);
 
 
     for (int i = 0; i < 2; ++i) {
         ret = pthread_create(&threads[i], NULL, function[i], (void *) value);
-        if(ret != 0) {
+        if (ret != 0) {
             perror("pthread_create failed\n");
             exit(EXIT_FAILURE);
         }
     }
 
-    ret = pthread_create(&threads[2], NULL, function[2], (void*)&threads[1]);
-    if(ret != 0) {
+    ret = pthread_create(&threads[2], NULL, function[2], (void *) &threads[1]);
+    if (ret != 0) {
         perror("pthread_create failed\n");
         exit(EXIT_FAILURE);
     }
 
-    for(int i = 0; i < 3; i++)
-        pthread_join(threads[i], (void **)&results[i]);
+    for (int i = 0; i < 3; i++)
+        pthread_join(threads[i], (void **) &results[i]);
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond);
