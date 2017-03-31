@@ -8,6 +8,7 @@ static pthread_cond_t  cond_consumer_ready = PTHREAD_COND_INITIALIZER;
 static pthread_cond_t  cond_new_value      = PTHREAD_COND_INITIALIZER;
 
 static pthread_mutex_t mutex_global = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex_consumer_finished = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_barrier_t barrier_start;
 
@@ -88,10 +89,13 @@ void* consumer_routine(void* arg) {
 
     res_value->update(res_value->get() + value.get());
   }
-
   pthread_mutex_unlock(&mutex_global);
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+  pthread_mutex_lock(&mutex_consumer_finished);
   consumer_finished = true;
+  pthread_mutex_unlock(&mutex_consumer_finished);
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   // return pointer to result
   return res_value;
 }
@@ -101,8 +105,17 @@ void* consumer_interruptor_routine(void* arg) {
   // wait for consumer to start
   pthread_barrier_wait(&barrier_start);
 
-  while (!consumer_finished)
+  pthread_mutex_lock(&mutex_consumer_finished);
+  bool consumer_finished_local = consumer_finished;
+  pthread_mutex_unlock(&mutex_consumer_finished);
+
+  while (!consumer_finished_local) {
     pthread_cancel(thread_consumer);
+
+    pthread_mutex_lock(&mutex_consumer_finished);
+    consumer_finished_local = consumer_finished;
+    pthread_mutex_unlock(&mutex_consumer_finished);
+  }
 
   // interrupt consumer while producer is running
   return NULL;
