@@ -83,7 +83,7 @@ void *consumer_routine(void *arg) {
             pthread_mutex_unlock(&mutex);
             break;
         }
-        while (value_updated_by_producer) {
+        while (value_updated_by_producer and !producer_finished) {
             pthread_cond_wait(&value_updated_by_producer_condition, &mutex);
 
         }
