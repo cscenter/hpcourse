@@ -12,7 +12,7 @@ pthread_t interruptor_thread;
 
 
 int end_of_array = 0, sum = 0;
-vector<int> N;
+//vector<int> N;
 
 class Value {
 public:
@@ -34,9 +34,9 @@ private:
 void *producer_routine(void *arg) {
     pthread_mutex_lock(&mutex);
     Value *val = (Value *) arg;
-
-    for(auto i : N){
-        while (val->get()) {
+    int i;
+    while (cin >> i) {//while cin is int
+        if (val->get()) {
             pthread_cond_wait(&producer_cond, &mutex);/*wait while consumer reads and changes to null*/
         }
         val->update(i);
@@ -51,35 +51,28 @@ void *producer_routine(void *arg) {
 
 void *consumer_routine(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    pthread_testcancel();
-
     pthread_mutex_lock(&mutex);
     Value *val = (Value *) arg;
 
-    while (true) {
-        if (!end_of_array) {
-            while (!val->get()) {
-                pthread_cond_wait(&consumer_cond, &mutex);/*wait while producer change consumer's null*/
-            }
-            sum += val->get();
-            val->update(0);
-            pthread_cond_signal(&producer_cond);/*inform consumer to begin changing value*/
-        } else {
-            break;
-        }
-    }
+    while (!end_of_array) {
+        if (!val->get())
+            pthread_cond_wait(&consumer_cond, &mutex);/*wait while producer change consumer's null*/
 
+        sum += val->get();
+        val->update(0);
+        pthread_cond_signal(&producer_cond);/*inform consumer to begin changing value*/
+    }
     pthread_mutex_unlock(&mutex);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_testcancel();
+
     pthread_exit(0);
 }
 
 void *consumer_interruptor_routine(void *arg) {
     Value *val = (Value *) arg;
-
-    while (!end_of_array) {
-        while (val->get())
-            pthread_cancel(consumer_thread);/*try interrupt consumer if value isn't null*/
-    }
+    while (!end_of_array)
+        pthread_cancel(consumer_thread);/*try interrupt consumer if value isn't null*/
 
     pthread_exit(0);
 }
@@ -89,11 +82,6 @@ int run_threads() {
     pthread_cond_init(&consumer_cond, NULL);
     pthread_cond_init(&producer_cond, NULL);
     pthread_mutex_init(&mutex, NULL);
-
-    N.push_back(1);
-    N.push_back(2);
-    N.push_back(3);
-    N.push_back(4);
 
     Value *value = new Value();
 
@@ -116,3 +104,4 @@ int main() {
     cout << run_threads() << endl;
     return 0;
 }
+
