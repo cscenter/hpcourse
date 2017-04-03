@@ -21,11 +21,11 @@ pthread_cond_t cond_producer = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_consumer = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_interruptor = PTHREAD_COND_INITIALIZER;
 
-bool is_consumer_started = false;
-bool is_producer_ready = false;
-bool is_consumer_ready = false;
-bool is_producer_finished = false;
-bool is_consumer_finished = false;
+volatile bool is_consumer_started = false;
+volatile bool is_producer_ready = false;
+volatile bool is_consumer_ready = false;
+volatile bool is_producer_finished = false;
+volatile bool is_consumer_finished = false;
 
 void *producer_routine(void *arg) {
     int in_value;
