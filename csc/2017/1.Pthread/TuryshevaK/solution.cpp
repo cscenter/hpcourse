@@ -9,11 +9,12 @@ pthread_t producer, consumer, interruptor;
 bool producer_finished = false;
 bool consumer_start = false;
 bool value_updated_by_producer = true;
+int checksum = 0; //Переодически consumer завершался раньше, чем суммировал последее переданное число.
+                 // Пришла идея ввести значение, которое будет отслеживать, что все, что передал  producer, consumer все же получил
 
 pthread_cond_t consumer_started_condition;
 pthread_cond_t value_updated_by_producer_condition;
 pthread_cond_t value_updated_by_consumer_condition;
-
 
 class Value {
 public:
@@ -35,12 +36,12 @@ private:
 void *producer_routine(void *arg) {
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     int data;
-    while (std::cin.peek() != '\n') { //Честно подсмотрено, потому что иначе нифига не работало почему-то :(
+    while (std::cin >> data) {
         pthread_mutex_lock(&mutex);
 
         while (!value_updated_by_producer)
             pthread_cond_wait(&value_updated_by_consumer_condition, &mutex);
-        std::cin >> data;
+        checksum += 1;
 
         ((Value *) arg)->update(data);
         value_updated_by_producer = false;
@@ -79,15 +80,19 @@ void *consumer_routine(void *arg) {
 //    for every update issued by producer, read the value and add to sum
     while (true) {
         pthread_mutex_lock(&mutex);
-        if (producer_finished){
-            pthread_mutex_unlock(&mutex);
-            break;
-        }
+
         while (value_updated_by_producer and !producer_finished) {
             pthread_cond_wait(&value_updated_by_producer_condition, &mutex);
 
         }
+
+        if (producer_finished and checksum == 0) {
+            pthread_mutex_unlock(&mutex);
+            break;
+        }
+
         sum += ((Value *) arg)->get();
+        checksum -= 1;
 
         value_updated_by_producer = true;
         pthread_cond_signal(&value_updated_by_consumer_condition);
@@ -97,7 +102,7 @@ void *consumer_routine(void *arg) {
     pthread_mutex_lock(&mutex);
     consumer_start = false;
     pthread_mutex_unlock(&mutex);
-    
+
 // return result
     return (void *) sum;
 }
