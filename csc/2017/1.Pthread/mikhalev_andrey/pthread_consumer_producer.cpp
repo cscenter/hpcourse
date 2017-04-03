@@ -38,25 +38,23 @@ void *producer_routine(void *arg) {
     int barrier_status = pthread_barrier_wait(&barrier); // wait for consumer and interruptor
     // we and consumer and interruptor passed barrier
     if (barrier_status == 0 || barrier_status == PTHREAD_BARRIER_SERIAL_THREAD) {
+        pthread_mutex_lock(&mutex); // lock mutex
         while (1) {
-            pthread_mutex_lock(&mutex); // lock mutex
-            if (enable_produce) { // if we prepared something for consumer, than wake up consumer and wait
-                pthread_cond_signal(&cond_csm); // wake up consumer
+            while (enable_produce) { // if we prepared something for consumer, than wake up consumer and wait
                 pthread_cond_wait(&cond_pr, &mutex); // producer release mutex and wait
             }
-            pthread_mutex_unlock(&mutex); // unlock mutex
-
             // read number and update it
             if (cin >> number) {
-                pthread_mutex_lock(&mutex); // lock mutex
                 cout << "Producer: produce " << number << endl;
                 value->update(number); // update value
                 enable_produce = true; // set flag about updated
-                pthread_mutex_unlock(&mutex); // unlock mutex
+                pthread_cond_signal(&cond_csm); // wake up consumer
             } else { // input stream has ended, we can exit
                 break;
             }
         }
+        pthread_mutex_unlock(&mutex); // unlock mutex
+
         pthread_mutex_lock(&mutex); // lock mutex
         // we finished producing: change finish-flag, wake up consumer and unlock mutex
         producing_ended = true;
@@ -84,19 +82,20 @@ void *consumer_routine(void *arg) {
     int barrier_status = pthread_barrier_wait(&barrier); // wait for producer and interruptor
     // we and producer and interruptor passed barrier
     if (barrier_status == 0 || barrier_status == PTHREAD_BARRIER_SERIAL_THREAD) {
-        while (!producing_ended) { // while we have input stream
-            pthread_mutex_lock(&mutex); // lock mutex
-            if (!enable_produce) { // if we have nothing to consume, than wake up producer and wait
-                pthread_cond_signal(&cond_pr); // wake up producer
+        pthread_mutex_lock(&mutex); // lock mutex
+        while (1) {
+            // if we have nothing to consume and producing hasn't yet ended, than wake up producer and wait
+            while (!enable_produce && !producing_ended) {
                 pthread_cond_wait(&cond_csm, &mutex); // consumer release mutex and wait
-            } else {
-                // consume something
-                cout << "Consumer: consumed " << value->get() << endl;
-                sum += value->get(); // accumulate sum
-                enable_produce = false; // change flag for producer
             }
-            pthread_mutex_unlock(&mutex); // unlock mutex
+            if (producing_ended) break;
+            // consume something
+            cout << "Consumer: consumed " << value->get() << endl;
+            sum += value->get(); // accumulate sum
+            enable_produce = false; // change flag for producer
+            pthread_cond_signal(&cond_pr); // wake up producer
         }
+        pthread_mutex_unlock(&mutex); // unlock mutex
         // we ended consuming
         pthread_cond_signal(&cond_pr); // wake up producer
     } else { // error barrier passing
@@ -171,7 +170,7 @@ int run_threads() {
     // save result and free memory
     int result = ((Value *)return_value)->get();
     delete (Value *)return_value;
-    
+
     // destroy resources
     result_status = pthread_barrier_destroy(&barrier);
     assert(!result_status);
@@ -182,7 +181,7 @@ int run_threads() {
     result_status = pthread_cond_destroy(&cond_pr);
     assert(!result_status);
 
-    return result;    
+    return result;
 }
 
 int main() {
