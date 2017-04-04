@@ -78,9 +78,11 @@ void* consumer_routine(void* arg)
 {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
+    pthread_mutex_lock(&mutex);
     state = consumer_ready;
     // notify about consumer ready so signal on consumer_cv
     pthread_cond_broadcast(&consumer_cv);
+    pthread_mutex_unlock(&mutex);
 
     // allocate value for result
     int *sum = new int();
