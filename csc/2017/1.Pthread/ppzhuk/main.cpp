@@ -27,6 +27,7 @@ pthread_cond_t consumer_cv = PTHREAD_COND_INITIALIZER;
 pthread_cond_t producer_cv = PTHREAD_COND_INITIALIZER;
 
 bool value_ready = false;
+bool last_value = false;
 bool producer_started = false;
 bool consumer_started = false;
 
@@ -42,22 +43,42 @@ void *producer_routine(void *arg) {
     // Wait for consumer to start
     wait_for_consumer();
 
-    // Read data, loop through each value
     Value *value = (Value *) arg;
-    int n;
-    while (std::cin >> n) {
+
+    // Reading input list of numbers
+    std::string line;
+    std::getline(std::cin, line);
+    std::istringstream iss(line);
+    std::vector<int> numbers = (std::vector<int>(std::istream_iterator<int>(iss), std::istream_iterator<int>()));
+
+
+    for (size_t i = 0; i < numbers.size(); i++) {
         pthread_mutex_lock(&mutex);
+
         // wait for consumer to process
         while (value_ready) {
             pthread_cond_wait(&producer_cv, &mutex);
         }
-        // update the value, notify consumer
-        value->update(n);
+
+        // update the value,
+        value->update(numbers[i]);
         value_ready = true;
+
+        if (i == numbers.size() - 1) {
+            last_value = true;
+        }
+
+        // notify consumer
         pthread_cond_signal(&producer_cv);
         pthread_mutex_unlock(&mutex);
     }
+
+    // notify consumer about producer finished to work.
+    // used in consumer to check if there was an empty input list (line 110)
+    pthread_mutex_lock(&mutex);
     producer_started = false;
+    pthread_cond_signal(&producer_cv);
+    pthread_mutex_unlock(&mutex);
 
     pthread_exit(0);
 }
@@ -77,21 +98,34 @@ void *consumer_routine(void *arg) {
     *sum = 0;
 
     // for every update issued by producer
-    while (producer_started) {
+    while (1) {
         pthread_mutex_lock(&mutex);
-        // wait until value is ready to be consumed
-        while (!value_ready) {
+        // wait until value is ready to be consumed or producer has finished his work
+        while (!value_ready && producer_started) {
             pthread_cond_wait(&producer_cv, &mutex);
+        }
+
+        // if producer is already finished and there was no any last value
+        // then input list was empty, aborting consumer
+        if (!producer_started && !last_value) {
+            pthread_mutex_unlock(&mutex);
+            break;
         }
 
         // read the value, add to sum
         *sum += value->get();
         value_ready = false;
+
+        // aborting if this is last value
+        if (last_value) {
+            pthread_mutex_unlock(&mutex);
+            break;
+        }
+
         // notify producer we are ready for the next value
         pthread_cond_signal(&producer_cv);
         pthread_mutex_unlock(&mutex);
     }
-    consumer_started = false;
 
     // return pointer to result
     pthread_exit((void *) sum);
