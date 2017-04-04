@@ -21,8 +21,7 @@ pthread_t producer_thread, consumer_thread, interruptor_thread;
 bool consumer_started = false,
      value_updated = false,
      value_consumed = false,
-     producer_finished = false,
-     consumer_finished = false;
+     producer_finished = false;
 pthread_cond_t cond_consumer_started,
                cond_value_updated,
                cond_value_consumed;
@@ -73,7 +72,8 @@ void* consumer_routine(void* arg) {
     int * sum = new int(0);
 
     // for every update issued by producer, read the value and add to sum
-    while (true) {
+    bool producer_finished_local = false;
+    while (!producer_finished_local) {
         pthread_mutex_lock(&m);
         while (!value_updated) {
             pthread_cond_wait(&cond_value_updated, &m);
@@ -82,13 +82,10 @@ void* consumer_routine(void* arg) {
         *sum += v->get();
         value_consumed = true;
         pthread_cond_signal(&cond_value_consumed);
+        producer_finished_local = producer_finished;
         pthread_mutex_unlock(&m);
-        if (producer_finished) {
-            break;
-        }
     }
-    
-    consumer_finished = true;
+
     // return pointer to result
     return (void*)sum;
 }
@@ -101,11 +98,7 @@ void* consumer_interruptor_routine(void* arg) {
     }
     pthread_mutex_unlock(&m);
     // interrupt consumer while producer is running
-    while (!consumer_finished) {
-        pthread_mutex_lock(&m);
-        pthread_cancel(consumer_thread);
-        pthread_mutex_unlock(&m);
-    }
+    while (!pthread_cancel(consumer_thread));
 
     return 0;
 }
@@ -120,14 +113,14 @@ int run_threads() {
     pthread_cond_init(&cond_value_consumed, NULL);
     pthread_create(&producer_thread, NULL, producer_routine, (void*)&v);
     pthread_create(&consumer_thread, NULL, consumer_routine, (void*)&v);
-    // pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, NULL);
+    pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, NULL);
 
     int * result_ptr;
     pthread_join(producer_thread, NULL);
     pthread_join(consumer_thread, (void**)&result_ptr);
     int result = *result_ptr;
     delete result_ptr;
-    // pthread_join(&interruptor_thread, NULL);
+    pthread_join(interruptor_thread, NULL);
 
     pthread_mutex_destroy(&m);
     pthread_cond_destroy(&cond_consumer_started);
