@@ -59,9 +59,8 @@ void *producer_routine(void *arg) {
         pthread_cond_signal(&signal_from_producer);
 
         // wait for consumer to process
-        while (state != VALUE_HAS_BEEN_PROCESSED) {
-            pthread_cond_wait(&signal_from_consumer, &mutex);
-        }
+        pthread_cond_wait(&signal_from_consumer, &mutex);
+        while (state != VALUE_HAS_BEEN_PROCESSED) {}
         pthread_mutex_unlock(&mutex);
     }
 
@@ -94,7 +93,7 @@ void *consumer_routine(void *arg) {
         // for every update issued by producer
         while (state != VALUE_IS_READY_TO_BE_PROCESSED &&
                 state != PRODUCER_HAS_FINISHED) {
-            pthread_cond_wait(&signal_from_producer, &mutex);
+        	pthread_cond_wait(&signal_from_producer, &mutex);
         }
 
         if (state == PRODUCER_HAS_FINISHED) {
@@ -109,10 +108,6 @@ void *consumer_routine(void *arg) {
 
         pthread_mutex_unlock(&mutex);
     }
-
-    pthread_mutex_lock(&mutex);
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    pthread_mutex_unlock(&mutex);
 
     // return pointer to result
     pthread_exit((void*)sum);
@@ -139,6 +134,11 @@ void *consumer_interruptor_routine(void *arg) {
 }
 
 int run_threads() {
+    // initialise global values
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&signal_from_producer, NULL);
+    pthread_cond_init(&signal_from_consumer, NULL);
+
     // 3 потока: производитель, покупатель и прерыватель
     pthread_t producer, consumer, interruptor;
     Value *value = new Value();
@@ -159,11 +159,6 @@ int run_threads() {
         std::cerr << "create interruptor error: " << error_code << std::endl;
         exit(EXIT_FAILURE);
     }
-
-    // initialise global values
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&signal_from_producer, NULL);
-    pthread_cond_init(&signal_from_consumer, NULL);
 
     int *result;
 
