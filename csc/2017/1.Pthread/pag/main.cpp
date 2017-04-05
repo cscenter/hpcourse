@@ -71,7 +71,7 @@ void *consumer_routine(void *arg) {
     // calc
     while (true) {
         pthread_mutex_lock(&value_mutex);
-        if (!value_ready) {
+        while (!value_ready) {
             pthread_cond_wait(&value_cond, &value_mutex);
         }
         if(value_ready){
