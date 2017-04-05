@@ -44,10 +44,11 @@ void *producer_routine(void *arg) {
         pthread_mutex_unlock(&m);
     }
 
+    pthread_mutex_lock(&m);
     is_producer_ready = true;
-    pthread_cond_signal(&cond_producer);
-
     is_producer_finished = true;
+    pthread_cond_signal(&cond_producer);
+    pthread_mutex_unlock(&m);
 
     pthread_exit(NULL);
 }
@@ -55,8 +56,8 @@ void *producer_routine(void *arg) {
 void *consumer_routine(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-    is_consumer_started = true;
     pthread_mutex_lock(&m);
+    is_consumer_started = true;
     pthread_cond_signal(&cond_interruptor);
     pthread_mutex_unlock(&m);
 
@@ -69,7 +70,11 @@ void *consumer_routine(void *arg) {
         while(!is_producer_ready) pthread_cond_wait(&cond_producer, &m);
         is_producer_ready = false;
 
-        if (is_producer_finished) break;
+        if (is_producer_finished) {
+            pthread_mutex_unlock(&m);
+            is_consumer_finished = true;
+            break;
+        }
 
         sum += value->get();
         is_consumer_ready = true;
@@ -77,8 +82,6 @@ void *consumer_routine(void *arg) {
 
         pthread_mutex_unlock(&m);
     }
-
-    is_consumer_finished = true;
 
     pthread_exit((void*)sum);
 }
