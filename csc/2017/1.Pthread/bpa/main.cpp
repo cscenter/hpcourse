@@ -18,18 +18,24 @@ private:
 };
 
 pthread_t producer, consumer, interruptor;
-pthread_mutex_t mutex;
-pthread_barrier_t barrier;
+pthread_mutex_t mutex, updated_m, consumer_started_m, producer_stopped_m;
 pthread_cond_t time_to_produce;
 pthread_cond_t time_to_consume;
 
-volatile bool updated = false;
-volatile bool consumer_started = false;
-volatile bool producer_stopped = false;
+bool updated = false;
+bool consumer_started = false;
+bool producer_stopped = false;
+
+bool safe_read(bool value, pthread_mutex_t *l_mutex) {
+    pthread_mutex_lock(l_mutex);
+    bool res = value;
+    pthread_mutex_unlock(l_mutex);
+    return res;
+}
 
 void *producer_routine(void *arg) {
     // Wait for consumer to start
-    pthread_barrier_wait(&barrier);
+    while (!safe_read(consumer_started, &consumer_started_m)) {}
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     Value *data = (Value *) arg;
@@ -37,7 +43,7 @@ void *producer_routine(void *arg) {
     int val;
     while (std::cin >> val) {
         pthread_mutex_lock(&mutex);
-        while (updated) {
+        while (safe_read(updated, &updated_m)) {
             pthread_cond_wait(&time_to_produce, &mutex);
         }
 
@@ -50,8 +56,8 @@ void *producer_routine(void *arg) {
     }
 
     pthread_mutex_lock(&mutex);
-    producer_stopped = true;
     updated = true;
+    producer_stopped = true;
     pthread_cond_signal(&time_to_consume);
     pthread_mutex_unlock(&mutex);
 }
@@ -62,13 +68,15 @@ void *consumer_routine(void *arg) {
     int *sum = new int(0);
 
     // notify about start
+    pthread_mutex_lock(&consumer_started_m);
     consumer_started = true;
+    pthread_mutex_unlock(&consumer_started_m);
 
     // allocate value for result
     // for every update issued by producer, read the value and add to sum
-    while (!producer_stopped) {
+    while (!safe_read(producer_stopped, &producer_stopped_m)) {
         pthread_mutex_lock(&mutex);
-        while (!updated) {
+        while (!safe_read(updated, &updated_m)) {
             pthread_cond_wait(&time_to_consume, &mutex);
         }
         if (producer_stopped) {
@@ -81,7 +89,10 @@ void *consumer_routine(void *arg) {
         pthread_cond_signal(&time_to_produce);
         pthread_mutex_unlock(&mutex);
     }
+
+    pthread_mutex_lock(&consumer_started_m);
     consumer_started = false;
+    pthread_mutex_unlock(&consumer_started_m);
 
     // return pointer to result
     return (void *) sum;
@@ -89,11 +100,11 @@ void *consumer_routine(void *arg) {
 
 void *consumer_interruptor_routine(void *arg) {
     // wait for consumer to start
-    pthread_barrier_wait(&barrier);
+    while (!safe_read(consumer_started, &consumer_started_m)) {}
 
     // interrupt consumer while producer is running
-    while (consumer_started) {
-        if (updated) {
+    while (!safe_read(producer_stopped, &producer_stopped_m)) {
+        if (safe_read(updated, &updated_m)) {
             pthread_cancel(consumer);
         }
     }
@@ -103,7 +114,6 @@ int run_threads() {
     // start 3 threads and wait until they're done
     // return sum of update values seen by consumer
 
-    pthread_barrier_init(&barrier, NULL, 2);
     Value data;
     pthread_create(&producer, NULL, producer_routine, &data);
     pthread_create(&consumer, NULL, consumer_routine, &data);
