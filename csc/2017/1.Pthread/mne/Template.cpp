@@ -2,6 +2,7 @@
 #include <iostream>
 #include <assert.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 class Value {
 public:
@@ -18,38 +19,39 @@ private:
     int _value;
 };
 
-pthread_mutex_t mutex;
-pthread_cond_t can_produce;
-pthread_cond_t can_consume;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t can_produce =  PTHREAD_COND_INITIALIZER;
+pthread_cond_t can_consume =  PTHREAD_COND_INITIALIZER;
 pthread_t producer, consumer, interruptor;
-volatile int buff_size;
-volatile int eof;
+
+bool can_produce_flag;
+int eof;
 
 void* producer_routine(void* arg) {
+  pthread_mutex_lock(&mutex);
+
   Value *val = (Value *) arg;
   int new_int;
   int stat;
 
-  pthread_mutex_lock(&mutex);
-
   while(1) {
-    if (buff_size == 1) {
+    if (!can_produce_flag) {
       pthread_cond_wait(&can_produce, &mutex);
     }
-    assert(buff_size == 0);
+    assert(can_produce_flag);
 
     //printf(">");
     stat = scanf("%d", &new_int);
     if (stat != EOF) {
       //printf("Producer: %d\n", new_int);
       val->update(new_int);
-      buff_size = 1;
-      pthread_cond_signal(&can_consume);
+      can_produce_flag = false;
+      pthread_cond_broadcast(&can_consume);
     } else {
       //printf("Producer: EOF\n");
       eof = 1;
-      buff_size = 1;
-      pthread_cond_signal(&can_consume);
+      can_produce_flag = false;
+      pthread_cond_broadcast(&can_consume);
       break;
     }
   }
@@ -57,28 +59,29 @@ void* producer_routine(void* arg) {
 }
 
 void* consumer_routine(void* arg) {
+  pthread_mutex_lock(&mutex);
+
   Value *val = (Value *) arg;
   int *result = new int;
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-  pthread_mutex_lock(&mutex);
-  if (buff_size == 1) {
-    buff_size = 0;
+  if (!can_produce_flag) {
+    can_produce_flag = true;
     pthread_cond_broadcast(&can_produce);
   }
 
   while(1) {
-    if (buff_size == 0) {
+    if (can_produce_flag) {
       pthread_cond_wait(&can_consume, &mutex);
     }
-    assert(buff_size == 1);
+    assert(!can_produce_flag);
     if (!eof) {
       int cons = val->get();
       //printf("Consumer: %d\n", cons);
       *result += cons;
-      buff_size = 0;
-      pthread_cond_signal(&can_produce);
+      can_produce_flag = true;
+      pthread_cond_broadcast(&can_produce);
     } else {
       //printf("Consumer: EOF\n");
       break;
@@ -90,7 +93,7 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
   pthread_mutex_lock(&mutex);
-  if (buff_size == 1) {
+  if (!can_produce_flag) {
     pthread_cond_wait(&can_produce, &mutex);
   }
   pthread_mutex_unlock(&mutex);
@@ -106,12 +109,15 @@ int run_threads() {
     // return sum of update values seen by consumer
   Value *val = new Value();
   eof = 0;
-  buff_size = 1;
+  can_produce_flag = false;
 
-  pthread_create(&producer, NULL, producer_routine, (void*)&val);
+  pthread_create(&producer, NULL, producer_routine, val);
   pthread_create(&interruptor, NULL, consumer_interruptor_routine, NULL);
-  pthread_create(&consumer, NULL, consumer_routine, (void*)&val);
+  pthread_create(&consumer, NULL, consumer_routine, val);
 
+  pthread_setname_np(producer, "producer");
+  pthread_setname_np(interruptor, "interruptor");
+  pthread_setname_np(consumer, "consumer");
 
   void *result;
   pthread_join(producer, NULL);
