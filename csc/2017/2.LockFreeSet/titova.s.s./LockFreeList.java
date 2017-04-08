@@ -7,22 +7,23 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  * Created by Sophia Titova on 06.04.17.
  */
 public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
-    
-    private AtomicMarkableReference<Node> head;
+    Node emptyNode = new Node();
+    private AtomicMarkableReference<Node> head = new AtomicMarkableReference<>(emptyNode, false);
     private AtomicInteger size = new AtomicInteger(0);
     
-    public LockFreeList() {
-    }
-    
     public static void main(String[] args) {
+        
         LockFreeList<Integer> integerLockFreeList = new LockFreeList<>();
+        
         integerLockFreeList.add(1);
         integerLockFreeList.add(2);
         integerLockFreeList.add(2);
         integerLockFreeList.remove(1);
+        
         System.out.println(integerLockFreeList.contains(1));
         
         integerLockFreeList.remove(2);
+        
         System.out.println(integerLockFreeList.contains(2));
     }
     
@@ -31,7 +32,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
         
         Node pred;
         Node curr;
-        Node succ;
+        Node next;
         Pair<Node, Pair<Node, Node>> p;
         
         while (true) {
@@ -39,22 +40,22 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
             p = find(value);
             pred = p.getKey();
             curr = p.getValue().getKey();
-            succ = p.getValue().getValue();
+            next = p.getValue().getValue();
             
             if (curr != null) {
                 return false;
             }
             
             Node node = new Node(value);
-            node.setNext(new AtomicMarkableReference<>(succ, false));
+            node.setNext(new AtomicMarkableReference<>(next, false));
             
             if (size.get() == 0) {
-                head = new AtomicMarkableReference<Node>(node, false);
-                size.incrementAndGet();
+                head.compareAndSet(emptyNode, node, false, false);
+                size.compareAndSet(0, 1);
                 return true;
             }
             
-            if (pred.getNext().compareAndSet(succ, node, false, false)) {   // а другие сслки перевесить? ходим в одну сторону телько видимо
+            if (pred.getNext().compareAndSet(next, node, false, false)) {   // а другие сслки перевесить? ходим в одну сторону телько видимо
                 size.incrementAndGet();
                 return true;
             }
@@ -66,7 +67,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
         
         Node pred;
         Node curr;
-        Node succ;
+        Node next;
         Pair<Node, Pair<Node, Node>> p;
         
         while (true) {
@@ -74,7 +75,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
             p = find(value);
             pred = p.getKey();
             curr = p.getValue().getKey();
-            succ = p.getValue().getValue();
+            next = p.getValue().getValue();
             
             if (size.get() == 1) {
                 if (pred.getValue() == value) {
@@ -86,11 +87,11 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
                 return false;
             }
             
-            if (!curr.getNext().attemptMark(succ, true)) {
+            if (!curr.getNext().attemptMark(next, true)) {
                 continue;
             }
             
-            pred.getNext().compareAndSet(curr, succ, false, false);
+            pred.getNext().compareAndSet(curr, next, false, false);
             size.decrementAndGet();
             return true;
         }
@@ -110,12 +111,11 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
     
     private Pair<Node, Pair<Node, Node>> find(Comparable value) { // TODO
-        //Pair<Node, Pair<Node, Node>> result;
         Node pred;
         Node curr;
-        Node succ;
-        boolean[] pmark = new boolean[1];
-        boolean[] cmark = new boolean[1];
+        Node next;
+        boolean[] pMark = new boolean[1];
+        boolean[] cMark = new boolean[1];
         int key = value.hashCode();
     again:
         while (true) {
@@ -124,39 +124,37 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
                 return new Pair<>(null, new Pair<>(null, null));
             }
             pred = head.getReference();
-            curr = pred.getNext().get(pmark);
+            curr = pred.getNext().get(pMark);
             while (true) {
                 if (curr == null) {
                     return new Pair<>(pred, new Pair<>(null, null));
                 }
-                succ = curr.getNext().get(cmark);
+                next = curr.getNext().get(cMark);
                 int ckey = curr.hashCode();
                 if (pred.getNext().isMarked()) {
                     continue again;     // changed
                 }
-                if (!cmark[0]) {
+                if (!cMark[0]) {
                     if (curr.getValue().equals(value)) {
-                        return new Pair<>(pred, new Pair<>(curr, succ));
+                        return new Pair<>(pred, new Pair<>(curr, next));
                     } else if (ckey <= key) {
                         pred = curr;
                     } else {
-                        return new Pair<>(pred, new Pair<>(null, succ));
+                        return new Pair<>(pred, new Pair<>(null, next));
                     }
                 } else {
-                    if (!pred.getNext().compareAndSet(curr, succ, false, false)) {
+                    if (!pred.getNext().compareAndSet(curr, next, false, false)) {
                         continue again;
                     }
                 }
             }
         }
-        //return new Pair<>(new Node(), new Pair<>(new Node(), new Node()));
     }
     
     
     private class Node {
         
         private AtomicMarkableReference<Node> next;
-        private AtomicMarkableReference<Node> pred;
         private T value;
         
         Node() {
@@ -176,10 +174,6 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
         
         void setNext(AtomicMarkableReference<Node> next) {
             this.next = next;
-        }
-        
-        AtomicMarkableReference<Node> getPred() {
-            return pred;
         }
     }
 }
