@@ -65,23 +65,47 @@ class LockFreeHashSetTests {
     }
 
     @Test
-    fun testContains() {
+    fun testRemoveEmptyList() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        val res = lockFreeSet.remove(123)
+        Assert.assertEquals(false, res)
+    }
+
+    @Test
+    fun testRemoveLast() {
         val lockFreeSet = LockFreeHashSet<Int>()
         lockFreeSet.add(123)
-        val contains = lockFreeSet.contains(123)
-        Assert.assertEquals(true, contains)
+        val res = lockFreeSet.remove(123)
+        Assert.assertEquals(true, res)
+        Assert.assertEquals(true, lockFreeSet.isEmpty)
+    }
+
+    @Test
+    fun testRemoveGreaterThenLast() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        lockFreeSet.add(123)
+        val res = lockFreeSet.remove(124)
+        Assert.assertEquals(false, res)
+        Assert.assertEquals(false, lockFreeSet.isEmpty)
     }
 
     @Test
     fun testRemove() {
         val lockFreeSet = LockFreeHashSet<Int>()
         lockFreeSet.add(123)
-        val containsBefore = lockFreeSet.contains(123)
-        val res = lockFreeSet.remove(123)
-        val containsAfter = lockFreeSet.contains(123)
-        Assert.assertEquals(true, containsBefore)
+        lockFreeSet.add(124)
+        lockFreeSet.add(125)
+        val res = lockFreeSet.remove(124)
         Assert.assertEquals(true, res)
-        Assert.assertEquals(false, containsAfter)
+        Assert.assertEquals(false, lockFreeSet.contains(124))
+    }
+
+    @Test
+    fun testContains() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        lockFreeSet.add(123)
+        val contains = lockFreeSet.contains(123)
+        Assert.assertEquals(true, contains)
     }
 
     @Test
@@ -96,9 +120,128 @@ class LockFreeHashSetTests {
         Assert.assertEquals(true, lockFreeSet.isEmpty)
     }
 
-    // !! before uncomment this make LockFreeHashSet.head and LockFreeHashSet.findNodes public
-    // ----------------------------------------------------------------------------------------------------------------
     @Test
+    fun testConcurrentAdd() {
+        (0..10000).forEach { iteration ->
+            val lockFreeSet = LockFreeHashSet<Int>()
+            // Added values in different threads are intersected a little bit
+            val t1 = Thread(
+                    Runnable {
+                        lockFreeSet.add(10)
+                        lockFreeSet.add(20)
+                        lockFreeSet.add(25)
+                    }
+            )
+            val t2 = Thread(
+                    Runnable {
+                        lockFreeSet.add(10)
+                        lockFreeSet.add(3)
+                        lockFreeSet.add(2)
+                        lockFreeSet.add(1)
+                    }
+            )
+            val t3 = Thread(
+                    Runnable {
+                        lockFreeSet.add(3)
+                        lockFreeSet.add(5)
+                        lockFreeSet.add(15)
+                        lockFreeSet.add(25)
+                    }
+            )
+            t1.run()
+            t2.run()
+            t3.run()
+            t1.join()
+            t2.join()
+            t3.join()
+
+            Assert.assertEquals(
+                    "iteration: ${iteration}",
+                    "1->2->3->5->10->15->20->25->null\n",
+                    lockFreeSet.toString()
+            )
+        }
+    }
+
+    @Test
+    fun testConcurrentRemove() {
+        (0..10000).forEach { iteration ->
+            val lockFreeSet = LockFreeHashSet<Int>()
+            (1..10).forEach {
+                lockFreeSet.add(it)
+            }
+            // Deleted values in different threads are intersected a little bit
+            val t1 = Thread(
+                    Runnable {
+                        (2..5).forEach { lockFreeSet.remove(it) }
+                    }
+            )
+            val t2 = Thread(
+                    Runnable {
+                        (5..8).forEach { lockFreeSet.remove(it) }
+                    }
+            )
+            val t3 = Thread(
+                    Runnable {
+                        (6..9).forEach { lockFreeSet.remove(it) }
+                    }
+            )
+            t3.run()
+            t1.run()
+            t2.run()
+            t1.join()
+            t2.join()
+            t3.join()
+
+            Assert.assertEquals(
+                    "iteration: ${iteration}",
+                    "1->10->null\n",
+                    lockFreeSet.toString()
+            )
+        }
+    }
+
+    @Test
+    fun testConcurrentAddRemove() {
+        (0..10000).forEach { iteration ->
+            val lockFreeSet = LockFreeHashSet<Int>()
+            lockFreeSet.add(1)
+            lockFreeSet.add(3)
+            lockFreeSet.add(5)
+            lockFreeSet.add(7)
+            lockFreeSet.add(8)
+
+            val t1 = Thread(
+                    Runnable {
+                        lockFreeSet.add(6)
+                        lockFreeSet.add(2)
+                        lockFreeSet.add(4)
+                    }
+            )
+            val t2 = Thread(
+                    Runnable {
+                        lockFreeSet.remove(7)
+                        lockFreeSet.remove(3)
+                        lockFreeSet.remove(5)
+                    }
+            )
+            t1.run()
+            t2.run()
+            t1.join()
+            t2.join()
+
+            Assert.assertEquals(
+                    "iteration: ${iteration}",
+                    "1->2->4->6->8->null\n",
+                    lockFreeSet.toString()
+            )
+        }
+    }
+
+    // some tests for the private LockFreeHashSet.findNodes() method are places here
+    // before uncomment this make LockFreeHashSet.head, LockFreeHashSet.findNodes and LockFreeHashSet.Node public
+    // ----------------------------------------------------------------------------------------------------------------
+    /*@Test
     fun testFindNodes() {
         val n4 = LockFreeHashSet<Int>().Node(4.hashCode(), 4, AtomicMarkableReference(null, false))
         val n10 = LockFreeHashSet<Int>().Node(10.hashCode(), 10, AtomicMarkableReference(null, false))
@@ -183,6 +326,6 @@ class LockFreeHashSetTests {
     ) {
         val actualNodes = set.findNodes(key)
         Assert.assertEquals(expectedNodes, actualNodes)
-    }
+    }*/
     // ----------------------------------------------------------------------------------------------------------------
 }
