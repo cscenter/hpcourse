@@ -8,9 +8,7 @@ class LockFreeHashSetTests {
     fun testAdd() {
         val lockFreeSet = LockFreeHashSet<Int>()
         val res = lockFreeSet.add(123)
-        val contains = lockFreeSet.contains(123)
         Assert.assertEquals(true, res)
-        Assert.assertEquals(true, contains)
     }
 
     @Test
@@ -20,6 +18,50 @@ class LockFreeHashSetTests {
         val res2 = lockFreeSet.add(123)
         Assert.assertEquals(true, res1)
         Assert.assertEquals(false, res2)
+    }
+
+    @Test
+    fun testAddAfterLast() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        val res1 = lockFreeSet.add(123)
+        val res2 = lockFreeSet.add(124)
+        val res3 = lockFreeSet.add(125)
+        Assert.assertEquals(true, res1)
+        Assert.assertEquals(true, res2)
+        Assert.assertEquals(true, res3)
+    }
+
+    @Test
+    fun testAddBeforeFirst() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        val res1 = lockFreeSet.add(125)
+        val res2 = lockFreeSet.add(124)
+        val res3 = lockFreeSet.add(123)
+        Assert.assertEquals(true, res1)
+        Assert.assertEquals(true, res2)
+        Assert.assertEquals(true, res3)
+    }
+
+    @Test
+    fun testAddBetweenTwoElementsDuplicate() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        val res1 = lockFreeSet.add(120)
+        val res2 = lockFreeSet.add(130)
+        val res3 = lockFreeSet.add(130)
+        Assert.assertEquals(true, res1)
+        Assert.assertEquals(true, res2)
+        Assert.assertEquals(false, res3)
+    }
+
+    @Test
+    fun testAddBetweenTwoElements() {
+        val lockFreeSet = LockFreeHashSet<Int>()
+        val res1 = lockFreeSet.add(120)
+        val res2 = lockFreeSet.add(130)
+        val res3 = lockFreeSet.add(125)
+        Assert.assertEquals(true, res1)
+        Assert.assertEquals(true, res2)
+        Assert.assertEquals(true, res3)
     }
 
     @Test

@@ -11,7 +11,11 @@ fun main(args: Array<String>) {
     n1.nextAndIsDeletePair.set(n10, false)
     n10.nextAndIsDeletePair.set(n20, false)
     n20.nextAndIsDeletePair.set(n30, true)
+
+    println("empty? ${set.isEmpty}")
     set.head.set(n1)
+    println("empty? ${set.isEmpty}")
+
     print(5)
     print(25)
     print(20)
@@ -25,8 +29,14 @@ fun main(args: Array<String>) {
         curr = curr.nextAndIsDeletePair.reference
     }
     println("null")
-}
 
+    println(set.contains(3))
+    println(set.contains(4))
+    println(set.contains(5))
+    println(set.contains(29))
+    println(set.contains(30))
+    println(set.contains(31))
+}
 
 
 private fun print(key: Int) {
