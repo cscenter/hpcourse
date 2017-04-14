@@ -12,7 +12,6 @@ pthread_t interruptor_thread;
 
 
 int end_of_array = 0, sum = 0;
-//vector<int> N;
 
 class Value {
 public:
@@ -36,7 +35,7 @@ void *producer_routine(void *arg) {
     Value *val = (Value *) arg;
     int i;
     while (cin >> i) {//while cin is int
-        if (val->get()) {
+        while (val->get()) {
             pthread_cond_wait(&producer_cond, &mutex);/*wait while consumer reads and changes to null*/
         }
         val->update(i);
@@ -55,7 +54,7 @@ void *consumer_routine(void *arg) {
     Value *val = (Value *) arg;
 
     while (!end_of_array) {
-        if (!val->get())
+        while (!val->get())
             pthread_cond_wait(&consumer_cond, &mutex);/*wait while producer change consumer's null*/
 
         sum += val->get();
@@ -63,8 +62,6 @@ void *consumer_routine(void *arg) {
         pthread_cond_signal(&producer_cond);/*inform consumer to begin changing value*/
     }
     pthread_mutex_unlock(&mutex);
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-    pthread_testcancel();
 
     pthread_exit(0);
 }
@@ -104,4 +101,3 @@ int main() {
     cout << run_threads() << endl;
     return 0;
 }
-
