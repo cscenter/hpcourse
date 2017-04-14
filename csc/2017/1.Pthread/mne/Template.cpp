@@ -34,8 +34,8 @@ void* producer_routine(void* arg) {
   int new_int;
   int stat;
 
-  while(1) {
-    if (!can_produce_flag) {
+  while(true) {
+    while (!can_produce_flag) {
       pthread_cond_wait(&can_produce, &mutex);
     }
     assert(can_produce_flag);
@@ -66,13 +66,11 @@ void* consumer_routine(void* arg) {
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-  if (!can_produce_flag) {
-    can_produce_flag = true;
-    pthread_cond_broadcast(&can_produce);
-  }
+  can_produce_flag = true;
+  pthread_cond_broadcast(&can_produce);
 
   while(1) {
-    if (can_produce_flag) {
+    while (can_produce_flag) {
       pthread_cond_wait(&can_consume, &mutex);
     }
     assert(!can_produce_flag);
@@ -93,7 +91,7 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
   pthread_mutex_lock(&mutex);
-  if (!can_produce_flag) {
+  while (!can_produce_flag) {
     pthread_cond_wait(&can_produce, &mutex);
   }
   pthread_mutex_unlock(&mutex);
