@@ -5,11 +5,11 @@ import java.util.concurrent.atomic.AtomicReference
  */
 
 /**
- * The imlementation of lock-free set as lock-free ordered list
+ * The implementation of lock-free set as lock-free ordered list
  * Kotlin v1.1
  */
 class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
-    private var head: AtomicReference<ImmutableNode<T>?> = AtomicReference(null)
+    private var head: AtomicReference<ImmutableNode<T>?> = AtomicReference()
 
     override fun add(value: T): Boolean {
         while (true) {
@@ -30,11 +30,11 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                 // if the value should be insert as the head of list, try to do it
                 // else try to insert in the correct position
                 if (previousNode == null) {
-                    if (head.compareAndSet(currentNode, ImmutableNode(value, curr))) {
+                    if (head.compareAndSet(currentNode, ImmutableNode(value, AtomicReference(curr.get())))) {
                         return true
                     }
                 } else {
-                    if (previousNode.next.compareAndSet(currentNode, ImmutableNode(value, curr))) {
+                    if (previousNode.next.compareAndSet(currentNode, ImmutableNode(value, AtomicReference(curr.get())))) {
                         return true
                     }
                 }
@@ -75,22 +75,23 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     /**
      * return pair of nodes:
      * 1. Node with the maximum data < value or null if there is no such node
-     * 2. Node with the minimum data => value or null if there is no such node
+     * 2. Node with the minimum data >= value or null if there is no such node
      */
     private fun findContext(value: T): Pair<AtomicReference<ImmutableNode<T>?>, AtomicReference<ImmutableNode<T>?>> {
         var prev = head
-        var curr = AtomicReference<ImmutableNode<T>?>()
+        var curr = head.get()?.next ?: AtomicReference<ImmutableNode<T>?>()
 
         var prevNode = prev.get()
 
-        if (prevNode != null && prevNode.next.get() == null) {
-            return if (prevNode.data < value) Pair(prev, curr) else Pair(curr, prev)
+        if (prevNode != null && prevNode.data >= value) {
+            return Pair(AtomicReference(), prev)
         }
 
-        while (prevNode != null && prevNode.data < value) {
+        var currentNode = curr.get()
+        while (currentNode != null && currentNode.data < value) {
             prev = curr
-            curr = curr.get()?.next ?: AtomicReference()
-            prevNode = prev.get()
+            curr = currentNode.next
+            currentNode = curr.get()
         }
 
         return Pair(prev, curr)
@@ -112,10 +113,10 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
 
             val prevNode = prev.get()
 
-            // if the head is the last item, try to {head = AtomicReference(null)}
+            // if the removable item is head, try to {head = curr.next}
             // else try to {prev.next = curr.next}
             if (prevNode == null) {
-                if (head.compareAndSet(currentNode, null)) {
+                if (head.compareAndSet(currentNode, currentNode.next.get())) {
                     return true
                 }
             } else {
