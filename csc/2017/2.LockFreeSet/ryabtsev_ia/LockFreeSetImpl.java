@@ -10,7 +10,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     private class Node {
         T value;
-        AtomicMarkableReference<Node> next;
+        AtomicMarkableReference<Node> next; //save here the next node and the mark for current node
 
         public Node(T value, AtomicMarkableReference<Node> next) {
             this.value = value;
@@ -29,6 +29,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     LockFreeSetImpl() {
+        //the head is alwats empty
         head = new Node(null, new AtomicMarkableReference<Node>(null, false));
     }
 
@@ -41,9 +42,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if (curr != null && curr.value.equals(value)) {
                 return false;
             }
-            boolean expectedMarkCurr = curr != null && pred.next.isMarked();
-            Node node = new Node(value, new AtomicMarkableReference<>(curr, expectedMarkCurr));
-            if (pred.next.compareAndSet(curr, node, expectedMarkCurr, false)); {
+            Node node = new Node(value, new AtomicMarkableReference<>(curr, false));
+            if (pred.next.compareAndSet(curr, node, false, false)); {
                 return true;
             }
         }
@@ -57,10 +57,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node succ;
             while (curr != null) {
                 succ = curr.next.getReference();
-                boolean currMarked = pred.next.isMarked();
-                boolean isSuccMarked = succ != null && curr.next.isMarked();
+                boolean currMarked = curr.next.isMarked();
                 if (currMarked) {
-                    if (!pred.next.compareAndSet(curr, succ, true, isSuccMarked)) {
+                    if (!pred.next.compareAndSet(curr, succ, false, false)) {
                         continue retry;
                     }
                     curr = succ;
@@ -78,44 +77,48 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean remove(T value) {
-        retry:
         while (true) {
             Pair pair = find(value);
             Node pred = pair.pred;
             Node curr = pair.curr;
-            if (curr != null && curr.value.compareTo(value) != 0) {
+            if (curr == null || curr.value.compareTo(value) != 0) {
                 return false;
             }
             Node succ = curr.next.getReference();
-            boolean isMarkedSucc = succ != null && curr.next.isMarked();
-            if (!pred.next.attemptMark(curr, true)) {
-                continue retry;
+            if (!curr.next.attemptMark(succ, true)) {
+                continue;
             }
-            pred.next.compareAndSet(curr, succ, true, isMarkedSucc);
+            pred.next.compareAndSet(curr, succ, false, false);
             return true;
         }
     }
 
     @Override
     public boolean contains(T value) {
-        boolean[] marked = {false};
         Node node = head.next.getReference();
         while (node != null && node.value.compareTo(value) < 0) {
-            node = node.next.get(marked);
+            node = node.next.getReference();
         }
-        if (node != null && node.value.compareTo(value) == 0 && !marked[0]) {
-            return true;
-        }
-        return false;
+        return node != null && node.value.compareTo(value) == 0 && !node.next.isMarked();
     }
 
     @Override
     public boolean isEmpty() {
-        boolean[] marked = {true};
-        Node node = head;
-        while (node != null && marked[0]) {
-            node = node.next.get(marked);
+        Node node = head.next.getReference();
+        while (node != null && node.next.isMarked()) {
+            node = node.next.getReference();
         }
         return node == null;
+    }
+
+    void print() {
+        Node curr = head.next.getReference();
+        Node prev = head;
+        System.out.println("HEAD = " + prev.value + " marked = " + head.next.isMarked());
+        while (curr != null) {
+            System.out.println("value = " + curr.value + " marked = " + prev.next.isMarked());
+            prev = curr;
+            curr = curr.next.getReference();
+        }
     }
 }
