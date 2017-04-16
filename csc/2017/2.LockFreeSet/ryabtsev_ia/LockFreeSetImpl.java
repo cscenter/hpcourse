@@ -29,7 +29,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     LockFreeSetImpl() {
-        //the head is alwats empty
+        //the head is always empty
         head = new Node(null, new AtomicMarkableReference<Node>(null, false));
     }
 
@@ -109,16 +109,5 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             node = node.next.getReference();
         }
         return node == null;
-    }
-
-    void print() {
-        Node curr = head.next.getReference();
-        Node prev = head;
-        System.out.println("HEAD = " + prev.value + " marked = " + head.next.isMarked());
-        while (curr != null) {
-            System.out.println("value = " + curr.value + " marked = " + prev.next.isMarked());
-            prev = curr;
-            curr = curr.next.getReference();
-        }
     }
 }
