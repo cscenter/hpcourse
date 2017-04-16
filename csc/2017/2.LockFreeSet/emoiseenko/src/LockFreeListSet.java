@@ -7,7 +7,7 @@ public class LockFreeListSet<T extends Comparable<T>> implements LockFreeSet<T> 
         public V value;
         public AtomicMarkableReference<Node<V>> next;
 
-        Node(V v, Node<V> n) {
+        public Node(V v, Node<V> n) {
             value = v;
             next = new AtomicMarkableReference<>(n, false);
         }
@@ -17,13 +17,17 @@ public class LockFreeListSet<T extends Comparable<T>> implements LockFreeSet<T> 
         public Node<V> pred;
         public Node<V> curr;
 
-        Pair(Node<V> a, Node<V> b) {
+        public Pair(Node<V> a, Node<V> b) {
             pred = a;
             curr = b;
         }
     }
 
     private Node<T> head;
+
+    public LockFreeListSet() {
+        head = new Node<T>(null, new Node<T>(null, null));
+    }
 
     public Pair<T> find(T value) {
         retry: while (true) {
