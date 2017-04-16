@@ -1,52 +1,23 @@
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeSet<T> {
 
   private final static class Node<T extends Comparable<T>> {
     private final T item;
 
-    private final AtomicReference<NextAndMarked<T>> nextAndMarked;
+    private final AtomicMarkableReference<Node<T>> nextAndMark;
 
     Node(final T item, final Node<T> next) {
       this.item = item;
-      this.nextAndMarked = new AtomicReference<>(new NextAndMarked<>(next, false));
+      this.nextAndMark = new AtomicMarkableReference<>(next, false);
     }
 
     T value() {
       return item;
     }
 
-    AtomicReference<NextAndMarked<T>> nextAndMarked() {
-      return nextAndMarked;
-    }
-  }
-
-  private final static class NextAndMarked<T extends Comparable<T>> {
-    private final Node<T> next;
-
-    private final boolean marked;
-
-    NextAndMarked(final Node<T> next, final boolean marked) {
-      this.next = next;
-      this.marked = marked;
-    }
-
-    Node<T> next() {
-      return next;
-    }
-
-    boolean isMarked() {
-      return marked;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      final NextAndMarked<?> that = (NextAndMarked<?>) o;
-      return marked == that.marked &&
-              Objects.equals(next, that.next);
+    AtomicMarkableReference<Node<T>> nextAndMark() {
+      return nextAndMark;
     }
   }
 
@@ -54,25 +25,10 @@ public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeS
     private final Node<T> pred;
     private final Node<T> curr;
 
-    private final NextAndMarked<T> predNextAndMarked;
-    private final NextAndMarked<T> currNextAndMarked;
-
     private Window(final Node<T> pred,
-                   final NextAndMarked<T> predNextAndMarked,
-                   final Node<T> curr,
-                   final NextAndMarked<T> currNextAndMarked) {
+                   final Node<T> curr) {
       this.pred = pred;
       this.curr = curr;
-      this.predNextAndMarked = predNextAndMarked;
-      this.currNextAndMarked = currNextAndMarked;
-    }
-
-    NextAndMarked<T> currNextAndMarked() {
-      return currNextAndMarked;
-    }
-
-    NextAndMarked<T> predNextAndMarked() {
-      return predNextAndMarked;
     }
 
     Node<T> pred() {
@@ -101,27 +57,19 @@ public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeS
     retry:
     while (true) {
       Node<T> pred = head;
-      NextAndMarked<T> predNextAndMarked = pred.nextAndMarked().get();
-      Node<T> curr = predNextAndMarked.next();
+      Node<T> curr = pred.nextAndMark().getReference();
       while (true) {
-        final NextAndMarked<T> currNextAndMarked = curr.nextAndMarked().get();
-
-        if (!currNextAndMarked.isMarked()) {
+        if (!curr.nextAndMark().isMarked()) {
           if (curr.value().compareTo(value) >= 0) {
-            return new Window<>(pred, predNextAndMarked, curr, currNextAndMarked);
+            return new Window<>(pred, curr);
           } else {
             pred = curr;
-            predNextAndMarked = currNextAndMarked;
-            curr = currNextAndMarked.next();
+            curr = curr.nextAndMark().getReference();
           }
         } else {
-          final NextAndMarked<T> newPredNextAndMarked = new NextAndMarked<>(currNextAndMarked.next(), false);
-
-          if (pred.nextAndMarked().compareAndSet(predNextAndMarked, newPredNextAndMarked)) {
-            predNextAndMarked = newPredNextAndMarked;
-            curr = currNextAndMarked.next();
+          if (pred.nextAndMark().compareAndSet(curr, curr.nextAndMark().getReference(), false, false)) {
+            curr = curr.nextAndMark().getReference();
           } else {
-            //System.err.println("Retry CAS failed");
             continue retry;
           }
         }
@@ -141,10 +89,10 @@ public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeS
       } else {
         final Node<T> newNode = new Node<>(value, curr);
 
-        if (pred.nextAndMarked().compareAndSet(window.predNextAndMarked(), new NextAndMarked<>(newNode, false))) {
+        if (pred.nextAndMark().compareAndSet(curr, newNode, false, false)) {
           return true;
         } else {
-          //System.err.println("Add CAS failed");
+          System.err.println("ADD CAS FAILED");
           //retry
         }
       }
@@ -160,12 +108,10 @@ public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeS
       if (!curr.value().equals(value)) {
         return false;
       } else {
-        final NextAndMarked<T> newCurrentNextAndMarked = new NextAndMarked<>(window.currNextAndMarked().next(), true);
-
-        if (curr.nextAndMarked().compareAndSet(window.currNextAndMarked(), newCurrentNextAndMarked)) {
+        if (curr.nextAndMark().attemptMark(curr.nextAndMark().getReference(), true)) {
           return true;
         } else {
-          //System.err.println("Remove CAS failed");
+          System.err.println("REMOVE CAS FAILED");
           //retry
         }
       }
@@ -176,15 +122,15 @@ public final class LockFreeListSet<T extends Comparable<T>> implements LockFreeS
   public boolean contains(final T value) {
     Node<T> curr = head;
     while (curr.value().compareTo(value) < 0) {
-      curr = curr.nextAndMarked.get().next();
+      curr = curr.nextAndMark().getReference();
     }
 
-    return value.equals(curr.value()) && !curr.nextAndMarked().get().isMarked();
+    return value.equals(curr.value()) && !curr.nextAndMark().isMarked();
   }
 
   @Override
   public boolean isEmpty() {
     //probably wont work
-    return head.nextAndMarked().get().next() == tail;
+    return head.nextAndMark().getReference() == tail;
   }
 }
