@@ -32,33 +32,42 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
         }
     }
 
-    // Don't run when set is empty!
-    // returns Pair(pred = last node with value < parameter, curr = pred.next)
+    /**
+     * Найти место, где находится / должно находиться value
+     * Скорее всего сломается, если все элементы помечены как удалённые
+     *
+     * @param value значение ключа
+     * @return пару из (pred = последний элемент с value < переданное value, его next)
+     */
     private Pair find(T value) {
-        assert head.get_next() != null;
-        // works badly when all elements are marked as deleted
+        assert !isEmpty();
 
         retry: while(true) {
             Node pred = head, curr = head.get_next(), succ;
             while(true) {
                 if (curr == null) {
                     // we found the tail
-                    return new Pair(pred, curr);
+                    return new Pair(pred, null);
                 }
 
                 succ = curr.get_next();
                 boolean current_marked = curr.is_marked();
 
                 if (current_marked) {
-                    // curr is marked as deleted, need to delete physically
+                    // curr is marked as deleted, want to delete physically
                     boolean cas_res = pred.next_and_flag.compareAndSet(
                             curr, succ, false, false
                     );
-                    if (!cas_res) continue retry;
+                    if (!cas_res)
+                        // something went wrong, need to start from beginning
+                        continue retry;
+
+                    // deleted successfully, moving ahead
                     curr = succ;
                 } else {
                     // check if window is found
                     if (curr.value.compareTo(value) >= 0)
+                        // found a window
                         return new Pair(pred, curr);
 
                     // make a step
@@ -79,26 +88,25 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return false если value уже существует в множестве, true если элемент был добавлен
      */
     public boolean add(T value) {
-        if (head.get_next() == null) {
+        if (isEmpty()) {
+            // set is empty, add first element
+            Node node = new Node(value, null);
             return head.next_and_flag.compareAndSet(
-                    null, new Node(value, null), false, false
+                    null, node, false, false
             );
         }
 
         Pair found = find(value);
         Node pred = found.prev, curr = found.curr;
-        if (curr != null && curr.value == value)
+        if (curr != null && curr.value == value) {
+            // this value is already in the set
             return false;
-        else {
+        } else {
             Node node = new Node(value, curr);
-            boolean cas_result = pred.next_and_flag.compareAndSet(
+            return pred.next_and_flag.compareAndSet(
                     curr, node, false, false
             );
-            if (cas_result)
-                return true;
         }
-
-        return false;
     }
 
     /**
@@ -110,20 +118,23 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return false если ключ не был найден, true если ключ успешно удален
      */
     public boolean remove(T value) {
-        if (head.get_next() == null)
+        if (isEmpty())
             return false;
 
         while(true) {
             Pair found = find(value);
             Node pred = found.prev, curr = found.curr;
-            if (curr.value != value)
+            if (curr.value != value) {
+                // this value is not in set
                 return false;
-            else {
+            } else {
+                // mark as deleted
                 Node next = curr.get_next();
                 boolean cas_res = curr.next_and_flag.compareAndSet(
                         next, next, false, true
                 );
                 if (!cas_res)
+                    // something went wrong, start from beginning
                     continue;
 
                 // try to delete physically
@@ -144,7 +155,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        if (head.get_next() == null) {
+        if (isEmpty()) {
             return false;
         }
 
@@ -159,6 +170,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * Проверка множества на пустоту
      *
      * Алгоритм должен быть как минимум wait-free
+     *
+     * Даёт неверный ответ, если все элементы помечены как удалённые, но не удалены
      *
      * @return true если множество пусто, иначе - false
      */
