@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  */
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    LockFreeSetImpl()
+    public LockFreeSetImpl()
     {
         head = new Node();
     }
@@ -14,35 +14,40 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean add(T value)
     {
-        Node pred = findPredecessor(value);
-        Node next= pred.next.getReference();
+        // Allocate new node only once
+        Node new_node = new Node(value);
+        // Retry after each failed attempt
+        while (true) {
+            Node pred = findPredecessor(value);
+            Node next = pred.next.getReference();
 
-        if ((next != null) && (next.value.compareTo(value) == 0))
-            return false;
-        else {
-            Node new_node = new Node(value);
-            if (pred.next.compareAndSet(next, new_node, false, false))
-                return true;
-            // retry
-            return add(value);
+            if ((next != null) && (next.value.compareTo(value) == 0))
+                return false;
+            else {
+                if (pred.next.compareAndSet(next, new_node, false, false))
+                    return true;
+                // else retry
+            }
         }
     }
 
     @Override
     public boolean remove(T value)
     {
-        Node pred = findPredecessor(value);
-        Node next = pred.next.getReference();
+        while (true) {
+            Node pred = findPredecessor(value);
+            Node next = pred.next.getReference();
 
-        if ((next == null) || (next.value.compareTo(value) != 0))
-            return false;
-        else {
-            if (pred.next.attemptMark(next, true)) {
-                // try to actually delete this element
-                pred.next.compareAndSet(next, next.next.getReference(), false, false);
-                return true;
+            if ((next == null) || (next.value.compareTo(value) != 0))
+                return false;
+            else {
+                if (pred.next.attemptMark(next, true)) {
+                    // try to actually delete this element
+                    pred.next.compareAndSet(next, next.next.getReference(), false, false);
+                    return true;
+                }
+                // else retry
             }
-            return remove(value);
         }
     }
 
