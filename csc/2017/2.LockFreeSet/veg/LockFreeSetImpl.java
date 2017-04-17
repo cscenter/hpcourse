@@ -58,7 +58,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
                     curr = succ;
                 } else {
                     // check if window is found
-                    if (curr.value.compareTo(value) > 0)
+                    if (curr.value.compareTo(value) >= 0)
                         return new Pair(pred, curr);
 
                     // make a step
