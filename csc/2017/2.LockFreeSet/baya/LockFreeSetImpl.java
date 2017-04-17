@@ -3,6 +3,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 /**
  * Created by anatoliy on 4/14/17.
  */
+
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     private Node head;
 
