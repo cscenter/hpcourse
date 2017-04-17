@@ -18,7 +18,9 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private boolean checkNotDeleted(Node first, Node second) {
-        return !first.getDeleted() && !second.getDeleted() && first.getNext().getReference() == second;
+        return !first.getNext().isMarked() 
+            && !second.getNext().isMarked() 
+            && first.getNext().getReference() == second;
     }
 
     @Override
@@ -59,7 +61,6 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
                 if (curr.getValue() == null || curr.getValue().compareTo(value) != 0) {
                     return false;
                 }
-                curr.setDeleted(true);
                 if (!curr.getNext().attemptMark(next, true)) {
                     continue;
                 }
@@ -84,7 +85,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
         return this.HEAD.getNext().getReference() == this.TAIL;
     }
 
-    private Pair<Node, Pair<Node, Node>> find(T value) { 
+    private Pair<Node, Pair<Node, Node>> find(T value) {
         Node pred;
         Node curr;
         Node next;
