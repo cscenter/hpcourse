@@ -1,4 +1,3 @@
-package cscenter;
 /**
  * Lock-Free множество.
  * @param <T> Тип ключей

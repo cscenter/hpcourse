@@ -1,15 +1,5 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-package cscenter;
-
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
-/**
- *
- * @author CX70
- */
 public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T> {
 
 	class Node
