@@ -1,6 +1,22 @@
 package ru.cscenter.hpcource.lockfreeset;
 
+import java.util.concurrent.atomic.AtomicMarkableReference;
+
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
+
+    private Node<T> head = new Node<>(null, null);
+
+    private static class Node<T> {
+        final T value;
+        final AtomicMarkableReference<Node<T>> nextReference;
+
+        Node(T value, Node<T> next) {
+            this.value = value;
+            nextReference = new AtomicMarkableReference<>(next, false);
+        }
+
+    }
+
     /**
      * Добавить ключ к множеству
      * <p>
@@ -10,7 +26,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return false если value уже существует в множестве, true если элемент был добавлен
      */
     public boolean add(T value) {
-        return false;
+        while (true) {
+            Node<T>[] nodes = find(value);
+            if (nodes[1] != null && nodes[1].value.equals(value)) {
+                return false;
+            }
+            Node<T> tail = new Node<>(value, nodes[1]);
+            if (nodes[0].nextReference.compareAndSet(nodes[1], tail, false, false)) {
+                return true;
+            }
+        }
     }
 
     /**
@@ -22,7 +47,20 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return false если ключ не был найден, true если ключ успешно удален
      */
     public boolean remove(T value) {
-        return false;
+        while (true) {
+            Node<T>[] nodes = find(value);
+
+            if (nodes[1] == null || nodes[1].value.compareTo(value) != 0) {
+                return false;
+            }
+
+            Node<T> tail = nodes[1].nextReference.getReference();
+            if (!nodes[1].nextReference.attemptMark(tail, true)) {
+                continue;
+            }
+            nodes[0].nextReference.compareAndSet(nodes[1], tail, false, false);
+            return true;
+        }
     }
 
     /**
@@ -34,7 +72,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        return false;
+        Node<T> found = find(value)[1];
+        return found != null && found.value != null && found.value.compareTo(value) == 0 && !found.nextReference.isMarked();
     }
 
     /**
@@ -45,6 +84,30 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если множество пусто, иначе - false
      */
     public boolean isEmpty() {
-        return false;
+        return head.nextReference.getReference() == null;
+    }
+
+    private Node<T>[] find(T value) {
+        while (true) {
+            Node<T> prev = head;
+            Node<T> curr = head.nextReference.getReference();
+            Node<T> tmp;
+            while (curr != null) {
+                tmp = curr.nextReference.getReference();
+                boolean currMarked = curr.nextReference.isMarked();
+                if (currMarked) {
+                    if (!prev.nextReference.compareAndSet(curr, tmp, false, false)) {
+                        return find(value);
+                    }
+                } else {
+                    if (curr.value.compareTo(value) >= 0) {
+                        return new Node[] {prev, curr};
+                    }
+                    prev = curr;
+                }
+                curr = tmp;
+            }
+            return new Node[] {prev, curr};
+        }
     }
 }
