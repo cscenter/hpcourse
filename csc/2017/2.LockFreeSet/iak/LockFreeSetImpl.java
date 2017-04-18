@@ -24,6 +24,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if ((next != null) && (next.value.compareTo(value) == 0))
                 return false;
             else {
+                // pred.next.mark might be read and passed to CAS.
+                // However, the mark could change since check and thus
+                // this option behaves no better then just CASing preassumedly not marked pred.next
                 if (pred.next.compareAndSet(next, new_node, false, false))
                     return true;
                 // else retry
@@ -36,14 +39,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     {
         while (true) {
             Node pred = findPredecessor(value);
-            Node next = pred.next.getReference();
+            Node current = pred.next.getReference();
 
-            if ((next == null) || (next.value.compareTo(value) != 0))
+            if ((current == null) || (current.value.compareTo(value) != 0))
                 return false;
             else {
-                if (pred.next.attemptMark(next, true)) {
+                if (current.next.attemptMark(current.next.getReference(), true)) {
                     // try to actually delete this element
-                    pred.next.compareAndSet(next, next.next.getReference(), false, false);
+                    pred.next.compareAndSet(current, current.next.getReference(), false, false);
                     return true;
                 }
                 // else retry
@@ -85,15 +88,17 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         while ((current.next.getReference() != null) && (current.next.getReference().value.compareTo(value) < 0)) {
             pred = current;
             current = current.next.getReference();
-            if (pred.next.compareAndSet(current, current.next.getReference(), true, current.next.isMarked())) {
-                current = current.next.getReference();
+            if (current.next.isMarked()) {
+                // Assume current.next.isMarked() will never change true -> false
+                if (pred.next.compareAndSet(current, current.next.getReference(), false, false))
+                    current = current.next.getReference();
             }
         }
         return current;
     }
 
     /**
-     * Reference to the next node is combined with its deletion mark
+     * Reference to the next node is combined with self deletion mark
      * This enables CAS operations on a node
      */
     private class Node {
