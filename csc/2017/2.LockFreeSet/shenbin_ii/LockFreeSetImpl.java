@@ -42,15 +42,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         return left;
     }
 
-    public void print() {
-        Node current = begin.next.getReference();
-        while (current != end) {
-            System.out.print(current.value);
-            current = current.next.getReference();
-        }
-        System.out.println();
-    }
-
     @Override
     public boolean add(T value) {
         Node new_node = new Node(value);
