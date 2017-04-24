@@ -8,7 +8,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
     private class Node 
     {
         T item;
-        boolean markErase;
         AtomicMarkableReference<Node> next;
         
         /**
@@ -18,15 +17,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
         Node(T item)
         {
             this.item = item;
-            this.markErase = false;
             this.next = new AtomicMarkableReference<Node>(null, false);
         }
-
-    }
-
-    private boolean checkMarks(Node left, Node curr)
-    {
-        return !left.markErase && !curr.markErase && left.next.getReference() == curr;
     }
 
     class Pair {
@@ -42,12 +34,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
     }
 
     /**
-     * @param head start of list
      * @param wanted_item is item to search for
      * @return If element with key is in the list, returns Pair of curr and left of node(predecessor). Else returns
      * Pair of curr with next item (in order of sorting) and left.
      */
-    public Pair search(Node head, T wanted_item)
+    public Pair search(T wanted_item)
     {
         Node left = null;
         Node curr = null;
@@ -87,7 +78,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
     }
 
 
-
     //Implementation
 
     private Node head;
@@ -104,22 +94,19 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
     {
         while (true)
         {
-            Pair pair_lc = search(head, item);
+            Pair pair_lc = search(item);
             Node left = pair_lc.left;
             Node curr = pair_lc.curr;
 
-            if (checkMarks(left, curr))
+            if(curr.item != null && curr.item.compareTo(item) == 0)
+                return false;
+            else
             {
-                if(curr.item != null && curr.item.compareTo(item) == 0)
-                    return false;
-                else
-                {
-                    Node node = new Node(item);
-                    node.next = new AtomicMarkableReference(curr, false);
+                Node node = new Node(item);
+                node.next = new AtomicMarkableReference(curr, false);
 
-                    if (left.next.compareAndSet(curr, node, false, false))
-                        return true;
-                }
+                if (left.next.compareAndSet(curr, node, false, false))
+                    return true;
             }
         }
     }
@@ -130,38 +117,35 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
 
         while (true)
         {
-            Pair pair_lc = search(head, item);
+            Pair pair_lc = search(item);
             Node left = pair_lc.left;
             Node curr = pair_lc.curr;
 
-            if(checkMarks(left, curr))
+            if (curr.item == null || curr.item.compareTo(item) != 0)
+                return false;
+            else
             {
-                if (curr.item == null || curr.item.compareTo(item) != 0)
-                    return false;
-                else
-                {
-                    curr.markErase = true;
-                    Node right = curr.next.getReference();
-                    marked_for_cas = curr.next.attemptMark(right, true);
+                Node right = curr.next.getReference();
+                marked_for_cas = curr.next.attemptMark(right, true);
 
-                    if (!marked_for_cas)
-                        continue;
+                if (!marked_for_cas)
+                    continue;
 
-                    left.next.compareAndSet(curr, right, false, false);
-                    return true;
-                }
+                left.next.compareAndSet(curr, right, false, false);
+                return true;
             }
         }
     }
 
     public boolean contains(T item)
     {
+        boolean[] marked = {false};
         Node curr = head.next.getReference();
 
         while (curr.item != null && curr.item.compareTo(item) < 0)
-            curr = curr.next.getReference();
+            curr = curr.next.get(marked);
 
-        return curr.item != null && curr.item.compareTo(item) == 0 && !curr.markErase;
+        return curr.item != null && curr.item.compareTo(item) == 0 && !marked[0];
     }
 
     public boolean isEmpty()
