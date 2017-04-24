@@ -63,6 +63,9 @@ void *producer_routine(void *arg) {
     }
 
     pthread_mutex_lock(&mutex);
+    while (updated) {
+        pthread_cond_wait(&time_to_produce, &mutex);
+    }
     updated = true;
     producer_stopped = true;
     pthread_cond_signal(&time_to_consume);
