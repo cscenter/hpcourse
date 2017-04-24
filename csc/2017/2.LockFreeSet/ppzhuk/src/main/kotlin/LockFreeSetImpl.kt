@@ -1,20 +1,19 @@
 import java.util.concurrent.atomic.AtomicMarkableReference
 import java.util.concurrent.atomic.AtomicReference
 
-class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
+class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     private var head: AtomicReference<Node?> = AtomicReference(null)
 
     override fun add(value: T): Boolean {
-        val key = value.hashCode()
         while (true) {
-            val (prev, curr) = this.findNodes(key)
-            val node = Node(key, value, AtomicMarkableReference(curr, false))
+            val (prev, curr) = this.findNodes(value)
 
             // fail if value already in the set
-            if (curr != null && curr.key == key) {
+            if (curr != null && curr.value == value) {
                 return false
             }
 
+            val node = Node(value, AtomicMarkableReference(curr, false))
             when (prev) {
             // if must insert before the head
             // or container is empty
@@ -39,12 +38,11 @@ class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
     }
 
     override fun remove(value: T): Boolean {
-        val key = value.hashCode()
         while (true) {
-            val (prev, curr) = this.findNodes(key)
+            val (prev, curr) = this.findNodes(value)
 
-            // list is empty or there is no element with specified key
-            if (curr == null || curr.key != key) {
+            // list is empty or there is no specified element
+            if (curr == null || curr.value != value) {
                 return false
             }
 
@@ -70,19 +68,18 @@ class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
     }
 
     override fun contains(value: T): Boolean {
-        val key = value.hashCode()
         var curr = head.get()
-        while (curr != null && curr.key < key) {
+        while (curr != null && curr.value < value) {
             curr = curr.nextAndIsDeletePair.reference
         }
-        return curr != null && curr.key == key && !curr.nextAndIsDeletePair.isMarked
+        return curr != null && curr.value == value && !curr.nextAndIsDeletePair.isMarked
     }
 
     override fun isEmpty() =
             head.get() == null
 
     private fun findNodes(
-            key: Int
+            value: T
     ): Pair<Node?, Node?> {
         retry@
         while (true) {
@@ -102,7 +99,7 @@ class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
                     continue@retry
                 }
             // if we want to delete the head element or insert before the head
-                pred.key >= key -> {
+                pred.value >= value -> {
                     return null to pred
                 }
             }
@@ -119,11 +116,11 @@ class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
                     val isCompareAndSetPassed = pred!!.nextAndIsDeletePair
                             .compareAndSet(curr, succ, false, false)
                     if (!isCompareAndSetPassed) {
-                        continue@retry
+                        break
                     }
                     curr = succ
                 } else {
-                    if (curr.key >= key) {
+                    if (curr.value >= value) {
                         return pred to curr
                     }
                     pred = curr
@@ -134,7 +131,6 @@ class LockFreeHashSet<T : Comparable<T>> : LockFreeSet<T> {
     }
 
     inner private class Node(
-            val key: Int,
             val value: T,
             var nextAndIsDeletePair: AtomicMarkableReference<Node?>
     )

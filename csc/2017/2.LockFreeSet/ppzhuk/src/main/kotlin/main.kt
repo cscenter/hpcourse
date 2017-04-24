@@ -1,5 +1,5 @@
 fun main(args: Array<String>) {
-    val set = LockFreeHashSet<Int>()
+    val set = LockFreeSetImpl<Int>()
 
     println("empty? ${set.isEmpty}")
     println(set.toString())
