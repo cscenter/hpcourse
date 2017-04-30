@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  */
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     private class Node {
-        T value;
-        AtomicMarkableReference<Node> next;
+        final T value;
+        final AtomicMarkableReference<Node> next;
 
         public Node() {
             this.value = null;
@@ -50,7 +50,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private Pair<Node, Node> find(T key) {
-        while (true) {
+        retry: while (true) {
             Node pred = head;
 
             Node curr = pred.next.getReference();
@@ -62,11 +62,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
             while (true) {
                 succ = curr.next.getReference();
-                boolean cmk = curr.next.isMarked();
+                boolean[] holder = new boolean[1];
+
+                curr.next.get(holder);
+                boolean cmk = holder[0];
 
                 if (cmk) {
                     if (!pred.next.compareAndSet(curr, succ, false, false))
-                        continue;
+                        continue retry;
                     curr = succ;
                 } else {
                     if (curr.value.compareTo(key) >= 0) return new Pair<>(pred, curr);
