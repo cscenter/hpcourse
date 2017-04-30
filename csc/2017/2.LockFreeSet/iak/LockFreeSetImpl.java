@@ -1,3 +1,6 @@
+package iak;
+
+
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 /**
@@ -119,5 +122,5 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         AtomicMarkableReference<Node> next;
     }
 
-    private Node head;
+    private final Node head;
 }
