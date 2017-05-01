@@ -4,9 +4,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
-    private Node tail;
-    private Node head;
-    private AtomicInteger size;
+    private final Node tail;
+    private final Node head;
+    private final AtomicInteger size;
 
     public LockFreeSetImpl() {
         size = new AtomicInteger(0);
@@ -55,8 +55,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean contains(T value) {
-        Pair<Node, Node> pair = find(value);
-        return pair.getValue().value == value;
+        Node curr = head.next.getReference();
+
+        boolean[] markHolder = new boolean[1];
+        while (curr != tail && curr.value.compareTo(value) < 0) {
+            curr = curr.next.get(markHolder);
+        }
+
+        return curr != tail && curr.value.compareTo(value) == 0 && !markHolder[0];
     }
 
     @Override
