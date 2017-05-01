@@ -11,7 +11,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
         head_ = new Node(new AtomicMarkableReference<Node>(null, false), null);
     }
 
-    private NodePair find(Type key) {
+    private NodePair find(final Type key) {
         Node prev = head_;
         Node current = head_.next().getReference();
 
@@ -36,7 +36,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     @Override
-    public boolean add(Type key) {
+    public boolean add(final Type key) {
         while (true) {
             NodePair nodePair = find(key);
             Node prev = nodePair.prev();
@@ -52,7 +52,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     @Override
-    public boolean remove(Type key) {
+    public boolean remove(final Type key) {
         while (true) {
             NodePair nodePair = find(key);
             Node prev = nodePair.prev();
@@ -70,7 +70,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     @Override
-    public boolean contains(Type key) {
+    public boolean contains(final Type key) {
         Node current = head_.next().getReference();
 
         while (current != null && current.getKey().compareTo(key) < 0)
@@ -89,7 +89,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
         private AtomicMarkableReference<Node> next_;
         private Type key_;
 
-        Node(AtomicMarkableReference<Node> next, Type key) {
+        Node(final AtomicMarkableReference<Node> next, final Type key) {
             next_ = next;
             key_ = key;
         }
@@ -111,7 +111,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
         private Node prev_;
         private Node current_;
 
-        NodePair(Node prev, Node current) {
+        NodePair(final Node prev, final Node current) {
             prev_ = prev;
             current_ = current;
         }
