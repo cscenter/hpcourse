@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  */
 public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<Type> {
 
-    private Node head_;
+    private final Node head_;
 
     public LockFreeList() {
         head_ = new Node(new AtomicMarkableReference<Node>(null, false), null);
@@ -86,8 +86,8 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     private class Node {
-        private AtomicMarkableReference<Node> next_;
-        private Type key_;
+        private final AtomicMarkableReference<Node> next_;
+        private final Type key_;
 
         Node(final AtomicMarkableReference<Node> next, final Type key) {
             next_ = next;
@@ -108,8 +108,8 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     class NodePair {
-        private Node prev_;
-        private Node current_;
+        private final Node prev_;
+        private final Node current_;
 
         NodePair(final Node prev, final Node current) {
             prev_ = prev;
