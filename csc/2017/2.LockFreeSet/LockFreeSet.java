@@ -42,3 +42,4 @@ public interface LockFreeSet<T extends Comparable<T>> {
      */
     boolean isEmpty();
 }
+ 
