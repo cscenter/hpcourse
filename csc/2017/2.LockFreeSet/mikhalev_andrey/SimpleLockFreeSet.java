@@ -54,7 +54,7 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
                 while (true) {
                     // get reference to child and flag(should we marked as deleted or not)?
                     child = current.next.get(marked_delete);
-                    while (marked_delete[0]) { // if we should be deleted, try physically delete
+                    while (marked_delete[0] && child != tail) { // if we should be deleted, try physically delete
                         // IF (|parent.next| -> |child|) AND (parent.marked = false)
                         // THEN (|parent.next| -> |child|) AND (child.marked = false)
                         hasDeleted = parent.next.compareAndSet(current, child, false, false);
