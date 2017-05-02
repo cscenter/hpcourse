@@ -19,7 +19,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     class Node {
-        T key;
+        final T key;
         final AtomicReference<State> state = new AtomicReference<>();
 
         Node(final T value, final State initState) {
@@ -141,7 +141,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      */
     @Override
     public boolean isEmpty() {
-        return head.get().state.get().marked; // deleted head means no elements in set
+        Node currentHead = head.get();
+        return currentHead.state.get().marked && currentHead.key == null;
     }
 
 
@@ -157,7 +158,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 AtomicReference<State> predState = pred.state;
                 if (predState.get().marked || predState.get().next != current) continue search;
                 if (currState.get().marked) { // if deleted
-                    if (!pred.state.compareAndSet(currState.get(), new State(currState.get().next, false))) // do cleaning
+                    if (!pred.state.compareAndSet(predState.get(), new State(currState.get().next, false))) // do cleaning
                         continue search; // start search again, because someone changed set outside
                     current = currState.get().next; // otherwise we succeeded in cleaning, keep iterating
                 } else {
