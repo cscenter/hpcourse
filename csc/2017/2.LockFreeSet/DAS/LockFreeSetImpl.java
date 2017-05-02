@@ -2,10 +2,8 @@ import java.util.ArrayList;
 import java.util.concurrent.atomic.*;
 
 /**
- *
  * Java Mission Control показывала после flight recording на 4 потоках с барьером,
  * что потоки друг друга не ждут и выполняются практически параллельно.
- *
  */
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
@@ -22,7 +20,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     class Node {
         T key;
-        AtomicReference<State> state = new AtomicReference<>();
+        final AtomicReference<State> state = new AtomicReference<>();
 
         Node(final T value, final State initState) {
             key = value;
@@ -31,7 +29,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     // head of connected list
-    AtomicReference<Node> head = new AtomicReference<>();
+    final AtomicReference<Node> head = new AtomicReference<>();
 
     public LockFreeSetImpl() {
         head.set(new Node(null, new State(null, true)));
@@ -64,7 +62,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if (current != null && current.key.equals(value)) return false;
             else {
                 AtomicReference<State> reference = pred.state;
-                if (reference.get().marked || reference.get().next != current) continue; // someone deleted element we standing on
+                if (reference.get().marked || reference.get().next != current)
+                    continue; // someone deleted element we standing on
                 Node node = new Node(value, new State(current, false));
                 if (pred.state.compareAndSet(reference.get(), new State(node, false))) {
                     return true;
@@ -97,6 +96,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
                 if (!current.state.compareAndSet(reference.get(), new State(reference.get().next, true))) // deleting logically
                     continue; // if didn't succeeded -- retry
+                if (pred == null){ // current is head
+                    Node newHead = current.state.get().next;
+                    if (newHead == null){
+                        newHead = new Node(null, new State(null, true));
+                    }
+                    head.compareAndSet(current, newHead);
+                    return true;
+                }
                 reference = pred.state;
                 if (!reference.get().marked && reference.get().next == current) { // if only we submitted changes
                     pred.state.compareAndSet(reference.get(), new State(current.state.get().next, false)); // delete physically if possible
@@ -144,12 +151,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node pred = head.get();
             Node current = head.get().state.get().next;
             while (true) {
+                if (pred.key.equals(value)) return getResult(null, pred); // if found in head
                 if (current == null) return getResult(pred, current); // reached end of connected list
                 AtomicReference<State> currState = current.state;
                 AtomicReference<State> predState = pred.state;
                 if (predState.get().marked || predState.get().next != current) continue search;
                 if (currState.get().marked) { // if deleted
-                    if (!current.state.compareAndSet(predState.get(), new State(currState.get().next, false))) // do cleaning
+                    if (!pred.state.compareAndSet(currState.get(), new State(currState.get().next, false))) // do cleaning
                         continue search; // start search again, because someone changed set outside
                     current = currState.get().next; // otherwise we succeeded in cleaning, keep iterating
                 } else {
