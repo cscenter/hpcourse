@@ -5,11 +5,11 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  * @param <T> Тип ключей
  */
 public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T> {
-    private Node head = new Node(null, null);
+    private final Node head = new Node(null, null);
 
     private class Node {
-        T value;
-        AtomicMarkableReference<Node> next;
+        final T value;
+        final AtomicMarkableReference<Node> next;
 
         Node(T value, Node next) {
             this.value = value;
@@ -26,8 +26,8 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
     }
 
     private class Pair {
-        Node prev;
-        Node curr;
+        final Node prev;
+        final Node curr;
 
         Pair(Node prev, Node curr) {
             this.prev = prev;
@@ -36,23 +36,27 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
     }
 
     private Pair find(T value) {
-        Node prev = head;
-        Node curr = head.getNextNode();
-        while (curr != null) {
-            Node next = curr.getNextNode();
-            if (curr.isMarked()) {
-                if (!prev.next.compareAndSet(curr, next, false, false)) {
-                    return find(value);
+        while(true) {
+            Node prev = head;
+            Node curr = head.getNextNode();
+            while(true) {
+                if (curr == null) {
+                    final Pair res = new Pair(prev, null);
+                    return res;
                 }
-            } else if (curr.value.compareTo(value) >= 0) {
-                Pair res = new Pair(prev, curr);
-                return res;
+                final Node next = curr.getNextNode();
+                if (curr.isMarked()) {
+                    if (!prev.next.compareAndSet(curr, next, false, false)) {
+                        break;
+                    }
+                } else if (curr.value.compareTo(value) >= 0) {
+                    final Pair res = new Pair(prev, curr);
+                    return res;
+                }
+                prev = curr;
+                curr = next;
             }
-            prev = curr;
-            curr = next;
         }
-        Pair res = new Pair(prev, null);
-        return res;
     }
 
     /**
@@ -66,13 +70,13 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
     @Override
     public boolean add(T value) {
         while (true) {
-            Pair pair = find(value);
+            final Pair pair = find(value);
             Node prev = pair.prev;
             Node curr = pair.curr;
             if (curr != null && curr.value.equals(value)) {
                 return false;
             }
-            Node node = new Node(value, curr);
+            final Node node = new Node(value, curr);
             if (prev.next.compareAndSet(curr, node, false, false)) {
                 return true;
             }
@@ -90,13 +94,13 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
     @Override
     public boolean remove(T value) {
         while (true) {
-            Pair pair = find(value);
-            Node prev = pair.prev;
-            Node curr = pair.curr;
+            final Pair pair = find(value);
+            final Node prev = pair.prev;
+            final Node curr = pair.curr;
             if (curr == null || !curr.value.equals(value)) {
                 return false;
             }
-            Node next = curr.getNextNode();
+            final Node next = curr.getNextNode();
             if (curr.next.attemptMark(next, true)) {
                 prev.next.compareAndSet(curr, next, false, false);
                 return true;
@@ -132,3 +136,4 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
         return head.getNextNode() == null;
     }
 }
+
