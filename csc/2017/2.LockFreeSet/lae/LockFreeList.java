@@ -1,12 +1,14 @@
+package com.company;
+
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 /**
- * Created by Fata1ist95 on 13.04.2017.
+ * Created by Fata1ist95 on 04.05.2017.
  */
 public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
-    private AtomicMarkableReference<Node> head;
+    private final AtomicMarkableReference<Node> head;
 
-    LockFreeList() {
+    public LockFreeList() {
         Value minValue = new Value(ValueType.MIN);
         Value maxValue = new Value(ValueType.MAX);
 
@@ -25,7 +27,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
                 succ = curr.getNext().getReference();
 
                 if (pred.getNext().isMarked()) {
-                    if (!pred.getNext().compareAndSet(curr, succ, false, false)) {
+                    if (!pred.getNext().compareAndSet(curr, succ, true, false)) {
                         continue retry;
                     }
                     curr = succ;
@@ -207,7 +209,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class PNode {
-        Node first, second;
+        private Node first, second;
 
         private PNode(Node first, Node second) {
             this.first = first;
