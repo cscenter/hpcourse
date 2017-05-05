@@ -5,8 +5,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private final Node head = new Node(null, (new Node(null, null)));
 
     private class Node {
-        public AtomicMarkableReference<Node> next;
-        public Comparable value;
+        public final AtomicMarkableReference<Node> next;
+        public final Comparable value;
 
         public Node(final Comparable value, final Node next) {
             this.value = value;
