@@ -52,21 +52,21 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
                 parent = head;
                 current = parent.next.getReference();
                 while (true) {
-                    // get reference to child and flag(should we marked as deleted or not)?
-                    child = current.next.get(marked_delete);
-                    while (marked_delete[0] && child != tail) { // if we should be deleted, try physically delete
-                        // IF (|parent.next| -> |child|) AND (parent.marked = false)
-                        // THEN (|parent.next| -> |child|) AND (child.marked = false)
-                        hasDeleted = parent.next.compareAndSet(current, child, false, false);
-                        if (!hasDeleted) { // can't physically delete
-                            continue traverse; // traverse list again
-                        }
-                        current = child; // now child = child.next
-                        // get reference to child and flag(should we marked as deleted or not)?
-                        child = current.next.get(marked_delete);
-                    }
                     // if current != tail
                     if (current.item != null) {
+                        // get reference to child and flag(should we marked as deleted or not)?
+                        child = current.next.get(marked_delete);
+                        while (marked_delete[0]) { // if we should be deleted, try physically delete
+                            // IF (|parent.next| -> |child|) AND (parent.marked = false)
+                            // THEN (|parent.next| -> |child|) AND (child.marked = false)
+                            hasDeleted = parent.next.compareAndSet(current, child, false, false);
+                            if (!hasDeleted) { // can't physically delete
+                                continue traverse; // traverse list again
+                            }
+                            current = child; // now child = child.next
+                            // get reference to child and flag(should we marked as deleted or not)?
+                            child = current.next.get(marked_delete);
+                        }
                         // if we shouldn't be deleted and child.key >= finding_key
                         if (current.item.compareTo(key) >= 0) {
                             return new NodePair(parent, current);
@@ -145,7 +145,7 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
                 current = current.next.getReference();
                 current.next.get(marked_deleted); // check for logical delete
         }
-        return ((current.get().compareTo(value) == 0) && !marked_deleted[0]);
+        return (current.item != null && (current.get().compareTo(value) == 0) && !marked_deleted[0]);
     }
 
     // wait-free
