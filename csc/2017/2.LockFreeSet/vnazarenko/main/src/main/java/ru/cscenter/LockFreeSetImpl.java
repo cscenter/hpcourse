@@ -14,36 +14,35 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             this.item = item;
             this.next = new AtomicMarkableReference<>(next, false);
         }
-        T item;
-        AtomicMarkableReference<Node> next;
+        final T item;
+        final AtomicMarkableReference<Node> next;
     }
 
-    Node backward_guard = new Node(null, null);
-    Node forward_guard = new Node(null, backward_guard);
+    final Node backward_guard = new Node(null, null);
+    final Node forward_guard = new Node(null, backward_guard);
 
 
 
     /*
       Finds a pair of elements, second being greater or equal than item and first preceding the second
      */
-    private Map.Entry<Node, Node> find(T item) {
+    Map.Entry<Node, Node> find(T item) {
         assert forward_guard.next.getReference() != null;
 
         retry: while (true) {
-            Node prev = forward_guard;
-            AtomicMarkableReference<Node> curr = forward_guard.next, succ;
+            Node prev = forward_guard, curr = forward_guard.next.getReference();
             while (true) {
-
-                succ = curr.getReference().next;
-                boolean marked = curr.isMarked();
+                boolean[] isMarked = new boolean[1];
+                Node succ = curr.next.get(isMarked);
+                boolean marked = isMarked[0];
                 if (marked) {
-                    if (!prev.next.compareAndSet(curr.getReference(), succ.getReference(), false, false))
+                    if (!prev.next.compareAndSet(curr, succ, false, false))
                         continue retry;
                     curr = succ;
                 } else {
-                    if (curr.getReference() == backward_guard || curr.getReference().item.compareTo(item) >= 0)
-                        return new AbstractMap.SimpleEntry<>(prev, curr.getReference());
-                    prev = curr.getReference();
+                    if (curr == backward_guard || curr.item.compareTo(item) >= 0)
+                        return new AbstractMap.SimpleEntry<>(prev, curr);
+                    prev = curr;
                     curr = succ;
                 }
             }
@@ -95,12 +94,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         if (value == null) {
             return false;
         }
-        AtomicMarkableReference<Node> curr = forward_guard.next;
-        while (curr.getReference() != backward_guard && curr.getReference().item.compareTo(value) < 0) {
-            curr = curr.getReference().next;
+        Node curr = forward_guard.next.getReference();
+        while (curr != backward_guard && curr.item.compareTo(value) < 0) {
+            curr = curr.next.getReference();
         }
 
-        return curr.getReference() != backward_guard && curr.getReference().item.compareTo(value) == 0 && !curr.isMarked();
+        return curr != backward_guard && curr.item.compareTo(value) == 0 && !curr.next.isMarked();
     }
 
     @Override

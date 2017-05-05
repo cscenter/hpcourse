@@ -36,6 +36,8 @@ public class LockFreeSetImplTest {
 
     @org.junit.Test
     public void remove() throws Exception {
+        assertFalse(set.remove(10));
+        assertFalse(set.remove(10));
         assertTrue(set.add(10));
         assertFalse(set.add(10));
         assertTrue(set.remove(10));
