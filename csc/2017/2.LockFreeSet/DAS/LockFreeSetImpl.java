@@ -106,7 +106,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
                 reference = pred.state;
                 if (!reference.get().marked && reference.get().next == current) { // if only we submitted changes
-                    pred.state.compareAndSet(reference.get(), new State(current.state.get().next, current.state.get().marked)); // delete physically if possible
+                    pred.state.compareAndSet(reference.get(), new State(current.state.get().next, false)); // delete physically if possible
                 }
                 return true; // anyway logically or physically we deleted element
             }
@@ -151,9 +151,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         while (true) {
             Node pred = head.get();
             Node current = head.get().state.get().next;
+            if (pred.key != null && pred.key.equals(value) && !pred.state.get().marked)
+                return getResult(null, pred); // if found in head
             while (true) {
-                if (pred.key != null && pred.key.equals(value) && !pred.state.get().marked)
-                    return getResult(null, pred); // if found in head
                 if (current == null) return getResult(pred, current); // reached end of connected list
                 AtomicReference<State> currState = current.state;
                 AtomicReference<State> predState = pred.state;
