@@ -96,9 +96,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
                 if (!current.state.compareAndSet(reference.get(), new State(reference.get().next, true))) // deleting logically
                     continue; // if didn't succeeded -- retry
-                if (pred == null){ // current is head
+                if (pred == null) { // current is head
                     Node newHead = current.state.get().next;
-                    if (newHead == null){
+                    if (newHead == null) {
                         newHead = new Node(null, new State(null, true));
                     }
                     head.compareAndSet(current, newHead);
@@ -106,7 +106,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
                 reference = pred.state;
                 if (!reference.get().marked && reference.get().next == current) { // if only we submitted changes
-                    pred.state.compareAndSet(reference.get(), new State(current.state.get().next, false)); // delete physically if possible
+                    pred.state.compareAndSet(reference.get(), new State(current.state.get().next, current.state.get().marked)); // delete physically if possible
                 }
                 return true; // anyway logically or physically we deleted element
             }
@@ -142,7 +142,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean isEmpty() {
         Node currentHead = head.get();
-        return currentHead.state.get().marked && currentHead.key == null;
+        return currentHead.state.get().marked && currentHead.state.get().next == null;
     }
 
 
@@ -152,10 +152,19 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node pred = head.get();
             Node current = head.get().state.get().next;
             while (true) {
-                if (pred.key.equals(value)) return getResult(null, pred); // if found in head
+                if (pred.key != null && pred.key.equals(value) && !pred.state.get().marked)
+                    return getResult(null, pred); // if found in head
                 if (current == null) return getResult(pred, current); // reached end of connected list
                 AtomicReference<State> currState = current.state;
                 AtomicReference<State> predState = pred.state;
+                if (predState.get().marked && pred == head.get()) {
+                    Node newHead = predState.get().next;
+                    if (newHead == null) {
+                        newHead = new Node(null, new State(null, true));
+                    }
+                    head.compareAndSet(pred, newHead);
+                    continue;
+                }
                 if (predState.get().marked || predState.get().next != current) continue search;
                 if (currState.get().marked) { // if deleted
                     if (!pred.state.compareAndSet(predState.get(), new State(currState.get().next, false))) // do cleaning
