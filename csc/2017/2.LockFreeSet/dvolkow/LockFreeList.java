@@ -12,31 +12,30 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
     }
 
     private NodePair find(final Type key) {
-        Node prev = head_;
-        Node current = head_.next().getReference();
+        retry:
+        while (true) {
+            Node prev = head_;
+            Node current = head_.next().getReference();
 
-        while (current != null) {
-            Node succ = current.next().getReference();
-
-            if (current.next().isMarked()) {
-                if (!prev.next().compareAndSet(current, succ, false, false))
-                    return find(key);
-
-            } else {
-                if (current.getKey().compareTo(key) >= 0)
-                    return new NodePair(prev, current);
-
-                prev = current;
+            while (true) {
+                Node succ = current.next().getReference();
+                if (current.next().isMarked()) {
+                    if (!prev.next().compareAndSet(current, succ, false, false)) {
+                        continue retry;
+                    }
+                    current = succ;
+                } else {
+                    if (current.getKey().compareTo(key) >= 0)
+                        return new NodePair(prev, current);
+                    prev = current;
+                    current = succ;
+                }
             }
-
-            current = succ;
         }
-
-        return new NodePair(prev, null);
     }
 
     @Override
-    public boolean add(final Type key) {
+    public boolean add(Type key) {
         while (true) {
             NodePair nodePair = find(key);
             Node prev = nodePair.prev();
@@ -111,7 +110,7 @@ public class LockFreeList<Type extends Comparable<Type>> implements LockFreeSet<
         private final Node prev_;
         private final Node current_;
 
-        NodePair(final Node prev, final Node current) {
+        NodePair(Node prev, Node current) {
             prev_ = prev;
             current_ = current;
         }
