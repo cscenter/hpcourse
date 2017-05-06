@@ -3,7 +3,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     public class Node {
-        AtomicMarkableReference<Node> next = new AtomicMarkableReference<>(null, false);
+        final AtomicMarkableReference<Node> next = new AtomicMarkableReference<>(null, false);
         final T value;
 
         Node(T value) {
@@ -50,7 +50,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node left = findNearestLeft(value);
             Node current = left.next.getReference();
 
-            if (current.value == value) {
+            if (current.value != null && current.value.compareTo(value) == 0) {
                 return false;
             }
 
@@ -68,11 +68,15 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node left = findNearestLeft(value);
             Node current = left.next.getReference();
 
-            if (current.value != value) {
+            if (current.value != null && current.value.compareTo(value) != 0) {
                 return false;
             }
 
             Node right = current.next.getReference();
+
+            if (right == null) {
+                return false;
+            }
 
             if (!current.next.compareAndSet(right, right, false, true)) {
                 continue;
@@ -86,12 +90,29 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean contains(T value) {
-        Node nearest = findNearestLeft(value);
-        return nearest.next.getReference().value == value;
+        Node current = begin.next.getReference();
+
+        while (current != end) {
+            if (current.value.compareTo(value) == 0) {
+                return !current.next.isMarked();
+            }
+            current = current.next.getReference();
+        }
+
+        return false;
     }
 
     @Override
     public boolean isEmpty() {
-        return begin.next.getReference() == end;
+        Node current = begin.next.getReference();
+
+        while (current != end) {
+            if (!current.next.isMarked()) {
+                return false;
+            }
+            current = current.next.getReference();
+        }
+
+        return true;
     }
 }
