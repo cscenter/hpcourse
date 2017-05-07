@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T> {
     private class Node {
-        private T item;
+        final private T item;
         AtomicMarkableReference<Node> next; // reference
 
         Node() {
@@ -43,58 +43,56 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
 
     // lock-free
     private NodePair find(T key) {
-        Node parent = null, current = null, child = null;
+        Node parent, current, child;
         boolean marked_delete[] = {false};
         boolean hasDeleted;
-        try {
-            traverse: // label
+        traverse:   // label
+        while (true) {
+            parent = head;
+            current = parent.next.getReference();
             while (true) {
-                parent = head;
-                current = parent.next.getReference();
-                while (true) {
-                    // if current != tail
-                    if (current.item != null) {
+//                System.out.print("find ");
+//                System.out.println(++count);
+                if (current.item == null) { // for empty list
+                    return new NodePair(parent, current);
+                } else {
+                    // get reference to child and flag(should we marked as deleted or not)?
+                    child = current.next.get(marked_delete);
+                    while (marked_delete[0]) { // if we should be deleted, try physically delete
+                        // IF (|parent.next| -> |current|) AND (parent.marked = false)
+                        // THEN (|parent.next| -> |child|) AND (child.marked = false)
+                        hasDeleted = parent.next.compareAndSet(current, child, false, false);
+                        if (!hasDeleted) { // can't physically delete
+                            continue traverse; // traverse list again
+                        }
+                        current = child; // now child = child.next
                         // get reference to child and flag(should we marked as deleted or not)?
                         child = current.next.get(marked_delete);
-                        while (marked_delete[0]) { // if we should be deleted, try physically delete
-                            // IF (|parent.next| -> |child|) AND (parent.marked = false)
-                            // THEN (|parent.next| -> |child|) AND (child.marked = false)
-                            hasDeleted = parent.next.compareAndSet(current, child, false, false);
-                            if (!hasDeleted) { // can't physically delete
-                                continue traverse; // traverse list again
-                            }
-                            current = child; // now child = child.next
-                            // get reference to child and flag(should we marked as deleted or not)?
-                            child = current.next.get(marked_delete);
-                        }
-                        // if we shouldn't be deleted and child.key >= finding_key
-                        if (current.item.compareTo(key) >= 0) {
-                            return new NodePair(parent, current);
-                        }
-                    } else {
+                    }
+                    // we are a tail or currrent.key >= finding_key
+                    if (current.item == null || current.item.compareTo(key) >= 0) {
                         return new NodePair(parent, current);
                     }
+                    // if we shouldn't be deleted,
                     parent = current;
                     current = child;
                 }
             }
-        } catch (NullPointerException e) {
-            e.printStackTrace();
-            return new NodePair(parent, current);
         }
     }
+
 
     // lock-free
     @Override
     public boolean add(T value) {
         while (true) {
+//            System.out.print(value);
+//            System.out.println(" add");
             NodePair nodePair = find(value); // find place for insert
             Node parent = nodePair.parent, child = nodePair.child;
-            // if child != tail, then compare ITEM with VALUE
-            if (child.item != null) {
-                if (child.get().compareTo(value) == 0) { // check for unique
-                    return false;
-                }
+            // if current is not a tail and it has the same value
+            if (child.item != null && child.get().compareTo(value) == 0) { // check for unique
+                return false;
             }
             // else add new node
             Node new_node = new Node(value);
@@ -113,22 +111,22 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
     public boolean remove(T value) {
         boolean will_be_deleted = false;
         while (true) {
-            NodePair nodePair = find(value); // find node for delete
+//            System.out.print(value);
+//            System.out.println(" remove");
+            NodePair nodePair = find(value); // find place for insert
             Node parent = nodePair.parent, current = nodePair.child;
-            // if child != tail, then compare ITEM with VALUE
-            if (current.item != null) {
-                if (current.get().compareTo(value) != 0) { // matching value's key and child's key
-                    return false;
-                }
+            // if current is tail or it has another key, then do not delete
+            if (current.item == null || current.get().compareTo(value) != 0) { // matching value's key and child's key
+                return false;
             }
             // else mark node as logically removed
             Node child = current.next.getReference(); // get reference to child
-            // IF (|child.next| -> |child|) THEN (child.marked = true) ~ as logically deleted
+            // IF (|current.next| -> |child|) THEN (current.marked = true) ~ as logically deleted
             will_be_deleted = current.next.attemptMark(child, true);
             if (!will_be_deleted) { // if can't marked child element as deleted
                 continue; // try remove again (traverse list again)
             }
-            // IF (|parent.next| -> |child|) AND (parent.marked = false)
+            // IF (|parent.next| -> |current|) AND (parent.marked = false)
             // THEN (|parent.next| -> |child|) AND (child.marked = false)
             parent.next.compareAndSet(current, child, false, false); // try physically delete
             return true;
