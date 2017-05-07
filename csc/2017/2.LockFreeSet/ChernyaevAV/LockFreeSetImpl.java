@@ -3,7 +3,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 //implementation based on lock free linked list from 'Art of multiprocessor programming'
 //Can upgrade it to lock free hash set if needed
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
-    private Node _head = new Node();
+    final private Node _head = new Node();
 
     @Override
     public boolean add(T value) {
@@ -68,6 +68,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 while (markHolder[0]) { //skip logically deleted nodes
                     if (!previous.next.compareAndSet(current, successor, false, false)) continue retry;
                     current = successor;
+                    if (current == null) {
+                        return new Window(previous, null);
+                    }
                     successor = current.next.get(markHolder);
                 }
                 if (current.value.compareTo(key) >= 0)
@@ -80,15 +83,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     class Node {
-        T value;
-        AtomicMarkableReference<Node> next;
-
-        Node(T value) {
-            this.value = value;
-            next = new AtomicMarkableReference<>(null, false);
-        }
+        final T value;
+        final AtomicMarkableReference<Node> next;
 
         Node() {
+            value = null;
             next = new AtomicMarkableReference<>(null, false);
         }
 
@@ -99,7 +98,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     class Window {
-        Node previous, current;
+        final Node previous, current;
 
         Window(Node previous, Node current) {
             this.previous = previous;
