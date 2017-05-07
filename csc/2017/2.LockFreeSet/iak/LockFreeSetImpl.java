@@ -24,16 +24,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node pred = findPredecessor(value);
             Node next = pred.next.getReference();
 
-            if ((next != null) && (next.value.compareTo(value) == 0))
+            if (next != null && next.value.compareTo(value) == 0)
                 return false;
-            else {
-                // pred.next.mark might be read and passed to CAS.
-                // However, the mark could change since check and thus
-                // this option behaves no better then just CASing preassumedly not marked pred.next
-                if (pred.next.compareAndSet(next, new_node, false, false))
-                    return true;
-                // else retry
-            }
+
+            new_node.next.set(next, false);
+            boolean marked = pred.next.isMarked();
+            if (pred.next.compareAndSet(next, new_node, marked, marked))
+                return true;
+            // else retry
         }
     }
 
@@ -44,16 +42,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node pred = findPredecessor(value);
             Node current = pred.next.getReference();
 
-            if ((current == null) || (current.value.compareTo(value) != 0))
+            if (current == null || current.value.compareTo(value) != 0)
                 return false;
-            else {
-                if (current.next.attemptMark(current.next.getReference(), true)) {
-                    // try to actually delete this element
-                    pred.next.compareAndSet(current, current.next.getReference(), false, false);
-                    return true;
-                }
-                // else retry
+
+            if (current.next.attemptMark(current.next.getReference(), true)) {
+                // try to actually delete this element
+                boolean marked = pred.next.isMarked();
+                pred.next.compareAndSet(current, current.next.getReference(), marked, marked);
+                return true;
             }
+            // else retry
         }
     }
 
@@ -66,7 +64,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public boolean contains(T value)
     {
         Node current = findPredecessorWithDeletion(value).next.getReference();
-        return (current != null) && (current.value.compareTo(value) == 0);
+        return current != null && current.value.compareTo(value) == 0;
     }
 
     @Override
@@ -78,23 +76,31 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private Node findPredecessor(T value)
     {
         Node current = head;
-        while ((current.next.getReference() != null) && (current.next.getReference().value.compareTo(value) < 0)) {
-            current = current.next.getReference();
+        Node next = current.next.getReference();
+        while (next != null && (next.next.isMarked() || next.value.compareTo(value) < 0)) {
+            current = next;
+            next = current.next.getReference();
         }
         return current;
     }
 
     private Node findPredecessorWithDeletion(T value)
     {
-        Node pred;
+        Node pred = head;
         Node current = head;
-        while ((current.next.getReference() != null) && (current.next.getReference().value.compareTo(value) < 0)) {
-            pred = current;
-            current = current.next.getReference();
+        Node next = current.next.getReference();
+        while (next != null && next.value.compareTo(value) < 0) {
+            current = next;
+            next = current.next.getReference();
+
             if (current.next.isMarked()) {
                 // Assume current.next.isMarked() will never change true -> false
-                if (pred.next.compareAndSet(current, current.next.getReference(), false, false))
-                    current = current.next.getReference();
+                if (!pred.next.compareAndSet(current, next, false, false)) {
+                    pred = current;
+                }
+            }
+            else {
+                pred = current;
             }
         }
         return current;
@@ -109,13 +115,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         Node()
         {
             value = null;
-            next = new AtomicMarkableReference<>(null, false);
+            next = new AtomicMarkableReference<Node>(null, false);
         }
 
         Node(T value)
         {
             this.value = value;
-            next = new AtomicMarkableReference<>(null, false);
+            next = new AtomicMarkableReference<Node>(null, false);
         }
 
         final T value;

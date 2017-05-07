@@ -1,3 +1,5 @@
+package iak;
+
 /**
  * Lock-Free множество.
  * @param <T> Тип ключей
