@@ -27,9 +27,17 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
             if (current.next.isMarked()) {
                 if (!left.next.compareAndSet(current, right, false, false)) {
+                    left = begin;
+                    current = begin.next.getReference();
                     continue;
                 }
                 current = right;
+            }
+
+            if (current == end) {
+                left = begin;
+                current = begin.next.getReference();
+                continue;
             }
 
             if (current.value.compareTo(value) >= 0) {
