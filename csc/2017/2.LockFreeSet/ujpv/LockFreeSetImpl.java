@@ -1,4 +1,6 @@
 import javafx.util.Pair;
+
+import java.nio.channels.NonReadableChannelException;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 
@@ -9,11 +11,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             this.next = new AtomicMarkableReference<>(next, false);
         }
 
-        T value;
-        AtomicMarkableReference<Node> next;
+        final T value;
+        final AtomicMarkableReference<Node> next;
     }
 
-    private AtomicMarkableReference<Node> head = new AtomicMarkableReference<>(null, false);
+    final private AtomicMarkableReference<Node> head = new AtomicMarkableReference<>(null, false);
 
     @Override
     public boolean add(T value) {
@@ -58,18 +60,34 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean contains(T value) {
-        Node node = find(value).getValue();
-        return node != null && value.equals(node.value) && !node.next.isMarked();
+        Node node = head.getReference();
+        while (node != null && node.value.compareTo(value) < 0)
+            node = node.next.getReference();
+
+        return node != null && node.value.equals(value) && !node.next.isMarked();
     }
 
     private Pair<AtomicMarkableReference<Node>, Node> find(T value) {
-        AtomicMarkableReference <Node> curr = head;
-        Node next = head.getReference();
-        while (next != null && next.value.compareTo(value) < 0) {
-            curr = next.next;
-            next = curr.getReference();
+        while (true) {
+            AtomicMarkableReference<Node> curr = head;
+            Node next = head.getReference();
+
+            while (true) {
+                if (next == null)
+                    return new Pair<>(curr, null);
+
+                if (next.next.isMarked()) {
+                    if (!curr.compareAndSet(next, next.next.getReference(), false, false))
+                        break;
+                    next = next.next.getReference();
+                } else {
+                    if (curr.getReference().value.compareTo(value) >= 0)
+                        return new Pair<>(curr, next);
+                    curr = next.next;
+                    next = curr.getReference();
+                }
+            }
         }
-        return new Pair<>(curr, next);
     }
 
     public boolean isEmpty() {
