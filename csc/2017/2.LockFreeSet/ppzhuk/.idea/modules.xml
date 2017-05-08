@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/lock-free-set.iml" filepath="$PROJECT_DIR$/.idea/modules/lock-free-set.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/lock-free-set_main.iml" filepath="$PROJECT_DIR$/.idea/modules/lock-free-set_main.iml" group="lock-free-set" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/lock-free-set_test.iml" filepath="$PROJECT_DIR$/.idea/modules/lock-free-set_test.iml" group="lock-free-set" />
+    </modules>
+  </component>
+</project>
