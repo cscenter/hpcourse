@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     private class Node<U extends Comparable<U>> {
-        U value;
+        final U value;
         AtomicMarkableReference<Node<U>> next;
 
         Node(U val, Node nxt) {
@@ -30,7 +30,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
 
         void mark() {
-            next.compareAndSet(this, this, false, true));
+            next.compareAndSet(this, this, false, true);
         }
     }
 
@@ -55,7 +55,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             }
         }
 
-        return null;    
+        return null;
     }
 
     /**
@@ -93,6 +93,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return false если ключ не был найден, true если ключ успешно удален
      */
     public boolean remove(T value) {
+        if(head != null && !head.isMarked() && head.getValue().compareTo(value) == 0) {
+            head = null;
+            return true;
+        }
+
         Node<T> lb = lowerBound(value);
         if (lb == null || lb.getNext() == null || lb.getNext().getValue().compareTo(value) != 0) {
             return false;
@@ -114,8 +119,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
+        if (head != null && head.getValue().compareTo(value) == 0) {
+            return true;
+        }
+
         Node<T> lb = lowerBound(value);
-        return lb != null && lb.getNext() != null && !lb.isMarked() && lb.getNext().getValue().compareTo(value) == 0;
+        return lb != null && lb.getNext() != null && !lb.getNext().isMarked() && lb.getNext().getValue().compareTo(value) == 0;
     }
 
     /**
