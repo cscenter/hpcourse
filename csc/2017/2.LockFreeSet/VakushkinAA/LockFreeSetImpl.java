@@ -30,32 +30,59 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
 
         void mark() {
-            next.compareAndSet(this, this, false, true);
+            next.compareAndSet(getNext(), getNext(), false, true);
         }
     }
 
-    private Node<T> head = null;
+    private class Pair<U extends Comparable<U>> {
+        final Node<U> pred;
+        final Node<U> curr;
+
+        Pair(Node<U> pred, Node<U> curr) {
+            this.pred = pred;
+            this.curr = curr;
+        }
+    }
+
+    private Node<T> preHead = new Node<>(null, null);   // should never be null
 
     /**
-     * Найти наибольший элемент в множестве, строго меньший данного
+     * Найти наибольший элемент в множестве, строго меньший данного, и наименьший элемент, не меньший данного
      *
      * @param value искомое значение
-     * @return указатель на наибольший элемент в множестве, строго меньший данного, если такой есть, или null в противном случае
+     * @return указатель на пару элементов в множестве, если такие есть, или null в противном случае
      */
-    private Node<T> lowerBound(T value) {
-        if (isEmpty() || head.getValue().compareTo(value) >= 0) {
-            return null;
-        }
+    private Pair<T> bounds(T value) {
+        retry: while(true) {
 
-        for (Node<T> curr = head; curr != null; curr = curr.getNext()) {
-            Node<T> next = curr.getNext();
+            Node pred = preHead;
+            Node curr = pred.getNext();
+            Node succ;
 
-            if (next == null || (!curr.isMarked() && curr.getValue().compareTo(value) < 0 && next.getValue().compareTo(value) >= 0)) {  // either we found lower bound or reached the end of the set
-                return curr;
+            while (true) {
+                if(curr == null) {
+                    return new Pair<>(pred, null);
+                }
+
+                succ = curr.getNext();
+
+                if (curr.isMarked()) {
+                    if(!pred.next.compareAndSet(curr, succ, false, false)) {
+                        continue retry;
+                    }
+
+                    curr = succ;
+
+                } else {
+                    if (curr.getValue().compareTo(value) >= 0) {
+                        return new Pair<>(pred, curr);
+                    }
+
+                    pred = curr;
+                    curr = succ;
+                }
             }
         }
-
-        return null;
     }
 
     /**
@@ -67,21 +94,22 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return false если value уже существует в множестве, true если элемент был добавлен
      */
     public boolean add(T value) {
-        if (contains(value)) {
-            return false;
-        }
+        while(true) {
+            Pair<T> p = bounds(value);
 
-        Node<T> lb = lowerBound(value);
-        if (lb == null) {
-            Node<T> newHead = new Node<>(value, head);
-            head = newHead;
-        } else {
-            Node<T> next = lb.getNext();
-            Node<T> newNode = new Node<>(value, next);
-            lb.next.compareAndSet(next, newNode, false, false);
-        }
+            Node<T> pred = p.pred;
+            Node<T> curr = p.curr;
 
-        return true;
+            if (curr != null && value.compareTo(curr.getValue()) == 0) {
+                return false;
+            }
+
+            Node<T> newNode = new Node<>(value, curr);
+
+            if(pred.next.compareAndSet(curr, newNode, false, false)) {
+                return true;
+            }
+        }
     }
 
     /**
@@ -93,19 +121,22 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return false если ключ не был найден, true если ключ успешно удален
      */
     public boolean remove(T value) {
-        if(head != null && !head.isMarked() && head.getValue().compareTo(value) == 0) {
-            head = null;
-            return true;
-        }
+        retry: while (true) {
+            Pair<T> p = bounds(value);
 
-        Node<T> lb = lowerBound(value);
-        if (lb == null || lb.getNext() == null || lb.getNext().getValue().compareTo(value) != 0) {
-            return false;
-        } else {
-            lb.getNext().mark();
-            lb.next.compareAndSet(
-                    lb.getNext(), lb.getNext().getNext(), false, false
-            );
+            Node<T> pred = p.pred;
+            Node<T> curr = p.curr;
+
+            if (curr == null || curr.getValue().compareTo(value) != 0) {
+                return false;
+            }
+
+            Node<T> succ = curr.getNext();
+            if (!curr.next.compareAndSet(succ, succ, false, true)) {
+                continue retry;
+            }
+            pred.next.compareAndSet(curr, succ, false, false);
+
             return true;
         }
     }
@@ -119,12 +150,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        if (head != null && head.getValue().compareTo(value) == 0) {
-            return true;
-        }
+        Pair<T> p = bounds(value);
+        Node<T> curr = p.curr;
 
-        Node<T> lb = lowerBound(value);
-        return lb != null && lb.getNext() != null && !lb.getNext().isMarked() && lb.getNext().getValue().compareTo(value) == 0;
+        return (curr != null && value.compareTo(curr.getValue()) == 0);
     }
 
     /**
@@ -135,12 +164,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если множество пусто, иначе - false
      */
     public boolean isEmpty() {
-        for (Node<T> curr = head; curr != null; curr = curr.getNext()) {
-            if (!curr.isMarked()) {
-                return false;
-            }
-        }
-
-        return true;
+        return preHead.getNext() == null;
     }
 }
