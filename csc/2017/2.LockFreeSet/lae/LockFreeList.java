@@ -93,7 +93,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
                 continue;
             }
 
-            pred.getNext().compareAndSet(curr, succ, false, false);
+            //pred.getNext().compareAndSet(curr, succ, true, false);
             return true;
         }
     }
