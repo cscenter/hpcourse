@@ -86,7 +86,7 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
 			while (curr != null) {
 				succ = curr.next.getReference();
 				if (prev.next.isMarked()) { 
-					if(!prev.next.compareAndSet(curr, succ, false, false))
+					if(!prev.next.compareAndSet(curr, succ, true, false))
 						continue retry;
 					curr = succ;
 				} 
