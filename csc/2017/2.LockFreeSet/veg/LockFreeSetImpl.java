@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
  * @param <T> Тип ключей
  */
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
-    private Node head = new Node(null, null);
+    private final Node head = new Node(null, null);
 
     private class Node {
         T value;
@@ -40,8 +40,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return пару из (pred = последний элемент с value < переданное value, его next)
      */
     private Pair find(T value) {
-        assert !isEmpty();
-
         retry: while(true) {
             Node pred = head, curr = head.get_next(), succ;
             while(true) {
@@ -88,24 +86,20 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return false если value уже существует в множестве, true если элемент был добавлен
      */
     public boolean add(T value) {
-        if (isEmpty()) {
-            // set is empty, add first element
-            Node node = new Node(value, null);
-            return head.next_and_flag.compareAndSet(
-                    null, node, false, false
-            );
-        }
-
-        Pair found = find(value);
-        Node pred = found.prev, curr = found.curr;
-        if (curr != null && curr.value == value) {
-            // this value is already in the set
-            return false;
-        } else {
-            Node node = new Node(value, curr);
-            return pred.next_and_flag.compareAndSet(
-                    curr, node, false, false
-            );
+        while(true) {
+            Pair found = find(value);
+            Node pred = found.prev, curr = found.curr;
+            if (curr != null && curr.value.compareTo(value) == 0) {
+                // this value is already in the set
+                return false;
+            } else {
+                Node node = new Node(value, curr);
+                boolean added = pred.next_and_flag.compareAndSet(
+                        curr, node, false, false
+                );
+                if (added)
+                    return true;
+            }
         }
     }
 
@@ -118,13 +112,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return false если ключ не был найден, true если ключ успешно удален
      */
     public boolean remove(T value) {
-        if (isEmpty())
-            return false;
-
         while(true) {
             Pair found = find(value);
             Node pred = found.prev, curr = found.curr;
-            if (curr.value != value) {
+            if (curr == null || curr.value.compareTo(value) != 0) {
                 // this value is not in set
                 return false;
             } else {
@@ -155,15 +146,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>{
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        if (isEmpty()) {
-            return false;
-        }
-
         Node curr = head.get_next();
         while (curr.get_next() != null && curr.value.compareTo(value) < 0) {
             curr = curr.get_next();
         }
-        return value == curr.value && !curr.is_marked();
+        return curr.value.compareTo(value) == 0 && !curr.is_marked();
     }
 
     /**
