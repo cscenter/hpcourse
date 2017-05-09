@@ -1,5 +1,9 @@
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
+/**
+ *
+ * @author CX70
+ */
 public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T> {
 
 	class Node
@@ -7,7 +11,7 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
 		AtomicMarkableReference<Node> next = new AtomicMarkableReference<Node>(null, false);
 		Comparable value;
 	}
-	Node head = new Node();
+	final Node head = new Node();
 	
 	class Pair
 	{
@@ -50,7 +54,7 @@ public class SimpleLockFreeSet<T extends Comparable<T>> implements LockFreeSet<T
 			else
 			{
 				Node succ = (v.next.next != null) ? v.next.next.getReference() : null;
-				if(v.next.next != null && !v.next.next.attemptMark(succ, true))
+				if(succ != null && v.next.next != null && !v.next.next.attemptMark(succ, true))
 					continue retry;
 				v.prev.next.compareAndSet(v.next, succ, false, false);
 				return true;
