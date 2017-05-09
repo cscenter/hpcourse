@@ -23,11 +23,14 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
             Node pred = head.getReference();
 
             Node curr = pred.getNext().getReference(), succ;
+
             while (true) {
                 succ = curr.getNext().getReference();
 
                 if (pred.getNext().isMarked()) {
-                    if (!pred.getNext().compareAndSet(curr, succ, true, false)) {
+                    boolean flag = curr.getNext().isMarked();
+
+                    if (!pred.getNext().compareAndSet(curr, succ, true, flag)) {
                         continue retry;
                     }
                     curr = succ;
@@ -86,7 +89,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
             }
 
             Node succ = curr.getNext().getReference();
-            if (!curr.getNext().compareAndSet(succ, succ, false, true)) {
+            if (!pred.getNext().compareAndSet(curr, curr, false, true)) {
                 continue;
             }
 
@@ -147,8 +150,8 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class Value {
-        private ValueType type;
-        private T value;
+        private final ValueType type;
+        private final T value;
 
         Value(ValueType type) {
             this.type = type;
@@ -191,8 +194,8 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class Node {
-        private AtomicMarkableReference<Node> next;
-        private Value value;
+        private final AtomicMarkableReference<Node> next;
+        private final Value value;
 
         Node(AtomicMarkableReference<Node> next, Value value) {
             this.next = next;
@@ -209,7 +212,7 @@ public class LockFreeList<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class PNode {
-        private Node first, second;
+        private final Node first, second;
 
         private PNode(Node first, Node second) {
             this.first = first;
