@@ -102,6 +102,7 @@ void* consumer_routine(void* arg) {
         pthread_mutex_unlock(&producer_finished_mutex);
 
         if(finished) {
+            pthread_mutex_unlock(&value_mutex);
             break;
         }
         //std::cout << "[csm] input consumed, got " << v->get() << std::endl;
