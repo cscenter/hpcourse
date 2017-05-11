@@ -150,10 +150,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        Pair<T> p = bounds(value);
-        Node<T> curr = p.curr;
+        Node<T> curr;
+        for(curr = preHead.getNext();
+            curr != null && value.compareTo(curr.getValue()) < 0;
+            curr = curr.getNext()) {
+            // just iterate
+        }
 
-        return (curr != null && value.compareTo(curr.getValue()) == 0);
+        return curr != null && value.compareTo(curr.getValue()) == 0 && !curr.isMarked();
     }
 
     /**
