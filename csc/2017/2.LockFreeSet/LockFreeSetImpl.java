@@ -1,42 +1,55 @@
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
   class Node {
-    public final T data;
-    public AtomicReference<Node> next;
-    public boolean marked;
+    final T data;
+    final AtomicMarkableReference<Node> next;
 
-    public Node(T data, Node next, boolean marked) {
+    Node(T data, Node next) {
       this.data = data;
-      this.next = new AtomicReference<>(next);
-      this.marked = marked;
+      this.next = new AtomicMarkableReference<>(next, false);
     }
   }
 
-  private AtomicReference<Node> head = new AtomicReference<>(new Node(null, null, false));
+  private Node head = new Node(null, null);
+  private boolean [] markHolder = new boolean[1];
 
   @Override
   public boolean isEmpty() {
-    return head.get().next.get() == null;
+    AtomicMarkableReference<Node> curr = head.next;
+
+    while (curr.get(markHolder) != null) {
+      if (!markHolder[0]) {
+        return false;
+      }
+      curr = curr.getReference().next;
+    }
+
+    return true;
   }
 
   @Override
   public boolean add(T value) {
     while (true) {
-      AtomicReference<Node> pred = head, curr = head.get().next;
+      Node pred = head, curr = head.next.get(markHolder);
 
-      while (curr.get() != null && curr.get().data.compareTo(value) < 0) {
+      while (curr != null && curr.data.compareTo(value) < 0) {
         pred = curr;
-        curr = curr.get().next;
+        curr = curr.next.get(markHolder);
       }
 
-      if (curr.get() != null && curr.get().data.compareTo(value) == 0) {
+      if (curr != null && curr.data.compareTo(value) == 0) {
         return false;
       }
 
-      Node newNode = new Node(value, curr.get(), false);
-      if (pred.get().next.compareAndSet(curr.get(), newNode)) {
+      Node newNode = new Node(value, curr);
+      if (pred.next.compareAndSet(
+          curr,
+          newNode,
+          markHolder[0],
+          false)
+          ) {
         return true;
       }
     }
@@ -44,69 +57,34 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
   @Override
   public boolean remove(T value) {
-    retry: while (true) {
-      AtomicReference<Node> pred = head, curr = head.get().next;
+    while (true) {
+      AtomicMarkableReference<Node> curr = head.next;
 
-      while (curr.get() != null && curr.get().data.compareTo(value) < 0) {
-        pred = curr;
-        curr = curr.get().next;
+      while (curr.getReference() != null && curr.getReference().data.compareTo(value) < 0) {
+        curr = curr.getReference().next;
       }
 
-      if (curr.get() == null || curr.get().data.compareTo(value) != 0) {
+      if (curr.getReference() == null || curr.getReference().data.compareTo(value) != 0) {
         return false;
       }
 
-      AtomicReference<Node> succ = curr.get().next;
-      if (!curr.compareAndSet(curr.get(), new Node(curr.get().data, curr.get().next.get(), false))) {
-        continue retry;
+      Node currNode = curr.get(markHolder);
+      if (!curr.compareAndSet(currNode, currNode, markHolder[0], true)) {
+        continue;
       }
 
-      pred.get().next.compareAndSet(curr.get(), succ.get());
       return true;
     }
   }
 
   @Override
   public boolean contains(T value) {
-    AtomicReference<Node> pred = head, curr = head.get().next;
+    Node curr = head.next.get(markHolder);
 
-    while (curr.get() != null && curr.get().data.compareTo(value) < 0) {
-      curr = curr.get().next;
+    while (curr != null && curr.data.compareTo(value) < 0) {
+      curr = curr.next.get(markHolder);
     }
 
-    return curr.get() != null && curr.get().data.compareTo(value) == 0;
-  }
-
-  public boolean validate() {
-    if (head.get().data != null) {
-      return false;
-    }
-
-    if (isEmpty()) {
-      return true;
-    }
-
-    AtomicReference<Node> fstEl = head.get().next;
-    if (!isEmpty() && fstEl.get().data == null) {
-      return false;
-    }
-
-    if (!isEmpty() && fstEl.get().next.get() == null) {
-      return true;
-    }
-
-    AtomicReference<Node> pred = fstEl, curr = fstEl.get().next;
-    while (curr.get() != null) {
-      if (curr.get().data == null) {
-        return false;
-      }
-      if (pred.get().data.compareTo(curr.get().data) > 0) {
-        return false;
-      }
-      pred = curr;
-      curr = curr.get().next;
-    }
-
-    return true;
+    return curr != null && !markHolder[0] && curr.data.compareTo(value) == 0;
   }
 }
