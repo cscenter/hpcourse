@@ -63,7 +63,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             }
 
             Node new_node = new Node(value,  new AtomicMarkableReference<Node>(null, false));
-            if (last_not_deleted == null) {
+            if (last_not_deleted == null || last_not_deleted.getReference()==null) {
                 if (head.compareAndSet(null, new_node, false, false)) {
                     size.incrementAndGet();
                     return true;
@@ -119,7 +119,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public boolean contains(T value) {
         NodePair finded = find(value);
         AtomicMarkableReference<Node> prev = finded.second, curr = finded.first;
-        if (curr.getReference().value.compareTo(value) == 0) {
+        if (curr != null && curr.getReference() != null && curr.getReference().value.compareTo(value) == 0) {
             return true;
         }
         return false;
@@ -129,4 +129,3 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         return (size.get() == 0);
     }
 }
-
