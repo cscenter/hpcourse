@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    private Node<T> head = new Node<>(null, null);
+    private final Node<T> head = new Node<>(null, null);
 
     private static class Node<T> {
         final T value;
@@ -72,8 +72,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @return true если элемент содержится в множестве, иначе - false
      */
     public boolean contains(T value) {
-        Node<T> found = find(value)[1];
-        return found != null && found.value != null && found.value.compareTo(value) == 0 && !found.nextReference.isMarked();
+        Node<T> found = head.nextReference.getReference();
+
+        while (found != null && found.value.compareTo(value) < 0) {
+            found = found.nextReference.getReference();
+        }
+
+        return found != null && found.value.compareTo(value) == 0 && !found.nextReference.isMarked();
     }
 
     /**
@@ -88,16 +93,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private Node<T>[] find(T value) {
+        retry:
         while (true) {
             Node<T> prev = head;
             Node<T> curr = head.nextReference.getReference();
             Node<T> tmp;
             while (curr != null) {
                 tmp = curr.nextReference.getReference();
-                boolean currMarked = curr.nextReference.isMarked();
-                if (currMarked) {
+                if (curr.nextReference.isMarked()) {
                     if (!prev.nextReference.compareAndSet(curr, tmp, false, false)) {
-                        return find(value);
+                        continue retry;
                     }
                 } else {
                     if (curr.value.compareTo(value) >= 0) {
