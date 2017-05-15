@@ -18,13 +18,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private class NodePair {
-        NodePair(AtomicMarkableReference<Node> first, AtomicMarkableReference<Node> second) {
+        NodePair(Node first, Node second) {
             this.first = first;
             this.second = second;
         }
 
-        AtomicMarkableReference<Node> first;
-        AtomicMarkableReference<Node> second;
+        Node first;
+        Node second;
     }
 
     public LockFreeSetImpl() {
@@ -36,43 +36,41 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private AtomicInteger size;
 
     NodePair find(T value) {
-        AtomicMarkableReference<Node> curr = head, prev = new AtomicMarkableReference<Node>(null, false);
-        AtomicMarkableReference<Node> last_not_deleted = null, last_not_deleted_next = null;
-        while (curr.getReference() != null) {
-            if (!curr.isMarked()) {
-                if (curr.getReference().value.compareTo(value) == 0) {
+        Node curr = head.getReference(), prev = null;
+        boolean marked = head.isMarked();
+        while (curr != null) {
+            if (!marked) {
+                if (curr.value.compareTo(value) == 0) {
                     return new NodePair(curr, prev);
                 } else {
-                    last_not_deleted = curr;
-                    last_not_deleted_next = curr.getReference().next;
+                    prev = curr;
                 }
             }
-            prev = curr;
-            curr = curr.getReference().next;
+            curr = curr.next.getReference();
+            if (curr != null) {
+                marked = curr.next.isMarked();
+            }
         }
-        return new NodePair(last_not_deleted_next, last_not_deleted);
+        return new NodePair(curr, prev);
     }
 
     @Override
     public boolean add(T value) {
         while (true) {
             NodePair finded = find(value);
-            AtomicMarkableReference<Node> last_not_deleted = finded.second, last_not_deleted_next = finded.first;
-            if (last_not_deleted_next != null && last_not_deleted_next.getReference() != null && last_not_deleted_next.getReference().value.compareTo(value) == 0) {
+            Node curr = finded.first, prev = finded.second;
+            if (curr != null && curr.value.compareTo(value) == 0) {
                 return false;
             }
 
             Node new_node = new Node(value,  new AtomicMarkableReference<Node>(null, false));
-            if (last_not_deleted == null || last_not_deleted.getReference()==null) {
+            if (prev == null) {
                 if (head.compareAndSet(null, new_node, false, false)) {
                     size.incrementAndGet();
                     return true;
                 }
             } else {
-                boolean tail_mark = last_not_deleted.isMarked();
-                Node last_node = last_not_deleted.getReference();
-                Node last_node_next = last_not_deleted_next.getReference();
-                if (last_node.next.compareAndSet(last_node_next, new_node, tail_mark, false)) {
+                if (prev.next.compareAndSet(curr, new_node, false, false)) {
                     size.incrementAndGet();
                     return true;
                 }
@@ -83,32 +81,21 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public boolean remove(T value) {
         while (true) {
             NodePair finded = find(value);
-            AtomicMarkableReference<Node> prev = finded.second, curr = finded.first;
-            if (curr == null) {
+            Node curr = finded.first, prev = finded.second;
+            if (curr == null || curr.value.compareTo(value) != 0) {
                 return false;
             }
 
-            Node curr_node = curr.getReference();
-            if (curr_node == null || curr_node.value.compareTo(value) != 0) {
-                return false;
-            }
-
-            Node next_node = curr_node.next.getReference();
-            Node prev_node = prev.getReference();
-            if (prev_node == null) {
-                if (next_node == null) {
-                    if (head.compareAndSet(curr_node, null, false, false)) {
-                        size.decrementAndGet();
-                        return true;
-                    }
-                } else {
-                    if (head.compareAndSet(curr_node, next_node, false, false)) {
-                        size.decrementAndGet();
-                        return true;
-                    }
+            Node next = curr.next.getReference();
+            if (prev == null) {
+                if (head.attemptMark(curr, true)) {
+                    head.compareAndSet(curr, next, true, false);
+                    size.decrementAndGet();
+                    return true;
                 }
             } else {
-                if (prev_node.next.compareAndSet(curr_node, next_node, false, false)) {
+                if (prev.next.attemptMark(curr, true)) {
+                    prev.next.compareAndSet(curr, next, true, false);
                     size.decrementAndGet();
                     return true;
                 }
@@ -118,8 +105,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     public boolean contains(T value) {
         NodePair finded = find(value);
-        AtomicMarkableReference<Node> prev = finded.second, curr = finded.first;
-        if (curr != null && curr.getReference() != null && curr.getReference().value.compareTo(value) == 0) {
+        Node curr = finded.first, prev = finded.second;
+        if (curr != null && curr.value.compareTo(value) == 0) {
             return true;
         }
         return false;
