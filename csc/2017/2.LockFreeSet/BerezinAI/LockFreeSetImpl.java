@@ -92,11 +92,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             fromBeginning: while (true) {
                 Iterator<Node<T>> iterator = Node.iterator(head);
                 Node<T> previous = head,
-                        current = null;
-                while (iterator.hasNext()) {
-                    current = iterator.next();
+                        current = iterator.hasNext() ? iterator.next() : null;
+                while (current != null && iterator.hasNext()) {
+                    Node next = iterator.next();
                     if (current.next.isMarked()) {
-                        Node<T> next = current.next.getReference();
                         if (!previous.next.compareAndSet(current, next, false, false)) {
                             continue fromBeginning;
                         }
@@ -106,6 +105,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                         }
                         previous = current;
                     }
+                    current = next;
                 }
                 return new SlidingWindow<>(previous, current);
             }
