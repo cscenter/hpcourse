@@ -25,6 +25,11 @@ image imread(const std::string& path) {
 
     ifstream file(path, ios::binary | ios::in);
 
+    if (!file.is_open()) {
+        cerr << "Can not open the file" << endl;
+        throw invalid_argument(path);
+    }
+
     std::uint32_t h, w, d;
     file.read(reinterpret_cast<char*>(&h), 4);
     file.read(reinterpret_cast<char*>(&w), 4);
@@ -52,7 +57,14 @@ void imwrite(const image& source, const string& path) {
     int h = source.size();
     int w = source[0].size();
     int d = 3;
+
     ofstream file(path, ios::binary);
+
+    if (!file.is_open()) {
+        cerr << "Can not open the file" << endl;
+        throw invalid_argument(path);
+    }
+
     file.write(reinterpret_cast<char*>(&h), 4);
     file.write(reinterpret_cast<char*>(&w), 4);
     file.write(reinterpret_cast<char*>(&d), 4);
