@@ -283,14 +283,7 @@ int main(int argc, char *argv[]) {
 
     vector<string> small_images = {
             images_dir + "hat.dat",
-            images_dir + "hat.dat",
-            images_dir + "hat.dat",
-            images_dir + "hat.dat",
             images_dir + "cheer.dat",
-            images_dir + "cheer.dat",
-            images_dir + "cheer.dat",
-            images_dir + "chicken.dat",
-            images_dir + "chicken.dat",
             images_dir + "chicken.dat"
     };
 
