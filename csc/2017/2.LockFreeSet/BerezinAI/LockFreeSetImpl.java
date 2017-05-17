@@ -14,8 +14,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @param <T> Тип ключей
      */
     static class Node<T> {
-        T value;
-        AtomicMarkableReference<Node<T>> next;
+        final T value;
+        final AtomicMarkableReference<Node<T>> next;
 
         Node() {
             this.value = null;
@@ -74,7 +74,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
      * @param <T>
      */
     static class SlidingWindow<T> {
-        Node<T> previous, current;
+        final Node<T> previous, current;
 
         SlidingWindow(Node<T> previous, Node<T> current) {
             this.previous = previous;
@@ -176,5 +176,18 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         // идем вперед и смотрим, что не залочен следующий элемент
         while (iterator.hasNext() && iterator.next().next.isMarked()) {}
         return !iterator.hasNext();
+    }
+
+    public static void main(String[] args) {
+        LockFreeSetImpl<Integer> impl = new LockFreeSetImpl<Integer>();
+        System.out.println(impl.isEmpty());
+        for (int i = 0; i < 10; i++) {
+            impl.add(i);
+            System.out.println("Added " + i + " to LockFreeSet");
+        }
+        for (int i = 0; i < 10; i++) {
+            System.out.println(impl.contains(i));
+        }
+        System.out.println(impl.isEmpty());
     }
 }
