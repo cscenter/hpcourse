@@ -234,5 +234,4 @@ int main() {
     solve("data/chicken.dat");
     solve("data/cheer.dat");
     return 0;
-
 }
