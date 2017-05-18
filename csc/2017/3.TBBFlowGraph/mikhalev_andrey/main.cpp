@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <limits>
 
+#include <atomic>
 #include <tbb/flow_graph.h>
 #include <cassert>
 #include <memory>
@@ -96,7 +96,7 @@ image imread(const std::string& path) {
     return data;
 }
 
-void imwrite(const image & source, const std::string& path) {
+void imwrite(const image & source, const std::string & path) {
     int h = source.size();
     int w = source[0].size();
     int d = 3;
@@ -115,226 +115,201 @@ void imwrite(const image & source, const std::string& path) {
     file.close();
 }
 
-
-// create template image and fill it with data from bigImage
-void create_image(image & data, ulong const height, ulong const width) {
-    data.resize(height);
-    for (auto& row: data) {
-        row.resize(width);
+pixel ** create_ptr(image const & img) {
+    std::uint32_t height = img.size();
+    std::uint32_t width = img[0].size();
+    pixel ** img_buff = new pixel * [height];
+    img_buff[0] = new pixel[height * width];
+    for (auto i = 1; i < height; ++i) {
+        img_buff[i] = img_buff[i - 1] + width;
     }
-}
-
-void fill_image(ImageRect const & candidate, image & data, image const & bigImage) {
-    int h = candidate.height;
-    int w = candidate.width;
-    for (int i = 0; i < h; ++i) {
-        for (int j = 0; j < w; ++j) {
-            data[i][j] = bigImage[candidate.x + i][candidate.y + j];
+    for (auto i = 0; i < height; ++i) {
+        for (auto j = 0; j < width; ++j) {
+            img_buff[i][j] = img[i][j];
         }
     }
+    return img_buff;
 }
 
+using image_ptr = pixel **;
 
-//// Алгоритм Евклида для вычисления наибольшего общего делителя
-//ulong NOD(ulong x, ulong y) {
-//    while (x != y)
-//        if (x > y)
-//            x -= y;
-//        else
-//            y -= x;
-//    return x;
-//}
-////
-//void dist(image img, std::vector<double> &mft, int cell_size, int power) {
-//    // Массив интенсивностей, каждый элемент которого будет содержать суммарную интенсивность пикселей внутри некоторой ячейки.
-//    std::vector<double> cells_intencities(mft.size());
-//    // Индекс ячейки в массиве интенсивностей, для которой в данный момент считается интенсивность
-//    int idx = 0;
-//    // Общая интенсивность.
-//    double sum_intensity = 0;
-//    for (size_t i = 0; i < img.size(); i += cell_size)
-//        for (size_t j = 0; j < img[0].size(); j += cell_size) {
-//            // Считаем сумму интенсивностей внутри ячейки размера cell_size * cell_size
-//            for (size_t k = i; k < i + cell_size; ++k)
-//                for (size_t l = j; l < j + cell_size; ++l) {
-//                    // Считаем сумму интенсивностей для ячейки с индексом idx
-//                    cells_intencities[idx] += (double)img[k][l];
-//                    // Считаем интенсивность для всего изображения
-//                    sum_intensity += (double)img[k][l];
-//                }
-//            // Переходим к следующей ячейке
-//            ++idx;
-//        }
-//    // Вектор, каждый элемент которого хранит отношение суммы интенсивностей пикселей данной ячейки к сумме интенсивностей пикселей всего изображения
-//    std::vector<double> probability(cells_intencities.size());
-//    // Сумма отношений интенсивностей
-//    double sum_of_probability = 0;
-//    // Считаем отношения интенсивностей и сумму этих отношений
-//    for (size_t i = 0; i < cells_intencities.size(); ++i) {
-//        probability[i] = pow(cells_intencities[i] / sum_intensity, power);
-//        sum_of_probability += probability[i];
-//    }
-//    // Считаем значения мультифрактального преобразования
-//    for (size_t i = 0; i < mft.size(); ++i) {
-//        mft[i] = probability[i] / sum_of_probability;
-//    }
-//}
+void free_buffer(image_ptr & ptr) {
+    delete [] ptr[0];
+    delete [] ptr;
+}
 
-int calc_diff(ImageRect const & candidate, image & smallImage, image const & big_image) {
+int calc_diff(ImageRect const & candidate, image const & big_image, image_ptr & smallImage) {
     int difference = 0;
     int x = candidate.x;
     int y = candidate.y;
     int h = candidate.height;
     int w = candidate.width;
-    for (size_t i = 0; i < h; ++i) {
-        for (size_t j = 0; j < w; ++j) {
+    for (auto i = 0; i < h; ++i) {
+        for (auto j = 0; j < w; ++j) {
             difference += smallImage[i][j] - big_image[x + i][y + j];
         }
     }
     return difference;
 }
 
+using diff_Rect_ImagePtr
+= tuple<int, ImageRect, image_ptr>;
 
+using node_input_String_output_ImagePtr_ImageRect
+    = function_node <
+        std::string,
+        tuple<image_ptr, ImageRect>
+    >;
+
+using node_input_X_Y_H_W_ImagePtr_output_Diff_Image_Rect
+    = function_node <
+        tuple<uint32_t, uint32_t, uint32_t, uint32_t, image_ptr>,
+        diff_Rect_ImagePtr
+    >;
+
+using node_input_ImagePtr_ImageRect_output_X_Y_H_W_ImagePtr
+    = function_node <
+        tuple<image_ptr, ImageRect>,
+        tuple<uint32_t, uint32_t, uint32_t, uint32_t, image_ptr>
+    >;
+
+
+using node_input_Diff_ImageRect_output_int
+    = function_node <
+        diff_Rect_ImagePtr,
+        int
+    >;
+
+using X_Y_H_W_Image_Ptr
+    = tuple<uint32_t, uint32_t, uint32_t, uint32_t, image_ptr>;
+
+void reset_atomic_and_ptr(std::atomic<int> &value, image_ptr &ptr) {
+    value = INT32_MAX;
+    free_buffer(ptr);
+}
+
+void save_image_from_big_image(ImageRect const & imageRect, image const & bigImage, std::string const & path) {
+    auto x = imageRect.x;
+    auto y = imageRect.y;
+    auto h = imageRect.height;
+    auto w = imageRect.width;
+    image result_image;
+    result_image.resize(3 * h);
+    for (auto i = 0; i < 3 * h; ++i) {
+        result_image[i].resize(3 * w);
+    }
+
+    // change top left corner, if rectangle is not close to bigImage border
+    if ((x - h > 0) && (y - w > 0)) {
+        x -= h;
+        y -= w;
+    }
+
+    for (auto i = 0; i < 3 * h; ++i) {
+        result_image[i].resize(3 * w);
+        for (auto j = 0; j < 3 * w; ++j) {
+            result_image[i][j] = bigImage[x + i][y + j];
+        }
+    }
+    imwrite(result_image, path);
+}
 int main() {
-    graph g;
-
-    function_node< std::string, tuple<image, ImageRect> > load_small_image(
-            g, 1,
-            [](std::string const & path) -> tuple<image, ImageRect>
-    {
-        image img = std::move(imread(path));
-        ImageRect imageRect(img);
-        return make_tuple(img, imageRect);
-    } );
 
     std::string pathToBigImage = "/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/image.dat";
     image bigImage = std::move(imread(pathToBigImage));
 
-    function_node< tuple<uint32_t, uint32_t, image>, tuple<int, ImageRect> > calcualte_difference(
-            g, tbb::flow::unlimited,
-            [&](tuple<uint32_t, uint32_t, image> const & args) -> tuple<int, ImageRect>
+    graph g;
+
+    node_input_String_output_ImagePtr_ImageRect load_small_image(
+            g, 1,
+    [](std::string const & path) -> tuple<image_ptr, ImageRect>
     {
-        auto x_top_left_corner = get<0>(args);
-        auto y_top_left_corner = get<1>(args);
-        image smallImage = get<2>(args);
-
-        auto template_height = smallImage.size();
-        auto template_width = smallImage[0].size();
-        ImageRect candidate(x_top_left_corner, y_top_left_corner, template_height, template_width);
-
-        int result = calc_diff(candidate, smallImage, bigImage);
-        return std::make_tuple(result, candidate);
+        image img = std::move(imread(path));
+        ImageRect imageRect(img);
+        image_ptr ptr = create_ptr(img);
+        return std::make_tuple(ptr, imageRect);
     } );
 
 
-    function_node< tuple<image, ImageRect>, tuple<uint32_t, uint32_t, image, image> > create_rect_and_calc_diff(
+    node_input_X_Y_H_W_ImagePtr_output_Diff_Image_Rect calculate_difference(
             g, tbb::flow::unlimited,
-            [&](tuple<image, ImageRect> const & args ) -> tuple<uint32_t, uint32_t, image, image>
+    [&](X_Y_H_W_Image_Ptr const & args) -> diff_Rect_ImagePtr
     {
-        ImageRect imageRect = get<1>(args);
-        auto h = imageRect.height;
-        auto w = imageRect.width;
+        auto x_top_left_corner = get<0>(args);
+        auto y_top_left_corner = get<1>(args);
+
+        auto template_height = get<2>(args);
+        auto template_width = get<3>(args);
+
+        auto ptr = get<4>(args);
+        ImageRect rectangle(x_top_left_corner, y_top_left_corner, template_height, template_width);
+
+        int diff = calc_diff(rectangle, bigImage, ptr);
+        return std::make_tuple(diff, rectangle, ptr);
+    } );
+
+
+    node_input_ImagePtr_ImageRect_output_X_Y_H_W_ImagePtr create_rect_and_calc_diff(
+            g, tbb::flow::unlimited,
+    [&](tuple<image_ptr, ImageRect> const & args ) -> X_Y_H_W_Image_Ptr
+    {
+        auto ptr = get<0>(args);
+        ImageRect rectangle = get<1>(args);
+        auto h = rectangle.height;
+        auto w = rectangle.width;
         auto rows = bigImage.size();
         auto cols = bigImage[0].size();
 
         for (auto i = 0; i + h < rows; ++i) {
             for (auto j = 0; j + w < cols; ++j) {
-                calcualte_difference.try_put(make_tuple(i, j, get<0>(args)));
+                calculate_difference.try_put(std::make_tuple(i, j, h, w, ptr));
             }
         }
     }
     );
 
-    buffer_node< tuple<int, ImageRect> > min_buffer_node(g);
+    std::atomic<int> result_diff(INT32_MAX);
+    ImageRect result_rect;
+    image_ptr ptr = nullptr;
 
-    int result = std::numeric_limits<int>::max();
-
-    function_node<tuple<int, ImageRect>, int > find_min(
+    node_input_Diff_ImageRect_output_int find_min(
             g, tbb::flow::unlimited,
-            [&](tuple<int, ImageRect> const & args) ->  int
+    [&](diff_Rect_ImagePtr const & args) -> int
     {
-        int temp_diff = get<0>(args);
-        ImageRect same_image = get<1>(args);
-        result = std::min(result, temp_diff);
+        while(1) {
+            int temp_diff = get<0>(args);
+            int current_result_diff = result_diff;
+            if (temp_diff < current_result_diff) {
+                if (result_diff.compare_exchange_strong(current_result_diff, temp_diff)) {
+                    std::cout << result_diff << std::endl;
+                    result_rect = get<1>(args);
+                    ptr = get<2>(args);
+                    break;
+                };
+            } else {
+                break;
+            }
+        }
     }
     );
 
     make_edge(load_small_image, create_rect_and_calc_diff);
-    make_edge(calcualte_difference, min_buffer_node);
-    make_edge(min_buffer_node, find_min);
+    make_edge(calculate_difference, find_min);
 
     load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/cheer.dat");
-//    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/chicken.dat");
-//    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/hat.dat");
     g.wait_for_all();
-    std::cout << result;
+    save_image_from_big_image(result_rect, bigImage,"/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/my_cheer.dat");
+    reset_atomic_and_ptr(result_diff, ptr);
+
+    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/chicken.dat");
+    g.wait_for_all();
+    save_image_from_big_image(result_rect, bigImage,"/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/my_chicken.dat");
+    reset_atomic_and_ptr(result_diff, ptr);
+
+    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/hat.dat");
+    g.wait_for_all();
+    save_image_from_big_image(result_rect, bigImage,"/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/my_hat.dat");
+    reset_atomic_and_ptr(result_diff, ptr);
 
     return 0;
 }
-
-
-//    start_rectangles_search.try_put(ImageRect(0, 0, 0));
-//    start_rectangles_search.try_put(ImageRect(1, 0, 0));
-//    start_rectangles_search.try_put(ImageRect(2, 0, 0));
-//    make_edge(start_rectangles_search, calc_diff_between_small_image_and_pattern);
-
-//    function_node< tuple<image, ImageRect>, tuple<image, image, vector<ImageRect>> > findRectOnBigImage(
-//            g, tbb::flow::unlimited,
-//            [](tuple<image, ImageRect> const & args) -> tuple<image, image, vector<ImageRect>>
-//    {
-//        image smallImage = get<0>(args);
-//        ImageRect smallImageMat = get<1>(args);
-//        string pathToBigImage = "/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/image.dat";
-//        image bigImage = std::move(imread(pathToBigImage));
-//        auto h = smallImageMat.height;
-//        auto w = smallImageMat.width;
-//        ulong rows = bigImage.size();
-//        ulong cols = bigImage[0].size();
-//        vector<ImageRect> image_candidates;
-//        image_candidates.reserve(rows * cols);
-//        ImageRect pattern(h, w, smallImageMat.depth);
-//        int count = 0;
-//        for (auto i = 0; i + h < rows; ++i) {
-//            for (auto j = 0; j + w < cols; ++j) {
-//                update_pattern(i, j, pattern);
-//                image_candidates.push_back(pattern);
-//                ++count;
-//            }
-//            if (count >= 100000)
-//                break;
-//        }
-//        return make_tuple(smallImage, bigImage, image_candidates);
-//    } );
-//
-//    function_node< tuple<image, image, vector<ImageRect> >, double> calcDiffBetweenPatternAndGenuineImage(
-//            g, tbb::flow::unlimited,
-//            [](tuple<image, image, vector<ImageRect>> const & args) -> double
-//    {
-//        image smallImage = get<0>(args);
-//        image bigImage = get<1>(args);
-//        vector<ImageRect> candidate_matrices = get<2>(args);
-//        image template_image;
-//        ulong template_height = smallImage.size();
-//        ulong template_width = smallImage[0].size();
-//        create_image(template_image, template_height, template_width);
-//        double result = std::numeric_limits<double >::max();
-//        for (auto q = 0; q < candidate_matrices.size(); ++q) {
-//            fill_image(candidate_matrices[q], template_image, bigImage);
-//             Считаем мультифрактальное преобразование порядка i для каждого изображения
-//            result = min(result, calc_diff(template_height, template_width, smallImage, template_image));
-//        }
-//        cout << result;
-//        return result;
-//    });
-
-//    std::vector<std::tuple<std::string, unsigned int, std::string>> commands;
-//    auto n = commands.size();
-//    tbb::parallel_for(tbb::blocked_range<std::size_t>(0, n),
-//                      [&](const tbb::blocked_range<std::size_t> &range) {
-//                          for (auto i = range.begin(); i != range.end(); ++i)
-//                              const auto &tuple = commands[i];
-//                      } );
-
-//    createMatFromImage.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/chicken.dat");
-//    make_edge(createMatFromImage, findRectOnBigImage);
-//    make_edge(findRectOnBigImage, calcDiffBetweenPatternAndGenuineImage);
