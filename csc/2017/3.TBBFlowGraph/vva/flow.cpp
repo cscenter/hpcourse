@@ -177,7 +177,7 @@ struct fragmentation_body {
 };
 
 struct reducer_body {
-    // map image_id to pair of fragment meta with minimum difference and minimum difference itself
+    // map image_id to pair of fragment with minimum difference and minimum difference itself
     tbb::concurrent_unordered_map<string, pair<Fragment, size_t>> min_values;
     tbb::concurrent_unordered_map<string, tbb::atomic<size_t>> counters;
 
@@ -209,17 +209,17 @@ void build_and_run(const string &original_image_path, const vector<string> &targ
     function_node<std::string, tuple<string, Image*>> image_reader(g, unlimited, image_reader_body());
 
     // gets the image with identifier and returns fragments for comparison
-    // a multifunction node allows to put a values many times
+    // a multifunction node allows to put values many times
     multifunction_node<tuple<string, Image*>, tuple<Fragment>> fragmentation_node(g, unlimited, fragmentation_body(original_image));
 
     buffer_node<Fragment> fragments_buffer(g);
 
-    // returns a fragment meta with calculated difference between the small image and the chunk of the original image
+    // returns a fragment and difference between the small image and the chunk of the original image
     function_node<Fragment, pair<Fragment, size_t>> subtractor(g, unlimited, [](const Fragment &fragment) {
         return make_pair(fragment, fragment.calc_difference());
     });
 
-    // returns a meta info about fragment that has the smallest difference or nullptr if processing isn't finished
+    // returns fragment that has the smallest difference or empty fragment if processing isn't finished
     function_node<pair<Fragment, size_t>, Fragment> reducer(g, unlimited, reducer_body());
 
     broadcast_node<Fragment> fragment_broadcaster(g);
