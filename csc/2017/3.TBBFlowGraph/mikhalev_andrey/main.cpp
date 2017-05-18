@@ -180,11 +180,15 @@ void fill_image(ImageRect const & candidate, image & data, image const & bigImag
 //    }
 //}
 
-int calc_diff(uint32_t const height, uint32_t const width, image & smallImage, image & template_image) {
+int calc_diff(ImageRect const & candidate, image & smallImage, image const & big_image) {
     int difference = 0;
-    for (size_t i = 0; i < height; ++i) {
-        for (size_t j = 0; j < width; ++j) {
-            difference += smallImage[i][j] - template_image[i][j];
+    int x = candidate.x;
+    int y = candidate.y;
+    int h = candidate.height;
+    int w = candidate.width;
+    for (size_t i = 0; i < h; ++i) {
+        for (size_t j = 0; j < w; ++j) {
+            difference += smallImage[i][j] - big_image[x + i][y + j];
         }
     }
     return difference;
@@ -206,27 +210,25 @@ int main() {
     std::string pathToBigImage = "/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/image.dat";
     image bigImage = std::move(imread(pathToBigImage));
 
-    function_node< tuple<uint32_t, uint32_t, image, image>, tuple<int, ImageRect> > calcualte_difference(
+    function_node< tuple<uint32_t, uint32_t, image>, tuple<int, ImageRect> > calcualte_difference(
             g, tbb::flow::unlimited,
-            [&](tuple<uint32_t, uint32_t, image, image> const & args) -> tuple<int, ImageRect>
+            [&](tuple<uint32_t, uint32_t, image> const & args) -> tuple<int, ImageRect>
     {
         auto x_top_left_corner = get<0>(args);
         auto y_top_left_corner = get<1>(args);
         image smallImage = get<2>(args);
-        image template_image =  get<3>(args);
 
-        auto template_height = template_image.size();
-        auto template_width = template_image[0].size();
+        auto template_height = smallImage.size();
+        auto template_width = smallImage[0].size();
         ImageRect candidate(x_top_left_corner, y_top_left_corner, template_height, template_width);
-        fill_image(candidate, template_image, bigImage);
 
-        int result = calc_diff(template_height, template_width, smallImage, template_image);
+        int result = calc_diff(candidate, smallImage, bigImage);
         return std::make_tuple(result, candidate);
     } );
 
 
     function_node< tuple<image, ImageRect>, tuple<uint32_t, uint32_t, image, image> > create_rect_and_calc_diff(
-            g, 1,
+            g, tbb::flow::unlimited,
             [&](tuple<image, ImageRect> const & args ) -> tuple<uint32_t, uint32_t, image, image>
     {
         ImageRect imageRect = get<1>(args);
@@ -235,21 +237,15 @@ int main() {
         auto rows = bigImage.size();
         auto cols = bigImage[0].size();
 
-        image template_image;
-        auto template_height = h;
-        auto template_width = w;
-        create_image(template_image, template_height, template_width);
-
         for (auto i = 0; i + h < rows; ++i) {
             for (auto j = 0; j + w < cols; ++j) {
-                calcualte_difference.try_put(make_tuple(i, j, get<0>(args), template_image));
+                calcualte_difference.try_put(make_tuple(i, j, get<0>(args)));
             }
         }
     }
     );
 
     buffer_node< tuple<int, ImageRect> > min_buffer_node(g);
-
 
     int result = std::numeric_limits<int>::max();
 
@@ -268,8 +264,8 @@ int main() {
     make_edge(min_buffer_node, find_min);
 
     load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/cheer.dat");
-    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/chicken.dat");
-    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/hat.dat");
+//    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/chicken.dat");
+//    load_small_image.try_put("/home/montura/yandexDisk/Projects/Clion/TBBFlowGraph/data/hat.dat");
     g.wait_for_all();
     std::cout << result;
 
