@@ -258,7 +258,7 @@ void build_and_run(const string &original_image_path, const vector<string> &targ
 
     make_edge(image_reader, fragmentation_node);
     make_edge(output_port<0>(fragmentation_node), fragments_buffer);
-    make_edge(output_port<0>(fragmentation_node), subtractor);
+    make_edge(fragments_buffer, subtractor);
     make_edge(subtractor, reducer);
     make_edge(reducer, fragment_broadcaster);
     make_edge(fragment_broadcaster, image_writer);
