@@ -69,5 +69,50 @@ void imwrite(const image& source, const string& path) {
 
 
 int main() {
-    return 0;
+    image big_image = imread("/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/image.dat");
+    int big_n_rows = big_image.size(), big_n_cols = big_image[0].size();
+
+    graph g;
+
+    // 1. Узел, принимающий путь к файлу с маленьким изображением и передающий матрицу изображения
+    function_node<string, image> read_image(g, 1, [](string path) {
+        cout << "Processing " << path << endl;
+        image im = imread(path);
+        cout << "Image size: " << im.size() << " x " << im[0].size() << endl;
+        return im;
+    });
+
+    // 2. Узел, принимающий матрицу и генерирующий из большого изображения все возможные прямоугольники размера искомого изображения
+    function_node<image, image> generate_subimages(g, unlimited, [&](image small_image, int step=0) {
+        int n_rows = small_image.size(), n_cols = small_image[0].size();
+        int row_step = big_n_cols - n_cols + 1;
+        int cur_row = step / row_step, cur_col = step % row_step;
+
+        cout << "Got step " << step << ", cur row = " << cur_row << ", cur col = " << cur_col << endl;
+        return small_image;  // TODO
+    });
+
+    // 3. Буферный узел
+    buffer_node<image> subimages_buffer(g);
+
+
+    // 4. Узел, подсчитывающий разницу между искомым изображением и кандидатом
+
+
+    // 5. Узел, содержащий результат - минимальную разницу и координаты верхнего левого угла.
+
+
+    // 6. Узел, записывающий окрестность найденного изображения в файл.
+
+
+    // Соединяем вершины ребрами
+    make_edge(read_image, generate_subimages);
+    make_edge(generate_subimages, subimages_buffer);
+
+
+    // Запускаем
+    string default_path = "/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/cheer.dat";
+    read_image.try_put(default_path);
+
+    g.wait_for_all();
 }
