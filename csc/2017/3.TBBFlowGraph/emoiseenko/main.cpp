@@ -92,74 +92,105 @@ void imwrite(const image& source, const string& path) {
     file.close();
 }
 
-class slicer {
-public:
-    slicer(const std::string& path)
-        : img(imread(path))
-    {}
-
-    using succ_node = function_node<image, tuple<size_t, size_t, image, image>>::successor_type;
-
-    void operator()(image pattern, succ_node& succ) const {
-        size_t h = pattern.size();
-        size_t w = pattern[0].size();
-
-        size_t img_h = img.size();
-        size_t img_w = img[0].size();
-
-        for (size_t x = 0; x + h < img_h; ++x) {
-            for (size_t y = 0; y + w < img_w; ++y) {
-                image frame = allocate_image(h, w);
-                for (size_t i = 0; i < h; ++i) {
-                    for (size_t j = 0; j < w; ++j) {
-                        frame[i][j] = img[x + i][y + j];
-                    }
-                }
-                succ.try_put(make_tuple(x, y, frame, pattern));
-            }
-        }
-    }
-private:
-    image img;
-};
-
-void findImg(const string& patternPath, const string& imgPath) {
+void findImg(const string& imgPath, const string& patternPath, const string& outputPath) {
     graph g;
 
-    image img;
-    image pattern;
+    image img = imread(imgPath);
+    image pattern = imread(patternPath);
+
+    size_t img_h = img.size();
+    size_t img_w = img[0].size();
 
     size_t h = pattern.size();
     size_t w = pattern[0].size();
 
-    typedef multifunction_node<string, image> imread_node;
+    using slice = tuple<size_t, size_t, image>;
+    using slicer_node = source_node<slice>;
+    using slicer_succ = slicer_node::successor_type;
 
-    multifunction_node read_pattern(g, unlimited,
-        [] (const std::string& path, imread_node::output_ports_type &op) {
-        image img = imread(path);
-        get<0>(op).try_put(img);
-    });
+    size_t x = 0;
+    size_t y = 0;
 
-    function_node slicer_node(g, unlimited, slicer(imgPath));
+    slicer_node slicer(g, [img_h, img_w, h, w, &x, &y, &img, &pattern] (slice& s) {
+        if (y + h == img_h) {
+            return false;
+        } else if (x + w == img_w) {
+            x = 0;
+            ++y;
+        }
 
-    using cmp_info = tuple<size_t, size_t, image>;
+        image frame = allocate_image(h, w);
+        for (size_t i = 0; i < h; ++i) {
+            for (size_t j = 0; j < w; ++j) {
+                frame[i][j] = img[y + i][x + j];
+            }
+        }
 
-    function_node<cmp_info, size_t> comparator(g, unlimited, [h, w, &pattern] (cmp_info info) {
+        s = tie(x, y, frame);
+        ++x;
+        return true;
+    }, false);
+
+    buffer_node<slice> buf(g);
+
+    make_edge(slicer, buf);
+
+    using similarity = tuple<size_t, size_t, size_t>;
+    using comparator_node = function_node<slice, similarity>;
+
+     comparator_node comparator(g, unlimited, [h, w, &pattern, &img] (slice s) {
         size_t x, y;
         image frame;
-        tie(x, y, frame) = info;
+        tie(x, y, frame) = s;
 
         size_t dist = 0;
         for (size_t i = 0; i < h; i++) {
             for (size_t j = 0; j < w; ++j) {
-                dist += diff(pattern[i][j], img[x + i][y + j]);
+                dist += diff(pattern[i][j], img[y + i][x + j]);
             }
         }
 
-        return dist;
+        return make_tuple(x, y, dist);
     });
+
+    make_edge(buf, comparator);
+
+    size_t min_dist = numeric_limits<size_t>::max();
+    size_t min_x = 0;
+    size_t min_y = 0;
+
+    using reducer_node = function_node<similarity, size_t>;
+
+    reducer_node reducer(g, unlimited, [&min_dist, &min_x, &min_y] (similarity s) {
+        size_t x, y, dist;
+        tie(x, y, dist) = s;
+        if (dist < min_dist) {
+            min_dist = dist;
+            min_x = x;
+            min_y = y;
+        }
+        return min_dist;
+    });
+
+    make_edge(comparator, reducer);
+
+    slicer.activate();
+    g.wait_for_all();
+
+    image output = allocate_image(h, w);
+    for (size_t i = 0; i < h; ++i) {
+        for (size_t j = 0; j < w; ++j) {
+            output[i][j] = img[min_y + i][min_x + j];
+        }
+    }
+
+    imwrite(output, outputPath);
+
+    cerr << "Best match " << min_dist << " at x=" << min_x << ", y=" << min_y << endl;
 }
 
 int main() {
-    return 0;
+    findImg("data/image.dat", "data/cheer.dat", "data/cheer_found.dat");
+    findImg("data/image.dat", "data/chicken.dat", "data/chicken_found.dat");
+    findImg("data/image.dat", "data/hat.dat", "data/hat_found.dat");
 }
