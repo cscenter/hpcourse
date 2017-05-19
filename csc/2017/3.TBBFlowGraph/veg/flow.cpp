@@ -74,26 +74,23 @@ int main() {
     image big_image = imread("/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/image.dat");
     int big_n_rows = big_image.size(), big_n_cols = big_image[0].size();
 
+    // 1. Считываем маленькое изображение
+    string default_path = "/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/cheer.dat";
+    image small_image = imread(default_path);
+    int small_n_rows = small_image.size(), small_n_cols = small_image[0].size();
+
+    cout << "Big image size: " << big_n_rows << " x " << big_n_cols << endl
+            << "Small image size: " << small_n_rows << " x " << small_n_cols << endl;
+
     graph g;
 
-    // 1a. Узел, принимающий путь к файлу с маленьким изображением и передающий матрицу изображения
-    function_node<string, image> read_image(g, 1, [](string path) {
-        cout << "(read_image) Processing " << path << endl;
-        image im = imread(path);
-        cout << "(read_image) Image size: " << im.size() << " x " << im[0].size() << endl;
-        return im;
-    });
-
-    // 1b. Узел, хранящий матрицу маленького изображения для последующего использования
-    write_once_node<image> read_image_buffer(g);
-
     // 2. Узел, генерирующий из большого изображения все возможные прямоугольники размера искомого изображения
-    int cur_step = 0;
+    int cur_step = 0, steps_by_row = (big_n_cols - small_n_cols + 1),
+            max_step = steps_by_row * (big_n_rows - small_n_rows + 1);
     source_node<coord> generate_subimages(g, [&]( coord &xy ) {
-        if (cur_step < big_n_rows * big_n_cols - 1) {
+        if (cur_step < max_step - 1) {
             int step = ++cur_step;
-            xy = coord(step / big_n_rows, step % big_n_rows);
-            // cout << "(generate_subimages) " << step << endl;
+            xy = coord(step / steps_by_row, step % steps_by_row);
             return true;
         } else {
             return false;
@@ -103,15 +100,9 @@ int main() {
     // 3. Буферный узел
     buffer_node<coord> subimages_buffer(g);
 
-
-    // 4a. Узел, объединяющий данные из 1b и 3
-    join_node<tuple<image, coord>, queueing> join_buffers(g);
-
-    // 4b. Узел, подсчитывающий разницу между искомым изображением и кандидатом
-    function_node<tuple<image, coord>, tuple<int, coord>> diff_node(g, 1, [&](tuple<image, coord> im_and_xy) {
-        image im = get<0>(im_and_xy); coord xy = get<1>(im_and_xy);
-        // cout << "(diff_node) " << get<0>(xy) << "  " << get<1>(xy) << endl;
-        return tuple<int, coord>(123, xy);
+    // 4. Узел, подсчитывающий разницу между искомым изображением и кандидатом
+    function_node<coord, tuple<int, coord>> diff_node(g, 1, [&](coord xy) {
+        return tuple<int, coord>(123, xy); // TODO
     });
 
     // 5. Узел, содержащий результат - минимальную разницу и координаты верхнего левого угла.
@@ -121,18 +112,11 @@ int main() {
 
 
     // Соединяем вершины ребрами
-    make_edge(read_image, read_image_buffer);
     make_edge(generate_subimages, subimages_buffer);
-
-    make_edge(read_image_buffer, input_port<0>(join_buffers));
-    make_edge(subimages_buffer, input_port<1>(join_buffers));
-
-    make_edge(join_buffers, diff_node);
+    make_edge(subimages_buffer, diff_node);
 
 
     // Запускаем
-    string default_path = "/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/cheer.dat";
-    read_image.try_put(default_path);
     generate_subimages.activate();
 
     g.wait_for_all();
