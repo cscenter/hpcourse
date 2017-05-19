@@ -132,7 +132,7 @@ std::tuple<rectangle, long> calculate_difference(rectangle const &rect) {
     for (long w = rect.start_w; w < rect.end_w; ++w) {
         for (long h = rect.start_h; h < rect.end_h; ++h) {
             pixel p1 = big_image[w][h];
-            pixel p2 = small_image.[w - rect.start_w][h - rect.start_h];
+            pixel p2 = small_image[w - rect.start_w][h - rect.start_h];
             difference += abs(p1.b - p2.b) + abs(p2.g - p1.g) + abs(p1.r - p2.r);
         }
     }
