@@ -104,7 +104,7 @@ void findImg(const string& imgPath, const string& patternPath, const string& out
     size_t h = pattern.size();
     size_t w = pattern[0].size();
 
-    using slice = tuple<size_t, size_t, image>;
+    using slice = tuple<size_t, size_t>;
     using slicer_node = source_node<slice>;
     using slicer_succ = slicer_node::successor_type;
 
@@ -119,14 +119,7 @@ void findImg(const string& imgPath, const string& patternPath, const string& out
             ++y;
         }
 
-        image frame = allocate_image(h, w);
-        for (size_t i = 0; i < h; ++i) {
-            for (size_t j = 0; j < w; ++j) {
-                frame[i][j] = img[y + i][x + j];
-            }
-        }
-
-        s = tie(x, y, frame);
+        s = tie(x, y);
         ++x;
         return true;
     }, false);
@@ -140,8 +133,7 @@ void findImg(const string& imgPath, const string& patternPath, const string& out
 
      comparator_node comparator(g, unlimited, [h, w, &pattern, &img] (slice s) {
         size_t x, y;
-        image frame;
-        tie(x, y, frame) = s;
+        tie(x, y) = s;
 
         size_t dist = 0;
         for (size_t i = 0; i < h; i++) {
