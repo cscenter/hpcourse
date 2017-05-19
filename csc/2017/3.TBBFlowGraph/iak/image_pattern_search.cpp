@@ -93,234 +93,198 @@ void imwrite(const image& source, const string& path) {
     file.close();
 }
 
-// Graph node bodies
 
-struct BigImgReaderBody {
-    using input_type = string;
-    using output_type = image;
+using coords = pair<size_t, size_t>;
 
-    image operator()(input_type path) {
-        return imread(path);
+class MyFlowGraph: public graph {
+public:
+    MyFlowGraph(string const& big_image_path, string const& small_image_path):
+            graph(),
+            small_image_name(small_image_path),
+            small_image_reader(*this, ReaderBody(small_image_path)),
+            framer(*this, FramerBody(small_image_path, big_image_path)),
+            buffer(*this),
+            prediff(*this),
+            diff(*this, unlimited, DiffBody()),
+            min(*this, unlimited, MinBody())
+    {
+        make_edge(small_image_reader, input_port<0>(prediff));
+        make_edge(framer, buffer);
+        make_edge(buffer, input_port<1>(prediff));
+        make_edge(prediff, diff);
+        make_edge(diff, min);
     }
-};
 
-struct SmallImgReaderBody {
-    using input_type = string;
-    using imginfo_type = ImageInfo;
-    using indexed_image_type = pair<int, image>;
-    using output_type = tuple<imginfo_type, indexed_image_type>;
+    void print_result(ostream& os) {
+        coords origin = min.copy_function_object<MinBody>().origin;
+        os << "Image " << small_image_name << " found at (" << origin.first << ", " << origin.second << ")\n";
+    }
 
-    using multi_node = multifunction_node<input_type, output_type>;
+private:
 
-    // The same body as that of imread, except that size is forwarded instantly
-    void operator()(input_type path, multi_node::output_ports_type &op) {
-        if (path.compare(path.size() - 4, 4, ".dat") != 0) {
-            cerr << "Can read only prepared .dat files!" << endl;
-            throw invalid_argument(path);
+    string small_image_name;
+
+    source_node<image> small_image_reader;
+    source_node<tuple<coords, image>> framer;
+
+    using image_pair = tuple<image, image>;
+    buffer_node<tuple<coords, image>> buffer;
+
+    join_node<tuple<image, tuple<coords, image>>> prediff;
+    function_node<tuple<image, tuple<coords, image>>, pair<coords, int>> diff;
+
+    function_node<pair<coords, int>> min;
+
+    // Graph node bodies
+
+    struct ReaderBody {
+        using input_type = string;
+        using output_type = image;
+
+        string path;
+
+        ReaderBody(string const& path): path(path)
+        {}
+
+        bool operator()(output_type& img) {
+            img = imread(path);
+            return false;
         }
+    };
 
-        int image_index = n_images++;
+    struct FramerBody {
+        using output_type = tuple<coords, image>;
 
-        ifstream file(path, ios::binary | ios::in);
+        FramerBody(string const& small_image_path, string const& big_image_path) :
+                originH(0),
+                originW(0)
+        {
+            big_image = imread(big_image_path);
 
-        std::uint32_t h, w, d;
-        file.read(reinterpret_cast<char*>(&h), 4);
-        file.read(reinterpret_cast<char*>(&w), 4);
-        file.read(reinterpret_cast<char*>(&d), 4);
-
-        get<0>(op).try_put(imginfo_type{
-                image_index,
-                static_cast<int>(h),
-                static_cast<int>(w)});
-
-        auto data = vector<vector<pixel>>(h);
-        for (auto& row: data) {
-            row.resize(w);
-        }
-
-        for (int i = 0; i < h; ++i) {
-            for (int j = 0; j < w; ++j) {
-                auto pix = array<char, 3>();
-                file.read(pix.data(), 3);
-                data[i][j] = pixel { uint8_t(pix[0]),
-                                     uint8_t(pix[1]),
-                                     uint8_t(pix[2])};
+            if (small_image_path.compare(small_image_path.size() - 4, 4, ".dat") != 0) {
+                cerr << "Can read only prepared .dat files!" << endl;
+                throw invalid_argument(small_image_path);
             }
+
+            ifstream small_image_file(small_image_path,  ios::binary | ios::in);
+
+            std::uint32_t h, w;
+            small_image_file.read(reinterpret_cast<char*>(&h), 4);
+            small_image_file.read(reinterpret_cast<char*>(&w), 4);
+
+            small_image_file.close();
+
+            smallH = h;
+            smallW = w;
         }
 
-        get<1>(op).try_put(indexed_image_type{image_index, data});
-    }
+        // (Small image info, Big image) -> (Small image id, frames)
+        bool operator()(output_type& coords_and_frame) {
 
-    // If the body is going to be copied, the global numbering won't suffer
-    static int n_images;
-};
+            size_t bigH = big_image.size();
+            size_t bigW = big_image[0].size();
+            assert(originH + smallH <= bigH && originW + smallW <= bigW);
 
-int SmallImgReaderBody::n_images = 0;
+            get<0>(coords_and_frame) = make_pair(originH, originW);
+            image& frame = get<1>(coords_and_frame);
 
-struct FramerBody {
-    using input_type = tuple<ImageInfo, image>;
-    using origin_coord_type = pair<int, int>;
-    using output_type = tuple<int, origin_coord_type, image>;
-    using reciever_type = typename function_node<input_type, output_type>::successor_type;
-
-    // (Small image info, Big image) -> (Small image id, frames)
-    void operator()(input_type& input, reciever_type& rec) {
-        ImageInfo ii = get<0>(input);
-        image& big_image = get<1>(input);
-
-        for (int origin_h = 0; origin_h + ii.height < big_image.size(); ++origin_h) {
-            for (int origin_w = 0; origin_w + ii.width < big_image[0].size(); ++origin_w) {
-
-                image frame(ii.height);
-                for (int i = 0; i < ii.height; ++i) {
-                    frame[i].resize(ii.width);
-                    for (int j = 0; j < ii.width; ++j) {
-                        frame[i][j] = big_image[origin_h + i][origin_w + j];
-                    }
+            frame.resize(smallH);
+            for (size_t i = 0; i < smallH; ++i) {
+                frame[i].resize(smallW);
+                for (size_t j = 0; j < smallW; ++j) {
+                    frame[i][j] = big_image[originH + i][originW + j];
                 }
-                rec.try_put(make_tuple(ii.index, make_pair(origin_h, origin_w), frame));
             }
-        }
-    }
-};
 
-struct DiffBody {
-    using framer_output = FramerBody::output_type;
-    using input_type = tuple<framer_output, image>;
-    using origin_coord_type = typename tuple_element<1, framer_output>::type;
-    using output_type = pair<origin_coord_type, int>;
-
-    using multi_node = multifunction_node<input_type, tuple<output_type, output_type, output_type>>;
-
-    void operator()(input_type& input, multi_node::output_ports_type& op) {
-        auto& frame = get<0>(input);
-
-        int image_index = get<0>(frame);
-        auto& origin = get<1>(frame);
-        image& frame_img = get<2>(frame);
-
-        image& small_img = get<1>(input);
-
-        int difference = 0;
-
-        for (int i = 0; i < frame_img.size(); ++i) {
-            for (int j = 0; j < frame_img[0].size(); ++j) {
-                pixel const& p1 = frame_img[i][j];
-                pixel const& p2 = small_img[i][j];
-                difference += abs(p1.r - p2.r) + abs(p1.g - p2.g) + abs(p1.b - p2.b);
+            // Go to the next frame origin
+            if (originH + smallH == bigH && originW + smallW == bigW)
+                return false;
+            else {
+                if (++originW + smallW == bigH + 1) {
+                    originW = 0;
+                    ++originH;
+                }
+                return true;
             }
         }
 
-        // template parameter must be known at compile-time :(
-        output_type task = make_pair(origin, difference);
-        switch (image_index) {
-            case 0:
-                get<0>(op).try_put(task);
-                break;
-            case 1:
-                get<1>(op).try_put(task);
-                break;
-            case 2:
-                get<2>(op).try_put(task);
-                break;
-            default:
-                abort();
+        size_t originH;
+        size_t originW;
+
+        size_t smallH;
+        size_t smallW;
+
+        image big_image;
+    };
+
+    struct DiffBody {
+        using input_type = tuple<image, tuple<coords, image>>;
+        using output_type = pair<coords, int>;
+
+        output_type operator()(input_type const& input) {
+            image const& first = get<0>(input);
+            auto const& frame = get<1>(input);
+            image const& second = get<1>(frame);
+            coords const& origin = get<0>(frame);
+
+            int difference = 0;
+            int h = first.size();
+            int w = first[0].size();
+            for (int i = 0; i < h; ++i) {
+                for (int j = 0; j < w; ++j) {
+                    pixel const &p1 = first[i][j];
+                    pixel const &p2 = second[i][j];
+                    difference += abs((int)p1.r - (int)p2.r)
+                                  + abs((int)p1.g - (int)p2.g)
+                                  + abs((int)p1.b - (int)p2.b);
+                }
+            }
+
+            return make_pair(origin, difference);
         }
-    }
-};
+    };
 
-struct MinBody {
+    struct MinBody {
 
-    using input_type = DiffBody::output_type;
-    using output_type = input_type::first_type;
+        using input_type = pair<coords, int>;
 
-    MinBody(): minimum(numeric_limits<int>::max()) {}
+        MinBody(): minimum(numeric_limits<int>::max()) {}
 
-    output_type operator()(input_type& difference) {
-        if (difference.second < minimum) {
-            minimum = difference.second;
-            origin = difference.first;
+        void operator()(input_type const& difference) {
+            if (difference.second < minimum) {
+                minimum = difference.second;
+                origin = difference.first;
+            }
         }
-        return origin;
-    }
 
-    int minimum;
-    output_type origin;
+        int minimum;
+        coords origin;
+    };
 };
 
 int main() {
 
     vector<string> small_image_paths = {
-            "data/hat.dat",
-            "data/chicken.dat",
-            "data/cheer.dat"
+            "../../data/hat.dat",
+            "../../data/chicken.dat",
+            "../../data/cheer.dat"
     };
-    string big_image_path = "image.dat";
+    string big_image_path = "../../data/image.dat";
 
-    // Flow graph composition
-    graph g;
-
-    // Reads small images and forwards their sizes and matrices do different nodes
-    size_t n_small_images = 3;
-    multifunction_node<SmallImgReaderBody::input_type, SmallImgReaderBody::output_type>
-            smallreader(g, n_small_images, SmallImgReaderBody());
-
-    // Simply translates .dat to image matrix
-    function_node<string, image> bigreader(g, 1, BigImgReaderBody());
-
-    join_node<FramerBody::input_type, reserving> preframer(g);
-
-    function_node<FramerBody::input_type, FramerBody::output_type>
-            framer(g, unlimited, FramerBody());
-
-    // Join small image with a frame form big image
-    using buffer_element = tuple<SmallImgReaderBody::indexed_image_type, FramerBody::output_type>;
-    join_node<buffer_element, tag_matching> prebuff(
-            g,
-            [](pair<int, image>& in)->int {return in.first;},
-            [](FramerBody::output_type& in)->int {return get<0>(in);}
-    );
-
-    buffer_node<buffer_element> buffer(g);
-
-    multifunction_node<DiffBody::input_type, DiffBody::output_type> diff(g, unlimited, DiffBody());
-
-    vector<function_node<DiffBody::output_type>> min(
-            n_small_images,
-            function_node<DiffBody::output_type>(g, 1, MinBody())
-    );
-
-    using coords_type = pair<int, int>;
-    vector<overwrite_node<coords_type>> output(n_small_images, overwrite_node<coords_type>(g));
-
-    make_edge(output_port<0>(smallreader), input_port<0>(preframer));
-    make_edge(output_port<1>(smallreader), input_port<0>(prebuff));
-    make_edge(bigreader, input_port<1>(preframer));
-    make_edge(preframer, framer);
-    make_edge(framer, input_port<1>(prebuff));
-    make_edge(prebuff, buffer);
-    make_edge(buffer, diff);
-//    buffer.register_successor(diff);
-    make_edge(output_port<0>(diff), min[0]);
-    make_edge(output_port<1>(diff), min[1]);
-    make_edge(output_port<2>(diff), min[2]);
-    for (size_t i = 0; i < n_small_images; ++i) {
-        make_edge(min[i], output[i]);
-    }
 
     // Graph activation
-    bigreader.try_put(big_image_path);
-    for (auto& s: small_image_paths) {
-        smallreader.try_put(s);
-    }
-    g.wait_for_all();
+    MyFlowGraph g0(big_image_path, small_image_paths[0]);
+    MyFlowGraph g1(big_image_path, small_image_paths[1]);
+    MyFlowGraph g2(big_image_path, small_image_paths[2]);
 
     // Output
-    for (size_t i = 0; i < n_small_images; ++i) {
-        coords_type origin;
-        output[i].try_get(origin);
-        cout << "Image " << i << " found at (" << origin.first << ", " << origin.second << ")\n";
-    }
+    g0.wait_for_all();
+    g1.wait_for_all();
+    g2.wait_for_all();
+
+    g0.print_result(cout);
+    g1.print_result(cout);
+    g2.print_result(cout);
 
     return 0;
 }
