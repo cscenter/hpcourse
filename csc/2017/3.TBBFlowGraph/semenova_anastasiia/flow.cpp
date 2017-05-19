@@ -182,7 +182,7 @@ void process_image(std::string path) {
     buffer_node<rectangle> rectanglesBuffer(g);
     function_node<rectangle, std::tuple<rectangle,long>> calculateDifference(g, unlimited, calculate_difference);
     buffer_node<std::tuple<rectangle,long>> differenceBuffer(g);
-    function_node<std::tuple<rectangle,long>> getMinimumDifference(g, 1, get_minimum_difference);
+    function_node<std::tuple<rectangle,long>> getMinimumDifference(g, unlimited, get_minimum_difference);
     
     make_edge(generateRectangles, rectanglesBuffer);
     make_edge(rectanglesBuffer, calculateDifference);
@@ -197,7 +197,7 @@ void process_image(std::string path) {
     
     imwrite(convert_to_image(min_rectangle), path + "_result.dat");
     
-    std::cout << "------------------------------------" << std::endl;
+    std::cout << "--------------------------------------" << std::endl;
 }
 
 
