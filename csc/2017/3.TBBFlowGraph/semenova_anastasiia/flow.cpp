@@ -131,8 +131,8 @@ std::tuple<rectangle, long> calculate_difference(rectangle const &rect) {
     long difference = 0;
     for (long w = rect.start_w; w < rect.end_w; ++w) {
         for (long h = rect.start_h; h < rect.end_h; ++h) {
-            pixel p1 = big_image.at(w).at(h);
-            pixel p2 = small_image.at(w - rect.start_w).at(h - rect.start_h);
+            pixel p1 = big_image[w][h];
+            pixel p2 = small_image.[w - rect.start_w][h - rect.start_h];
             difference += abs(p1.b - p2.b) + abs(p2.g - p1.g) + abs(p1.r - p2.r);
         }
     }
@@ -156,8 +156,9 @@ image convert_to_image(const rectangle &rect) {
     image result;
     result.resize(width);
     
-    for (vector<pixel> &row : result)
+    for (vector<pixel> &row : result) {
         row.resize(height);
+    }
     
     for (long w = 0; w < width; ++w) {
         for (long h = 0; h < height; ++h) {
