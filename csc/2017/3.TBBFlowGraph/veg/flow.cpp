@@ -10,6 +10,8 @@ using namespace std;
 using namespace tbb::flow;
 using namespace tbb;
 
+string PATH_TO_DATA = "../../data/";
+
 typedef tuple<int, int> coord;
 
 struct pixel {
@@ -70,14 +72,36 @@ void imwrite(const image& source, const string& path) {
     file.close();
 }
 
+void subimwrite(const image& source, const string&path, coord from, coord to, int delta=30) {
+    // write subimage with some delta around
+    int source_n_rows = source.size(), source_n_cols = source[0].size();
+    int min_x = max(0, get<0>(from) - delta), min_y = max(0, get<1>(from) - delta),
+            max_x = min(source_n_rows, get<0>(to) + delta), max_y = min(source_n_cols, get<1>(to) + delta);
 
-int main() {
-    image big_image = imread("/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/image.dat");
+    int h = max_x - min_x, w = max_y - min_y, d = 3;
+    ofstream file(path, ios::binary);
+    file.write(reinterpret_cast<char*>(&h), 4);
+    file.write(reinterpret_cast<char*>(&w), 4);
+    file.write(reinterpret_cast<char*>(&d), 4);
+
+    for (int x = min_x; x < max_x; x++) {
+        for (int y = min_y; y < max_y; y++) {
+            pixel pix = source[x][y];
+            file.write(reinterpret_cast<const char*>(&pix.r), 1);
+            file.write(reinterpret_cast<const char*>(&pix.g), 1);
+            file.write(reinterpret_cast<const char*>(&pix.b), 1);
+        }
+    }
+    file.close();
+}
+
+
+int find_subimage(string source_path, string dest_path) {
+    image big_image = imread(PATH_TO_DATA + "image.dat");
     int big_n_rows = big_image.size(), big_n_cols = big_image[0].size();
 
     // 1. Считываем маленькое изображение
-    string default_path = "/home/user/Documents/study/parallel/hpcourse/csc/2017/3.TBBFlowGraph/data/cheer.dat";
-    image small_image = imread(default_path);
+    image small_image = imread(source_path);
     int small_n_rows = small_image.size(), small_n_cols = small_image[0].size();
 
     cout << "Big image size: " << big_n_rows << " x " << big_n_cols << endl
@@ -134,9 +158,6 @@ int main() {
         return 0;    // sorry
     });
 
-    // 6. Узел, записывающий окрестность найденного изображения в файл.
-
-
     // Соединяем вершины ребрами
     make_edge(generate_subimages, subimages_buffer);
     make_edge(subimages_buffer, diff_node);
@@ -147,4 +168,17 @@ int main() {
     generate_subimages.activate();
 
     g.wait_for_all();
+
+    // 6. Записываем окрестность найденного изображения в файл.
+    int min_x = get<0>(get<1>(min_diff_and_xy)), min_y = get<1>(get<1>(min_diff_and_xy));
+    cout << "Found image with diff " << get<0>(min_diff_and_xy) << " and left upper corner at ("
+         << min_x << ", " << min_y << ")" << endl;
+    subimwrite(big_image, dest_path, pair<int, int>(min_x, min_y), pair<int, int>(min_x + small_n_rows, min_y + small_n_cols));
+}
+
+
+int main() {
+    find_subimage(PATH_TO_DATA + "cheer.dat", PATH_TO_DATA + "cheer_found.dat");
+    find_subimage(PATH_TO_DATA + "hat.dat", PATH_TO_DATA + "hat_found.dat");
+    find_subimage(PATH_TO_DATA + "chicken.dat", PATH_TO_DATA + "chicken_found.dat");
 }
