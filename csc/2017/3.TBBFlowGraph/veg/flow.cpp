@@ -122,7 +122,7 @@ int find_subimage(string source_path, string dest_path) {
         }
     }, false);
 
-    // 3. Буферный узел
+    // 3. Буферный узел для прямоугольников
     buffer_node<coord> subimages_buffer(g);
 
     // 4. Узел, подсчитывающий разницу между искомым изображением и кандидатом
@@ -140,17 +140,15 @@ int find_subimage(string source_path, string dest_path) {
         return tuple<int, coord>(diff, xy);
     });
 
-    // 5. Узел, содержащий результат - минимальную разницу и координаты верхнего левого угла.
+    // 5. Узел, считающий результат - минимальную разницу и координаты верхнего левого угла
     tuple<int, coord> min_diff_and_xy(numeric_limits<int>::max(), coord(0, 0));
     mutex min_mutex;
     function_node<tuple<int, coord>, int> min_reducer(g, unlimited, [&](tuple<int, coord> diff_and_xy) {
-        bool need_to_exchange = get<0>(diff_and_xy) < get<0>(min_diff_and_xy);
-        if (need_to_exchange) {
+        auto need_to_exchange = [&]() { return get<0>(diff_and_xy) < get<0>(min_diff_and_xy); };
+        if (need_to_exchange()) {
             // double check
             min_mutex.lock();
-            need_to_exchange = get<0>(diff_and_xy) < get<0>(min_diff_and_xy);
-            if (need_to_exchange) {
-                // cout << get<0>(diff_and_xy) << "  " << get<0>(min_diff_and_xy) << endl;
+            if (need_to_exchange()) {
                 min_diff_and_xy = diff_and_xy;
             }
             min_mutex.unlock();
@@ -163,17 +161,16 @@ int find_subimage(string source_path, string dest_path) {
     make_edge(subimages_buffer, diff_node);
     make_edge(diff_node, min_reducer);
 
-
     // Запускаем
     generate_subimages.activate();
-
     g.wait_for_all();
 
     // 6. Записываем окрестность найденного изображения в файл.
     int min_x = get<0>(get<1>(min_diff_and_xy)), min_y = get<1>(get<1>(min_diff_and_xy));
     cout << "Found image with diff " << get<0>(min_diff_and_xy) << " and left upper corner at ("
          << min_x << ", " << min_y << ")" << endl;
-    subimwrite(big_image, dest_path, pair<int, int>(min_x, min_y), pair<int, int>(min_x + small_n_rows, min_y + small_n_cols));
+    subimwrite(big_image, dest_path, pair<int, int>(min_x, min_y),
+               pair<int, int>(min_x + small_n_rows, min_y + small_n_cols));
 }
 
 
