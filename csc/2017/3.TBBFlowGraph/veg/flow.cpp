@@ -2,12 +2,13 @@
 #include <fstream>
 #include <algorithm>
 #include <array>
-#include <cmath>
 
 #include <tbb/flow_graph.h>
+#include <tbb/mutex.h>
 
 using namespace std;
 using namespace tbb::flow;
+using namespace tbb;
 
 typedef tuple<int, int> coord;
 
@@ -101,12 +102,37 @@ int main() {
     buffer_node<coord> subimages_buffer(g);
 
     // 4. Узел, подсчитывающий разницу между искомым изображением и кандидатом
-    function_node<coord, tuple<int, coord>> diff_node(g, 1, [&](coord xy) {
-        return tuple<int, coord>(123, xy); // TODO
+    function_node<coord, tuple<int, coord>> diff_node(g, unlimited, [&](coord xy) {
+        // calculate diff as sum of diffs by pixel by channel
+        long diff = 0;
+        int x = get<0>(xy), y = get<1>(xy);
+        for (int dx = 0; dx < small_n_rows; dx++) {
+            for (int dy = 0; dy < small_n_rows; dy++) {
+                pixel p1 = big_image[x + dx][y + dy], p2 = small_image[dx][dy];
+                diff += abs(p1.r - p2.r) + abs(p1.g - p2.g) + abs(p1.b - p2.b);
+            }
+        }
+
+        return tuple<int, coord>(diff, xy);
     });
 
     // 5. Узел, содержащий результат - минимальную разницу и координаты верхнего левого угла.
-
+    tuple<int, coord> min_diff_and_xy(numeric_limits<int>::max(), coord(0, 0));
+    mutex min_mutex;
+    function_node<tuple<int, coord>, int> min_reducer(g, unlimited, [&](tuple<int, coord> diff_and_xy) {
+        bool need_to_exchange = get<0>(diff_and_xy) < get<0>(min_diff_and_xy);
+        if (need_to_exchange) {
+            // double check
+            min_mutex.lock();
+            need_to_exchange = get<0>(diff_and_xy) < get<0>(min_diff_and_xy);
+            if (need_to_exchange) {
+                // cout << get<0>(diff_and_xy) << "  " << get<0>(min_diff_and_xy) << endl;
+                min_diff_and_xy = diff_and_xy;
+            }
+            min_mutex.unlock();
+        }
+        return 0;    // sorry
+    });
 
     // 6. Узел, записывающий окрестность найденного изображения в файл.
 
@@ -114,6 +140,7 @@ int main() {
     // Соединяем вершины ребрами
     make_edge(generate_subimages, subimages_buffer);
     make_edge(subimages_buffer, diff_node);
+    make_edge(diff_node, min_reducer);
 
 
     // Запускаем
