@@ -109,7 +109,7 @@ public:
             frame_buffer(*this),
             diff(*this, unlimited, DiffBody(this->small_image, this->big_image)),
             diff_buffer(*this),
-            min(*this, unlimited, MinBody())
+            min(*this, serial, MinBody())
     {
         make_edge(framer, frame_buffer);
         make_edge(frame_buffer, diff);
