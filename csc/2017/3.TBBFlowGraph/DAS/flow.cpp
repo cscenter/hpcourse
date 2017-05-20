@@ -20,14 +20,14 @@ struct pixel {
 	pixel(){}
 
 	pixel operator-(pixel & p) {
-		uint8_t dr = r - p.r;
-		uint8_t dg = g - p.g;
-		uint8_t db = b - p.b;
+		uint8_t dr = abs(r - p.r);
+		uint8_t dg = abs(g - p.g);
+		uint8_t db = abs(b - p.b);
 		return pixel(dr, dg, db);
 	}
 	
 	uint8_t reduce(){
-		return r + g + b;
+		return (int)r + (int)g + (int)b;
 	}
 };
 
@@ -128,7 +128,6 @@ public:
 					line = new_line;
 				}
 				prebuffer.push(Area(sub_img, i, j, 0));
-				break;
 			}
 		}
 	}
@@ -156,7 +155,7 @@ int main() {
 		buffer_node<Area> buffering_node(g); // node for storing results of slicing
 
 
-		function_node<Area, Area> difference_node(g, serial, // node for calculating difference
+		function_node<Area, Area> difference_node(g, unlimited, // node for calculating difference
 			[&pattern](Area area){
 			image img2 = area.picture;
 			int h = pattern.size();
@@ -164,7 +163,7 @@ int main() {
 			long int difference = 0;
 			for (size_t i = 0; i < h; i++){
 				for (size_t j = 0; j < w; j++){
-					difference += int((pattern[i][j] - img2[i][j]).reduce());
+					difference += (pattern[i][j] - img2[i][j]).reduce();
 				}
 			}
 			area.difference = difference;
@@ -172,7 +171,7 @@ int main() {
 		}
 		);
 
-		function_node<Area, continue_msg> result_node(g, unlimited, // node for storing result pic
+		function_node<Area, continue_msg> result_node(g, serial, // node for storing result pic
 			[](Area area){
 			long int current_difference = area.difference;
 			if (seek.difference > current_difference){
@@ -193,8 +192,8 @@ int main() {
 		slicer_node.activate();
 		g.wait_for_all();
 		cout << "Left corner coordinates for " << filename << " : " << seek.x << " " << seek.y << endl;
-		imwrite(seek.picture, "result.dat");
+		string result_filename = "result_" + filename;
+		imwrite(seek.picture, result_filename);
 	}
-	getchar();
 	return 0;
 }
