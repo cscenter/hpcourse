@@ -155,10 +155,10 @@ void findImage(const std::string& in) {
             return make_pair(diff, r);      
         } );
 
-    long long minDiff = (long long)szx * szy * (8 + 8 + 8) + 1;
+    long long minDiff = (long long)szx * szy * (1 << 8) * 3 + 1;
     rectangle best = {0, 0, szx, szy};
                                                                     
-    function_node<pair<long long, rectangle>, bool> bestGetter(g, unlimited,
+    function_node<pair<long long, rectangle>, bool> bestGetter(g, 1,
         [&](const pair<long long, rectangle> &p) -> bool {
             if (p.first < minDiff) {
                 minDiff = p.first;
