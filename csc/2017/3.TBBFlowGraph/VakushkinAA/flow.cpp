@@ -11,16 +11,18 @@
 using namespace std;
 using namespace tbb::flow;
 
-static const std::string SOURCE_PATH   = "../data/image.dat";
+static const std::string DATA_PATH = "../data/";
 
-static const std::string CHEER_PATH   = "../data/cheer.dat";
-static const std::string CHEER_RESULT_PATH   = "../data/cheer_res.dat";
+static const std::string SOURCE_PATH = DATA_PATH + "image.dat";
 
-static const std::string CHICKEN_PATH = "../data/chicken.dat";
-static const std::string CHICKEN_RESULT_PATH = "../data/chicken_res.dat";
+static const std::string CHEER_PATH = DATA_PATH + "cheer.dat";
+static const std::string CHEER_RESULT_PATH   = DATA_PATH + "cheer_res.dat";
 
-static const std::string HAT_PATH = "../data/hat.dat";
-static const std::string HAT_RESULT_PATH     = "../data/hat_res.dat";
+static const std::string CHICKEN_PATH = DATA_PATH + "chicken.dat";
+static const std::string CHICKEN_RESULT_PATH = DATA_PATH + "chicken_res.dat";
+
+static const std::string HAT_PATH = DATA_PATH + "hat.dat";
+static const std::string HAT_RESULT_PATH = DATA_PATH + "hat_res.dat";
 
 
 struct pixel {
@@ -133,34 +135,6 @@ void imwrite(const image& source, const string& path) {
     file.close();
 }
 
-
-class ImageReader {
-private:
-    std::string path;
-    bool read;
-
-public:
-    ImageReader(const std::string& path)
-        : path(path)
-        , read(false)
-    {}
-
-    bool operator()(image& res) {
-        if(read) {
-            return false;
-        }
-        read = true;
-
-        try {
-            res = imread(path);
-            return true;    
-        } catch(std::exception& ) {
-            return false;
-        }
-        
-    }
-};
-
 class RectangleProviderBody {
 private:
     uint32_t sourceHeight, sourceWidth, findHeight, findWidth;
@@ -235,26 +209,6 @@ public:
     }
 };
 
-class MinDiffFinderBody {
-private:
-    std::shared_ptr<DiffResult> minDiff;
-
-public:
-    MinDiffFinderBody()
-        : minDiff(std::make_shared<DiffResult>())
-    {}
-
-    void operator()(const DiffResult& diff) {
-        if(diff.diff < (*minDiff).diff) {
-            *minDiff = diff;
-        }
-    }
-
-    DiffResult getDiff() const {
-        return *minDiff;
-    }
-};
-
 void findImages(const std::string& sourceImagePath, const std::string& findImagePath, const std::string& resultImagePath) {
     graph flowGraph;
 
@@ -268,8 +222,13 @@ void findImages(const std::string& sourceImagePath, const std::string& findImage
     function_node<rectangle, DiffResult> diffCalculatorNode(flowGraph, unlimited, DiffCalculatorBody(sourceImage, findImage));
     buffer_node<DiffResult> diffBufferNode(flowGraph);
 
-    MinDiffFinderBody res;
-    function_node<DiffResult> minDiffFinderNode(flowGraph, unlimited, res);
+    DiffResult res;
+    function_node<DiffResult> minDiffFinderNode(flowGraph, unlimited,
+    [&res](const DiffResult& diff) {
+        if(diff.diff < res.diff) {
+            res = diff;
+        }
+    });
 
     make_edge(rectGenNode, genBufferNode);
     make_edge(genBufferNode, diffCalculatorNode);
@@ -277,11 +236,10 @@ void findImages(const std::string& sourceImagePath, const std::string& findImage
     make_edge(diffBufferNode, minDiffFinderNode);
 
     flowGraph.wait_for_all();
-    DiffResult diff = res.getDiff();
+    
+    std::cout << "closest find is at: " << res.x << ", " << res.y << std::endl;
 
-    std::cout << "closest find is at: " << diff.x << ", " << diff.y << std::endl;
-
-    image findSubImage = subimage(sourceImage, {diff.x, diff.y, diff.x + findImage[0].size(), diff.y + findImage.size()});
+    image findSubImage = subimage(sourceImage, {res.x, res.y, res.x + findImage[0].size(), res.y + findImage.size()});
 
     imwrite(findSubImage, resultImagePath);
 }
