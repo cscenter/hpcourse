@@ -98,114 +98,76 @@ using coords = pair<size_t, size_t>;
 
 class MyFlowGraph: public graph {
 public:
-    MyFlowGraph(string const& big_image_path, string const& small_image_path):
+    MyFlowGraph(image const& big_image, string const& small_image_path):
             graph(),
+
             small_image_name(small_image_path),
-            small_image_reader(*this, ReaderBody(small_image_path)),
-            framer(*this, FramerBody(small_image_path, big_image_path)),
-            buffer(*this),
-            prediff(*this),
-            diff(*this, unlimited, DiffBody()),
+            small_image(imread(small_image_path)),
+            big_image(big_image),
+
+            framer(*this, FramerBody(this->small_image, this->big_image)),
+            frame_buffer(*this),
+            diff(*this, unlimited, DiffBody(this->small_image, this->big_image)),
+            diff_buffer(*this),
             min(*this, unlimited, MinBody())
     {
-        make_edge(small_image_reader, input_port<0>(prediff));
-        make_edge(framer, buffer);
-        make_edge(buffer, input_port<1>(prediff));
-        make_edge(prediff, diff);
-        make_edge(diff, min);
+        make_edge(framer, frame_buffer);
+        make_edge(frame_buffer, diff);
+        make_edge(diff, diff_buffer);
+        make_edge(diff_buffer, min);
     }
 
     void print_result(ostream& os) {
-        coords origin = min.copy_function_object<MinBody>().origin;
-        os << "Image " << small_image_name << " found at (" << origin.first << ", " << origin.second << ")\n";
+        MinBody result = min.copy_function_object<MinBody>();
+        coords const& origin = result.origin;
+        os << "Image " << small_image_name << " found at (" << origin.first << ", " << origin.second << ")"
+                " (diff = " << result.minimum << ")\n";
     }
 
 private:
 
     string small_image_name;
+    image small_image;
+    image const& big_image;
 
-    source_node<image> small_image_reader;
-    source_node<tuple<coords, image>> framer;
+    source_node<coords> framer;
 
-    using image_pair = tuple<image, image>;
-    buffer_node<tuple<coords, image>> buffer;
+    buffer_node<coords> frame_buffer;
 
-    join_node<tuple<image, tuple<coords, image>>> prediff;
-    function_node<tuple<image, tuple<coords, image>>, pair<coords, int>> diff;
+    function_node<coords, pair<coords, int>> diff;
+
+    buffer_node<pair<coords, int>> diff_buffer;
 
     function_node<pair<coords, int>> min;
 
     // Graph node bodies
 
-    struct ReaderBody {
-        using input_type = string;
-        using output_type = image;
+    struct FramerBody {
+        using output_type = coords;
 
-        string path;
-
-        ReaderBody(string const& path): path(path)
+        FramerBody(image const& small_image, image const& big_image) :
+                originH(0),
+                originW(0),
+                smallH(small_image.size()),
+                smallW(small_image[0].size()),
+                bigH(big_image.size()),
+                bigW(big_image[0].size())
         {}
 
-        bool operator()(output_type& img) {
-            img = imread(path);
-            return false;
-        }
-    };
-
-    struct FramerBody {
-        using output_type = tuple<coords, image>;
-
-        FramerBody(string const& small_image_path, string const& big_image_path) :
-                originH(0),
-                originW(0)
-        {
-            big_image = imread(big_image_path);
-
-            if (small_image_path.compare(small_image_path.size() - 4, 4, ".dat") != 0) {
-                cerr << "Can read only prepared .dat files!" << endl;
-                throw invalid_argument(small_image_path);
-            }
-
-            ifstream small_image_file(small_image_path,  ios::binary | ios::in);
-
-            std::uint32_t h, w;
-            small_image_file.read(reinterpret_cast<char*>(&h), 4);
-            small_image_file.read(reinterpret_cast<char*>(&w), 4);
-
-            small_image_file.close();
-
-            smallH = h;
-            smallW = w;
-        }
-
         // (Small image info, Big image) -> (Small image id, frames)
-        bool operator()(output_type& coords_and_frame) {
+        bool operator()(output_type& origin) {
 
-            size_t bigH = big_image.size();
-            size_t bigW = big_image[0].size();
             assert(originH + smallH <= bigH && originW + smallW <= bigW);
 
-            get<0>(coords_and_frame) = make_pair(originH, originW);
-            image& frame = get<1>(coords_and_frame);
-
-            frame.resize(smallH);
-            for (size_t i = 0; i < smallH; ++i) {
-                frame[i].resize(smallW);
-                for (size_t j = 0; j < smallW; ++j) {
-                    frame[i][j] = big_image[originH + i][originW + j];
-                }
-            }
+            origin = make_pair(originH, originW);
 
             // Go to the next frame origin
-            if (originH + smallH == bigH && originW + smallW == bigW)
-                return false;
-            else {
-                if (++originW + smallW == bigH + 1) {
-                    originW = 0;
-                    ++originH;
-                }
-                return true;
+            ++originW;
+            if (originW + smallW == bigW + 1) {
+                originW = 0;
+                ++originH;
             }
+            return originH + smallH <= bigH;
         }
 
         size_t originH;
@@ -214,26 +176,28 @@ private:
         size_t smallH;
         size_t smallW;
 
-        image big_image;
+        size_t bigH;
+        size_t bigW;
     };
 
     struct DiffBody {
-        using input_type = tuple<image, tuple<coords, image>>;
+        using input_type = coords;
         using output_type = pair<coords, int>;
 
-        output_type operator()(input_type const& input) {
-            image const& first = get<0>(input);
-            auto const& frame = get<1>(input);
-            image const& second = get<1>(frame);
-            coords const& origin = get<0>(frame);
+        DiffBody(image const& small_image, image const& big_image) :
+            small_image(small_image),
+            big_image(big_image)
+        {}
+
+        output_type operator()(input_type const& origin) {
 
             int difference = 0;
-            int h = first.size();
-            int w = first[0].size();
+            int h = small_image.size();
+            int w = small_image[0].size();
             for (int i = 0; i < h; ++i) {
                 for (int j = 0; j < w; ++j) {
-                    pixel const &p1 = first[i][j];
-                    pixel const &p2 = second[i][j];
+                    pixel const &p1 = big_image[origin.first + i][origin.second + j];
+                    pixel const &p2 = small_image[i][j];
                     difference += abs((int)p1.r - (int)p2.r)
                                   + abs((int)p1.g - (int)p2.g)
                                   + abs((int)p1.b - (int)p2.b);
@@ -242,6 +206,9 @@ private:
 
             return make_pair(origin, difference);
         }
+
+        image const& small_image;
+        image const& big_image;
     };
 
     struct MinBody {
@@ -269,13 +236,13 @@ int main() {
             "../../data/chicken.dat",
             "../../data/cheer.dat"
     };
-    string big_image_path = "../../data/image.dat";
 
+    image big_image = imread("../../data/image.dat");
 
     // Graph activation
-    MyFlowGraph g0(big_image_path, small_image_paths[0]);
-    MyFlowGraph g1(big_image_path, small_image_paths[1]);
-    MyFlowGraph g2(big_image_path, small_image_paths[2]);
+    MyFlowGraph g0(big_image, small_image_paths[0]);
+    MyFlowGraph g1(big_image, small_image_paths[1]);
+    MyFlowGraph g2(big_image, small_image_paths[2]);
 
     // Output
     g0.wait_for_all();
