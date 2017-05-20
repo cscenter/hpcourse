@@ -78,8 +78,8 @@ public:
         this->small = small;
     }
 
-    std::pair<frame, int16_t> operator()(const frame &region) {
-        int16_t res = 0;
+    std::pair<frame, int64_t> operator()(const frame &region) {
+        int64_t res = 0;
 
         for (int64_t x = 0; x < region.h; ++x) {
             for (int64_t y = 0; y < region.w; ++y) {
@@ -90,8 +90,8 @@ public:
     }
 
 private:
-    int16_t compare(const pixel &l, const pixel &r) {
-        return (int16_t) (abs(l.r - r.r) +
+    int64_t compare(const pixel &l, const pixel &r) {
+        return (int64_t) (abs(l.r - r.r) +
                           abs(l.g - r.g) +
                           abs(l.b - r.b));
     }
@@ -219,8 +219,8 @@ void find(const image *im, const std::string &path, const std::string &name) {
 
     source_node<frame> sourceNode(g, FrameCreator(im, &small), false);
     buffer_node<frame> frameBuffer(g);
-    function_node<frame, std::pair<frame, int16_t>> comparingNode(g, unlimited, ImgComparator(im, &small));
-    function_node<std::pair<frame, int16_t>, frame> minimizingNode(g, serial, Minimizer(res));
+    function_node<frame, std::pair<frame, int64_t>> comparingNode(g, unlimited, ImgComparator(im, &small));
+    function_node<std::pair<frame, int64_t>, frame> minimizingNode(g, serial, Minimizer(res));
 
 //    overwrite_node<frame> resBuffer(g);
 //    function_node<frame> writeNode(g, 1, Writer(*im, name));
