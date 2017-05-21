@@ -66,8 +66,7 @@ image imread(const string& path) {
     return data;
 }
 
-const image big_img = imread("image.dat");
-int64_t min_difference = numeric_limits<int64_t>::max();
+const image big_img = imread("./data/image.dat");
 rectangle min_rectangle;
 
 void imwrite(const image& source, const string& path) {
@@ -106,19 +105,19 @@ public:
         const int64_t s_img_h = small_img.size();
         const int64_t b_img_h = big_img.size();
 
-        const int64_t s_img_w = small_img.at(0).size();
-        const int64_t b_img_w = big_img.at(0).size();
+        const int64_t s_img_w = small_img.front().size();
+        const int64_t b_img_w = big_img.front().size();
 
-        for (int64_t h = 0; h < b_img_h - s_img_h; ++h)
+        for (int64_t i = 0; i < b_img_h - s_img_h; ++i)
         {
-            for (int64_t w = 0; w < b_img_w - s_img_w; ++w)
+            for (int64_t j = 0; j < b_img_w - s_img_w; ++j)
             {
-                rectangles.push(rectangle(h, w, h + s_img_h - 1, w + s_img_w - 1));
+                rectangles.push(rectangle(i, j, i + s_img_h - 1, j + s_img_w - 1));
             }
         }
     }
 
-    bool operator()(rectangle &rect)
+    bool operator()(rectangle& rect)
     {
         if (!rectangles.empty())
         {
@@ -145,7 +144,7 @@ public:
     {
         int64_t difference = 0;
         int64_t h = small_img.size();
-        int64_t w = small_img.at(0).size();
+        int64_t w = small_img.front().size();
 
         for (int64_t i = 0; i < h; ++i)
         {
@@ -153,36 +152,44 @@ public:
             {
                 pixel p1 = big_img[rect.tlx + i][rect.tly + j];
                 pixel p2 = small_img[i][j];
-                difference += abs(p1.b - p2.b) + abs(p2.g - p1.g) + abs(p1.r - p2.r);
+                difference += abs(p1.r - p2.r) + abs(p1.g - p2.g) + abs(p1.b - p2.b);
             }
         }
 
         return make_tuple(rect, difference);
     }
-private:
+
     image small_img;
 };
 
-void im_find_min_difference(const tuple<rectangle, int64_t>& var)
+class im_find_min_difference
 {
-    if (get<1>(var) < min_difference) {
-        min_difference = get<1>(var);
-        min_rectangle = get<0>(var);
+public:
+    int64_t min_difference = numeric_limits<int64_t>::max();
+
+    rectangle operator()(const tuple<rectangle, int64_t>& var)
+    {
+        if (get<1>(var) < min_difference) {
+            min_difference = get<1>(var);
+            min_rectangle = get<0>(var);
+        }
+        return min_rectangle;
     }
-}
+};
 
 image imconvert(const rectangle& rect)
 {
-    int64_t width = rect.brx - rect.tlx;
-    int64_t height = rect.bry - rect.tly;
+    int64_t height = abs(rect.brx - rect.tlx) + 1;
+    int64_t width = abs(rect.bry - rect.tly) + 1;
+
     image result = vector<vector<pixel>>(height);
 
     for (auto &row : result)
         row.resize(width);
 
-    for (long i = 0; i < width; ++i)
+    for (long i = 0; i < height; ++i)
     {
-        for (long j = 0; j < height; ++j)
+        for (long j = 0; j < width; ++j)
         {
             result[i][j] = big_img[i + rect.tlx][j + rect.tly];
         }
@@ -191,15 +198,15 @@ image imconvert(const rectangle& rect)
     return result;
 }
 
-void improcess(const string& path)
+void improcess(const string& path, const string& counter)
 {
     graph g;
 
     source_node<rectangle> split_into_rectangles(g, im_split_into_rectangles(path), false);
     buffer_node<rectangle> rectangles_buffer(g);
-    buffer_node<tuple<rectangle, int64_t>> differences_buffer(g);
     function_node<rectangle, tuple<rectangle, int64_t>> get_difference(g, unlimited, im_find_difference(path));
-    function_node<tuple<rectangle, int64_t>> get_min_difference(g, 1, im_find_min_difference);
+    buffer_node<tuple<rectangle, int64_t>> differences_buffer(g);
+    function_node<tuple<rectangle, int64_t>> get_min_difference(g, 1, im_find_min_difference());
 
     make_edge(split_into_rectangles, rectangles_buffer);
     make_edge(rectangles_buffer, get_difference);
@@ -209,13 +216,13 @@ void improcess(const string& path)
     split_into_rectangles.activate();
     g.wait_for_all();
 
-    imwrite(imconvert(min_rectangle), path + "_res.dat");
+    imwrite(imconvert(min_rectangle), "./data/result" + counter + ".dat");
 }
 
 int main()
 {
-    improcess("hat.dat");
-    improcess("chicken.dat");
-    improcess("cheer.dat");
+    improcess("./data/hat.dat", "1");
+    improcess("./data/chicken.dat", "2");
+    improcess("./data/cheer.dat", "3");
     return 0;
 }
