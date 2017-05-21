@@ -80,36 +80,7 @@ void imwrite(const image &source, const string &path) {
 }
 
 //------------------------------
-//image get_test_big_img() {
-//    auto data = vector<vector<pixel>>(3);
-//    for (auto &row: data) {
-//        row.resize(3);
-//    }
-//    data[0][0] = pixel {10, 9, 10};
-//    data[0][1] = pixel {10, 9, 10};
-//    data[0][2] = pixel {10, 9, 10};
-//    data[1][0] = pixel {8, 10, 8};
-//    data[1][1] = pixel {8, 10, 8};
-//    data[1][2] = pixel {8, 10, 8};
-//    data[2][0] = pixel {10, 10, 10};
-//    data[2][1] = pixel {10, 10, 10};
-//    data[2][2] = pixel {10, 10, 10};
-//    return data;
-//}
-//image get_test_img() {
-//    auto data = vector<vector<pixel>>(2);
-//    for (auto &row: data) {
-//        row.resize(2);
-//    }
-//    data[0][0] = pixel {8, 10, 8};
-//    data[0][1] = pixel {8, 10, 8};
-//    data[1][0] = pixel {11, 10, 10};
-//    data[1][1] = pixel {10, 10, 10};
-//    return data;
-//}
-
 image big_img = imread("data/image.dat");
-//image big_img = get_test_big_img();
 
 struct ImgSlice {
     size_t x_left = 0;
@@ -151,7 +122,6 @@ public:
                 );
             }
         }
-//        cout << "slices: " << slices.size() << endl;
     }
 
     bool operator()(ImgSlice &res) {
@@ -185,7 +155,6 @@ public:
         for (int y = 0; y < img_height; ++y) {
             for (int x = 0; x < img_width; ++x) {
                 size_t pixel_diff = get_diff(img[y][x], big_img[slice.y_top + y][slice.x_left + x]);
-//                cout << "pixel diff: " << pixel_diff << endl;
                 diff += pixel_diff;
             }
         }
@@ -214,7 +183,6 @@ image get_sub_img(const ImgSlice &slice) {
 
 void find_sub_img(const string &img_path) {
     image img = imread(img_path);
-//    image img = get_test_img();
     graph g;
 
     const ImgSlicer &imgSlicer = ImgSlicer(img);
