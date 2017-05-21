@@ -80,21 +80,36 @@ void imwrite(const image &source, const string &path) {
 }
 
 //------------------------------
-image get_test_img(unsigned long h, unsigned long w, uint8_t v) {
-    auto data = vector<vector<pixel>>(h);
-    for (auto &row: data) {
-        row.resize(w);
-    }
-    for (int i = 0; i < h; ++i) {
-        for (int j = 0; j < w; ++j) {
-            data[i][j] = pixel {v, v, v};
-        }
-    }
-    return data;
-}
+//image get_test_big_img() {
+//    auto data = vector<vector<pixel>>(3);
+//    for (auto &row: data) {
+//        row.resize(3);
+//    }
+//    data[0][0] = pixel {10, 9, 10};
+//    data[0][1] = pixel {10, 9, 10};
+//    data[0][2] = pixel {10, 9, 10};
+//    data[1][0] = pixel {8, 10, 8};
+//    data[1][1] = pixel {8, 10, 8};
+//    data[1][2] = pixel {8, 10, 8};
+//    data[2][0] = pixel {10, 10, 10};
+//    data[2][1] = pixel {10, 10, 10};
+//    data[2][2] = pixel {10, 10, 10};
+//    return data;
+//}
+//image get_test_img() {
+//    auto data = vector<vector<pixel>>(2);
+//    for (auto &row: data) {
+//        row.resize(2);
+//    }
+//    data[0][0] = pixel {8, 10, 8};
+//    data[0][1] = pixel {8, 10, 8};
+//    data[1][0] = pixel {11, 10, 10};
+//    data[1][1] = pixel {10, 10, 10};
+//    return data;
+//}
 
 image big_img = imread("data/image.dat");
-//image big_img = get_test_img(3, 3, 10);
+//image big_img = get_test_big_img();
 
 struct ImgSlice {
     size_t x_left = 0;
@@ -109,6 +124,14 @@ struct ImgSlice {
         x_right = x_r;
         y_top = y_t;
         y_bottom = y_b;
+    }
+
+    size_t get_height() const {
+        return (size_t) abs(y_bottom - y_top) + 1;
+    }
+
+    size_t get_width() const {
+        return (size_t) abs(x_right - x_left) + 1;
     }
 };
 
@@ -128,7 +151,6 @@ public:
                 );
             }
         }
-
 //        cout << "slices: " << slices.size() << endl;
     }
 
@@ -172,37 +194,72 @@ public:
     };
 };
 
+image get_sub_img(const ImgSlice &slice) {
+    size_t height = slice.get_height();
+    size_t width = slice.get_width();
+
+    auto data = vector<vector<pixel>>(height);
+    for (auto &row: data) {
+        row.resize(width);
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            data[y][x] = big_img[slice.y_top + y][slice.x_left + x];
+        }
+    }
+
+    return data;
+}
+
 void find_sub_img(const string &img_path) {
     image img = imread(img_path);
-//    image img = get_test_img(2, 3, 9);
+//    image img = get_test_img();
     graph g;
+
     const ImgSlicer &imgSlicer = ImgSlicer(img);
     source_node<ImgSlice> slicer(g, imgSlicer, false);
+
     buffer_node<ImgSlice> slices_buffer(g);
+
     const DiffEvaluator &evaluator = DiffEvaluator(img);
     function_node<ImgSlice, tuple<ImgSlice, uint64_t>> diff_evaluator(g, unlimited, evaluator);
 
-    uint64_t c = 0;
-    function_node<tuple<ImgSlice, uint64_t>> end(g, unlimited, [&c](const tuple<ImgSlice, uint64_t> & t) {
-        c+=get<1>(t);
-    });
+    queue_node<tuple<ImgSlice, uint64_t>> diff_queue(g);
+
+    ImgSlice min_diff_slice;
+    uint64_t min_diff = UINT64_MAX;
+    function_node<tuple<ImgSlice, uint64_t>> min_diff_slice_selector(
+            g, serial,
+            [&min_diff_slice, &min_diff](const tuple<ImgSlice, uint64_t> &t) {
+                ImgSlice slice = get<0>(t);
+                uint64_t diff = get<1>(t);
+                if (diff < min_diff) {
+                    min_diff = diff;
+                    min_diff_slice = slice;
+                }
+            }
+    );
 
     make_edge(slicer, slices_buffer);
     make_edge(slices_buffer, diff_evaluator);
-    make_edge(diff_evaluator, end);
+    make_edge(diff_evaluator, diff_queue);
+    make_edge(diff_queue, min_diff_slice_selector);
     slicer.activate();
     g.wait_for_all();
-    cout << c << endl;
-}
 
+    cout << img_path << endl;
+    cout << "min diff: " << min_diff << endl;
+    cout << "coords: (" << min_diff_slice.x_left << ", " << min_diff_slice.y_top << ")";
+    cout << "(" << min_diff_slice.x_right << ", " << min_diff_slice.y_bottom << ")" << endl;
+    image sub_img = get_sub_img(min_diff_slice);
+    imwrite(sub_img, img_path + "_result");
+}
 //-----------------------------
 
 int main(int argc, char *argv[]) {
     find_sub_img("data/cheer.dat");
-//    find_sub_img("data/chicken.dat");
-//    find_sub_img("data/hat.dat");
+    find_sub_img("data/chicken.dat");
+    find_sub_img("data/hat.dat");
     return 0;
 }
-
-
-
