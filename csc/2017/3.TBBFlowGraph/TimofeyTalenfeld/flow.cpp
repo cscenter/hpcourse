@@ -133,7 +133,7 @@ private:
 };
 
 void write_rect_picture(const image &picture, const rect &rect, const string &data_path) {
-    image pic(rect.bottom - rect.left + 1, vector<pixel>(rect.right - rect.left + 1));
+    image pic(rect.bottom - rect.top + 1, vector<pixel>(rect.right - rect.left + 1));
 
     for (size_t y = 0; y != rect.bottom - rect.top + 1; ++y) {
         for (size_t x = 0; x != rect.right - rect.left + 1; ++x) {
