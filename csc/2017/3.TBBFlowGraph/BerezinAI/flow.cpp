@@ -131,6 +131,11 @@ public:
 
         imwrite(part, path);
     }
+
+    friend ostream& operator<<(ostream& output, const Rect& rect) {
+        output << "(( " << rect.left_x << " , " << rect.left_y << " ), ( " << rect.right_x << " , " << rect.right_y << " ))";
+        return output;
+    }
 };
 
 class ImageFragments {
@@ -216,6 +221,8 @@ Closest find(const string partPath, const image full) {
     make_edge(buffered2, to_find);
 
     g.wait_for_all();
+
+    cout << optimal_rect << endl;
 
     return {optimal_rect, optimal_distance};
 }
