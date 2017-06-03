@@ -6,11 +6,14 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     private fun findPrev(value: T): AtomicMarkableReference<Node<T>> {
         var prev: AtomicMarkableReference<Node<T>> = head
         var cur: AtomicMarkableReference<Node<T>?> = head.reference.next
-        while (cur.reference != null) {
+        retry@ while (cur.reference != null) {
             if (cur.isMarked) {
                 val succ = cur.reference!!.next
-                if (prev.compareAndSet(cur.reference, succ.reference, true, succ.isMarked))
+                if (prev.compareAndSet(cur.reference, succ.reference, true, succ.isMarked)) {
                     cur = succ
+                } else {
+                    continue@retry
+                }
             } else if (cur.reference!!.value >= value) {
                 return prev
             }
@@ -46,15 +49,29 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
 
             if (prev.reference.next.compareAndSet(next, next, false, true)) {
 //              try to remove
-                prev.reference.next.compareAndSet(next, next.next.reference, true, false)
+                prev.reference.next.compareAndSet(next, next.next.reference, true, next.next.isMarked)
                 return true
             }
         }
     }
 
     override fun contains(value: T): Boolean {
-        val prev = findPrev(value)
-        return value == prev.reference.next.reference?.value
+        val prev = findPrevWithoutRemove(value)
+        return (value == prev.reference.next.reference?.value &&
+                !prev.reference.next.isMarked)
+    }
+
+    private fun findPrevWithoutRemove(value: T): AtomicMarkableReference<Node<T>> {
+        var prev: AtomicMarkableReference<Node<T>> = head
+        var cur: AtomicMarkableReference<Node<T>?> = head.reference.next
+        while (cur.reference != null) {
+            if (cur.reference!!.value >= value) {
+                return prev
+            }
+            prev = cur as AtomicMarkableReference<Node<T>>
+            cur = cur.reference.next
+        }
+        return prev
     }
 
     override fun isEmpty(): Boolean {
