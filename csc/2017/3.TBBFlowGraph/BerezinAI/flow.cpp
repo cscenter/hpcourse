@@ -6,6 +6,8 @@
 
 #include <tbb/flow_graph.h>
 
+#define Closest pair<Rect, int64_t>
+
 using namespace std;
 using namespace tbb::flow;
 
@@ -126,31 +128,8 @@ public:
                 part[new_y][new_x] = full[new_y + rect.getLeftY()][new_x + rect.getLeftX()];
             }
         }
+
         imwrite(part, path);
-    }
-};
-
-class Closest {
-    int64_t distance;
-    Rect rect;
-public:
-    Closest(const int64_t the_distance,
-            const Rect &the_rect): distance(the_distance),
-                                   rect(the_rect) {}
-    Closest(): distance(0) {}
-    Closest(const int64_t the_distance): distance(0) {}
-
-    int64_t getDistance() const {
-        return distance;
-    }
-    void setDistance(const int64_t the_distance) {
-        distance = the_distance;
-    }
-    Rect getRect() const {
-        return rect;
-    }
-    void setRect(const Rect &the_rect) {
-        rect = the_rect;
     }
 };
 
@@ -159,9 +138,11 @@ class ImageFragments {
 public:
     ImageFragments(const image full, const image part) {
         const size_t part_x_size = part.front().size(),
-                part_y_size = part.size();
-        for (size_t x = 0; x < full.front().size() - part_x_size; ++x) {
-            for (size_t y = 0; y < full.size() - part_y_size; ++y) {
+                part_y_size = part.size(),
+                x_count = full.front().size() - part_x_size,
+                y_count = full.size() - part_y_size;
+        for (size_t x = 0; x < x_count; ++x) {
+            for (size_t y = 0; y < y_count; ++y) {
                 fragments.push(Rect(x, y, x + part_x_size - 1, y + part_y_size - 1));
             }
         }
@@ -185,7 +166,7 @@ class Diff {
 public:
     Diff(const image full_param,
          const image part_param): full(full_param),
-                                  part(part_param) {}
+                                  part(part_param) {};
 
     static int32_t count(const pixel p1, const pixel p2) {
         return abs(p1.r - p2.r) +
@@ -194,16 +175,16 @@ public:
     }
 
     Closest count(const Rect &rect) {
-        Closest c = Closest(0, rect);
+        int64_t distance = 0;
         for (size_t x = 0; x < part.front().size(); ++x) {
             for (size_t y = 0; y < part.size(); ++y) {
-                c.setDistance(c.getDistance() + count(
-                        full[rect.getLeftY() + y][rect.getLeftX() + x],
-                        part[y][x]
-                ));
+                distance += count(
+                    full[rect.getLeftY() + y][rect.getLeftX() + x],
+                    part[y][x]
+                );
             }
         }
-        return c;
+        return {rect, distance};
     }
 
     Closest operator()(const Rect &rect) {
@@ -220,10 +201,12 @@ Closest find(const string partPath, const image full) {
     function_node<Rect, Closest> to_diff(g, unlimited, Diff(full, part));
     buffer_node<Closest> buffered2(g);
 
-    Closest optimal = Closest((int64_t)numeric_limits<int64_t>::max());
+    int64_t optimal_distance = numeric_limits<int64_t>::max();
+    Rect optimal_rect;
     function_node<Closest> to_find(g, 1, [&](Closest c) {
-        if (c.getDistance() < optimal.getDistance()) {
-            optimal = c;
+        if (c.second < optimal_distance) {
+            optimal_rect = c.first;
+            optimal_distance = c.second;
         }
     });
 
@@ -234,13 +217,13 @@ Closest find(const string partPath, const image full) {
 
     g.wait_for_all();
 
-    return optimal;
+    return {optimal_rect, optimal_distance};
 }
 
 int main() {
     image full = imread("../data/image.dat");
-    Rect::save(full, find("../data/hat.dat", full).getRect(), "../data/hat_beraliv.dat");
-    Rect::save(full, find("../data/chicken.dat", full).getRect(), "../data/chicken_beraliv.dat");
-    Rect::save(full, find("../data/cheer.dat", full).getRect(), "../data/cheer_beraliv.dat");
+    Rect::save(full, find("../data/hat.dat", full).first, "../data/hat_beraliv.dat");
+    Rect::save(full, find("../data/chicken.dat", full).first, "../data/chicken_beraliv.dat");
+    Rect::save(full, find("../data/cheer.dat", full).first, "../data/cheer_beraliv.dat");
     return 0;
 }
