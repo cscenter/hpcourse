@@ -1,90 +1,143 @@
 #include <pthread.h>  
 #include <iostream>
+#include <unistd.h>
 
-struct Data
-{
-    bool end;      // True if comsumer ends updating.
-    bool updated;  // True if data updated by comsumer.
-    int value;
-
-    pthread_mutex_t mutex; 
-};
-
+int data = 0;
 bool consumer_started = false;
-Data data_{false, false, 0};
+bool producer_ended = false;
+bool data_updated = false;
+
+// `fast mutex`. Will it be in a deadlock??
+pthread_mutex_t cs_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_cs_mutex = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_intr_mutex = PTHREAD_COND_INITIALIZER;
+
+pthread_cond_t upd_required_mtx = PTHREAD_COND_INITIALIZER;
+
+pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t end_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 void* producer_routine(void* arg) 
 {
-    // Wait for consumer to start
-    while (!consumer_started) 
-    {}
+    // std::cout << "P: Wait for consumer...\n";
+    pthread_mutex_lock(&cs_mutex);
+    while (!consumer_started)
+    {
+        pthread_cond_wait(&cond_cs_mutex, &cs_mutex);
+    }
+    pthread_mutex_unlock(&cs_mutex);
+    // std::cout << "P: Consumer started.\n";   
+
+    // Process value
     int value = 0;
     while (std::cin >> value)
     {
-        while (data_.updated) {}
-    
-        pthread_mutex_lock(&data_.mutex);
-        data_.value = value;
-        data_.updated = true;
-        pthread_mutex_unlock(&data_.mutex);
+        pthread_mutex_lock(&data_mutex);
+        while (data_updated) // if data yet updated we wait for consumer requires update.
+            pthread_cond_wait(&upd_required_mtx, &data_mutex);
+
+        // Now data is not updated
+        // Update it
+        data = value;
+        data_updated = true;
+        pthread_mutex_unlock(&data_mutex);
     }
-    while (data_.updated) {}
-    data_.end = true;
-    // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
+   
+    pthread_mutex_lock(&data_mutex);
+        while (data_updated) // if data yet updated we wait for consumer requires update.
+            pthread_cond_wait(&upd_required_mtx, &data_mutex);
+
+        producer_ended = true;
+        data = 0;
+        
+        data_updated = true;
+
+    pthread_mutex_unlock(&data_mutex);
+
+    return 0;
 }
 
 
 void* consumer_routine(void* arg) 
 {    
-    // notify about start
+    pthread_mutex_lock(&cs_mutex);
+    //sleep(2); // Wait 2 second;
     consumer_started = true;
+    //sleep(2); // Wait another 2 seconds;
+    pthread_cond_signal(&cond_cs_mutex);
+    pthread_cond_signal(&cond_intr_mutex);
+    //std::cout << "C: I am started.\n";
+    pthread_mutex_unlock(&cs_mutex);
+    
     // allocate value for result
     int sum = 0;
-    
+    //return reinterpret_cast<void*>(sum);
     // for every update issued by producer, read the value and add to sum
-
-    while (true)
-    {
-
-        if (data_.end) 
-        
+    bool ended = false;
+    while (!ended)
+    { 
+        pthread_mutex_lock(&data_mutex);
+        if (data_updated)
         {
-            return reinterpret_cast<void *>(sum);
-        }
-        if (data_.updated)
-        {
-            pthread_mutex_lock(&data_.mutex);
-            sum += data_.value;
-            data_.updated = false;
-            pthread_mutex_unlock(&data_.mutex); 
-        }
-    }
+            sum += data;
+            data = 0;
+            data_updated = false;
+           
+            ended = producer_ended;
+            if (!ended)
+                pthread_cond_signal(&upd_required_mtx);
+        } 
+        pthread_mutex_unlock(&data_mutex);
+    }    
+    return reinterpret_cast<void*>(sum);
 
 // return pointer to result
 }
 
+bool check_ended()
+{
+    bool result = false;
+    pthread_mutex_lock(&end_mutex);
+    result = producer_ended;
+    pthread_mutex_unlock(&end_mutex);
+    return result;
+}
+
 void* consumer_interruptor_routine(void* arg) 
 {
-    // wait for consumer to start
-    while (!consumer_started) {}
-
+    // std::cout << "I: Wait for consumer...\n";
+    pthread_mutex_lock(&cs_mutex);
+    while (!consumer_started)
+    {
+        pthread_cond_wait(&cond_intr_mutex, &cs_mutex);
+    }
+    pthread_mutex_unlock(&cs_mutex);
+    // std::cout << "I: Consumer started.\n";
+    
     // interrupt consumer while producer is running
     pthread_t* consumer_pthread = static_cast<pthread_t *>(arg);    
-
-    while (!data_.end)
+   
+    while (true)
     {
-
-        // No one thread can update updated-flag while during this action
-        // because interruptror tries to cancel consumer when data_.updated == false;
-        pthread_mutex_lock(&data_.mutex);
-
-        if(!data_.updated)
-        {
-            pthread_cancel(*consumer_pthread);
-        }
+        bool ended = false;
+        pthread_mutex_lock(&end_mutex);
+        if (data_updated && producer_ended)
+            ended = true;
         
-        pthread_mutex_unlock(&data_.mutex);
+        if (!ended)
+            pthread_cancel(*consumer_pthread);
+        pthread_mutex_unlock(&end_mutex);
+
+
+        if (ended) break;
+
     }
+ 
+    //while (!producer_ended)
+    //    pthread_cancel(*consumer_pthread);
+
+    return 0;
 }
 
 int run_threads() 
