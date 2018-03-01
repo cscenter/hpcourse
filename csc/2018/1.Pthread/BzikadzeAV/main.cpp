@@ -187,7 +187,6 @@ namespace details {
 void Thread_communicator::wait_for_consumer() { 
     pthread_mutex_lock(&_consumer_wait_mutex);
     while(!_consumer_start) pthread_cond_wait(&_consumer_wait_cond, &_consumer_wait_mutex);
-    pthread_cond_broadcast(&_consumer_wait_cond);
     pthread_mutex_unlock(&_consumer_wait_mutex);
 }
 
