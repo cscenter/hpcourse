@@ -22,11 +22,11 @@ using namespace std;
 /*
  * 
  */
-volatile int shared_var=0;
-volatile bool owner=false; 
+int shared_var=0;
+bool owner=false; 
 // owner =0 - shared_var должен обрабатывать producer
 // owner =1 - shared_var должен обрабатывать consumer
-volatile bool exit_state=false;
+ bool exit_state=false;
 pthread_mutex_t mutex1= PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex2= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond1=PTHREAD_COND_INITIALIZER;
@@ -34,7 +34,7 @@ pthread_cond_t cond2=PTHREAD_COND_INITIALIZER;
 
 void* producer_routine(void* arg){
     //получение данных, символ конца потока - ctrl+d
-    std::vector<int> data(std::istream_iterator<int>(std::cin),std::istream_iterator<int>());
+    std::vector<int> data{std::istream_iterator<int>{std::cin},std::istream_iterator<int>{}};
     for(int i=0;i<data.size();++i){
         //работа с данными
         pthread_mutex_lock(&mutex1);
