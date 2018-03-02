@@ -13,10 +13,17 @@ pthread_cond_t cond_cs_mutex = PTHREAD_COND_INITIALIZER;
 pthread_cond_t cond_intr_mutex = PTHREAD_COND_INITIALIZER;
 
 pthread_cond_t upd_required_mtx = PTHREAD_COND_INITIALIZER;
-
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t end_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+void lock_data()
+{
+    pthread_mutex_lock(&data_mutex);
+}
+
+void unlock_data()
+{
+    pthread_mutex_unlock(&data_mutex);
+}
 
 void* producer_routine(void* arg) 
 {
@@ -33,28 +40,21 @@ void* producer_routine(void* arg)
     int value = 0;
     while (std::cin >> value)
     {
-        pthread_mutex_lock(&data_mutex);
+        lock_data();
         while (data_updated) // if data yet updated we wait for consumer requires update.
             pthread_cond_wait(&upd_required_mtx, &data_mutex);
-
-        // Now data is not updated
-        // Update it
         data = value;
         data_updated = true;
-        pthread_mutex_unlock(&data_mutex);
+        unlock_data();
     }
    
-    pthread_mutex_lock(&data_mutex);
-        while (data_updated) // if data yet updated we wait for consumer requires update.
-            pthread_cond_wait(&upd_required_mtx, &data_mutex);
-
-        producer_ended = true;
-        data = 0;
-        
-        data_updated = true;
-
-    pthread_mutex_unlock(&data_mutex);
-
+    lock_data();
+    while (data_updated) // if data yet updated we wait for consumer requires update.
+        pthread_cond_wait(&upd_required_mtx, &data_mutex);
+    producer_ended = true;
+    data = 0;
+    data_updated = true;
+    unlock_data();
     return 0;
 }
 
@@ -77,35 +77,26 @@ void* consumer_routine(void* arg)
     bool ended = false;
     while (!ended)
     { 
-        pthread_mutex_lock(&data_mutex);
+        lock_data();
         if (data_updated)
         {
             sum += data;
             data = 0;
-            data_updated = false;
-           
+            data_updated = false;       
             ended = producer_ended;
-            if (!ended)
-                pthread_cond_signal(&upd_required_mtx);
+            pthread_cond_signal(&upd_required_mtx);
         } 
-        pthread_mutex_unlock(&data_mutex);
+        unlock_data();
     }    
     return reinterpret_cast<void*>(sum);
 
 // return pointer to result
 }
 
-bool check_ended()
-{
-    bool result = false;
-    pthread_mutex_lock(&end_mutex);
-    result = producer_ended;
-    pthread_mutex_unlock(&end_mutex);
-    return result;
-}
 
 void* consumer_interruptor_routine(void* arg) 
 {
+    //return 0;
     // std::cout << "I: Wait for consumer...\n";
     pthread_mutex_lock(&cs_mutex);
     while (!consumer_started)
@@ -121,17 +112,13 @@ void* consumer_interruptor_routine(void* arg)
     while (true)
     {
         bool ended = false;
-        pthread_mutex_lock(&end_mutex);
-        if (data_updated && producer_ended)
+        lock_data();
+        if (producer_ended)
             ended = true;
-        
         if (!ended)
             pthread_cancel(*consumer_pthread);
-        pthread_mutex_unlock(&end_mutex);
-
-
+        unlock_data();
         if (ended) break;
-
     }
  
     //while (!producer_ended)
