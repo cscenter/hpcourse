@@ -1,35 +1,79 @@
 #include <pthread.h>  
 #include <iostream>
 #include <vector>
+#include <functional>
 
 using namespace std;
 
-int new_data;
-bool is_data_updated = false;
-pthread_mutex_t data_mutex_send = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  data_cond_send  = PTHREAD_COND_INITIALIZER;
+template <class T>
+class Holder {
+    T data;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+public:
+    Holder(T data){
+        pthread_mutex_init(&mutex, nullptr);
+        pthread_cond_init(&cond, nullptr);
+        this->set(data);
+    }
 
-pthread_mutex_t data_mutex_get = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  data_cond_get  = PTHREAD_COND_INITIALIZER;
+    T get(){
+        pthread_mutex_lock(&mutex);
+        T data = this->data;
+        pthread_mutex_unlock(&mutex);
+        return data;
+    }
 
-bool is_consumer_started = false;
-pthread_mutex_t consumer_started_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  consumer_started_cond  = PTHREAD_COND_INITIALIZER;
+    void set(T data){
+        pthread_mutex_lock(&mutex);
+        this->data = data;
+        pthread_cond_broadcast(&cond);
+        pthread_mutex_unlock(&mutex);
+    }
 
-bool is_producer_finished = false;
-pthread_mutex_t producer_finished_mutex = PTHREAD_MUTEX_INITIALIZER;
+    void wait(function<bool(T)> predicate){
+        pthread_mutex_lock(&mutex);
+        while(!predicate(this->data)){
+            pthread_cond_wait(&cond, &mutex);
+        }
+        pthread_mutex_unlock(&mutex);
+    }
+
+    ~Holder(){
+        pthread_mutex_destroy(&mutex);
+        pthread_cond_destroy(&cond);
+    }
+
+
+};
+
+struct Data {
+    int data;
+    bool is_updated;
+
+    Data(){
+        this->data = 0;
+        this->is_updated = false;
+    }
+
+    Data(int data, bool is_updated){
+        this->data = data;
+        this->is_updated = is_updated;
+    }
+};
+
+Holder<Data> new_data = Holder<Data>(Data());
+
+Holder<bool> is_data_recieved = Holder<bool>(false);
+
+Holder<bool> is_consumer_started = Holder<bool>(false);
+
+Holder<bool> is_producer_finished = Holder<bool>(false);
 
 void* producer_routine(void* arg) {
     // Wait for consumer to start
-    /*
-    pthread_mutex_lock(&consumer_started_mutex);
 
-    while(!is_consumer_started){
-        pthread_cond_wait(&consumer_started_cond, &consumer_started_mutex);
-    }
-
-    pthread_mutex_unlock(&consumer_started_mutex);
-    */
+    is_consumer_started.wait([](bool started) { return started; });
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
     vector<int> data;
@@ -41,37 +85,15 @@ void* producer_routine(void* arg) {
     }
 
     for(int i = 0; i < data.size(); i++){
-        pthread_mutex_lock(&data_mutex_send);
-
-        new_data = data[i];
-
-            /*
-        int incoming_data;
-
-        if(!(cin >> incoming_data)){
-            is_producer_finished = true;
-            new_data = 0;
-        } else {
-            new_data = incoming_data;
-        }
-        */
-
-        if(i == data.size() - 1){
-            pthread_mutex_lock(&producer_finished_mutex);
-            is_producer_finished = true;
-            pthread_mutex_unlock(&producer_finished_mutex);
-        }
-
-        is_data_updated = true;
-
-        pthread_cond_signal(&data_cond_send);
-        pthread_mutex_unlock(&data_mutex_send);
         
-        pthread_mutex_lock(&data_mutex_get);
-        while(is_data_updated){
-            pthread_cond_wait(&data_cond_get, &data_mutex_get);
+        if(i == data.size() - 1){
+            is_producer_finished.set(true);
         }
-        pthread_mutex_unlock(&data_mutex_get);
+
+        is_data_recieved.set(false);
+        new_data.set(Data(data[i], true));
+
+        is_data_recieved.wait([] (bool received) { return received; });
 
     }
 }
@@ -84,33 +106,21 @@ void* consumer_routine(void* arg) {
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, 0);
 
-    pthread_mutex_lock(&consumer_started_mutex);
-    is_consumer_started = true;
-    pthread_cond_broadcast(&consumer_started_cond);
-    pthread_mutex_unlock(&consumer_started_mutex);
+    is_consumer_started.set(true);
 
     int sum = 0;
     int exit = false;
 
     while(!exit){
-        pthread_mutex_lock(&data_mutex_send);
+        new_data.wait([] (Data data) { return data.is_updated; });
 
-        while(!is_data_updated){
-            pthread_cond_wait(&data_cond_send, &data_mutex_send);
-        }
+        sum += new_data.get().data;
 
-        sum += new_data;
+        exit = is_producer_finished.get();
 
-        pthread_mutex_lock(&producer_finished_mutex);
-        exit = is_producer_finished;
-        pthread_mutex_unlock(&producer_finished_mutex);
+        new_data.set(Data(0, false));
+        is_data_recieved.set(true);
 
-        pthread_mutex_unlock(&data_mutex_send);
-
-        pthread_mutex_lock(&data_mutex_get);
-        is_data_updated = false;
-        pthread_cond_signal(&data_cond_get);
-        pthread_mutex_unlock(&data_mutex_get);
     }
 
     return new int(sum);
@@ -118,13 +128,7 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
     // wait for consumer to start
-    pthread_mutex_lock(&consumer_started_mutex);
-
-    while(!is_consumer_started){
-        pthread_cond_wait(&consumer_started_cond, &consumer_started_mutex);
-    }
-
-    pthread_mutex_unlock(&consumer_started_mutex);
+    is_consumer_started.wait([](bool started) { return started; });
 
     // interrupt consumer while producer is running
     pthread_t* consumer = (pthread_t *)arg;
@@ -134,9 +138,7 @@ void* consumer_interruptor_routine(void* arg) {
     while(!exit){
         pthread_cancel(*consumer);
 
-        pthread_mutex_lock(&producer_finished_mutex);
-        exit = is_producer_finished;
-        pthread_mutex_unlock(&producer_finished_mutex);
+        exit = is_producer_finished.get();
     }
 }
 
@@ -157,14 +159,6 @@ int run_threads() {
     pthread_join(consumer, (void **)&sum);
     pthread_join(interruptor, nullptr);
     pthread_join(producer, nullptr);
-
-    pthread_mutex_destroy(&data_mutex_send);
-    pthread_mutex_destroy(&data_mutex_get);
-    pthread_mutex_destroy(&consumer_started_mutex);
-
-    pthread_cond_destroy(&data_cond_send);
-    pthread_cond_destroy(&data_cond_get);
-    pthread_cond_destroy(&consumer_started_cond);
 
     return *sum;
 }
