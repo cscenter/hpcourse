@@ -50,15 +50,24 @@ public:
 struct Data {
     int data;
     bool is_updated;
+    bool time_to_finish;
 
     Data(){
         this->data = 0;
         this->is_updated = false;
+        this->time_to_finish = false;
     }
 
     Data(int data, bool is_updated){
         this->data = data;
         this->is_updated = is_updated;
+        this->time_to_finish = false;
+    }
+
+    Data(int data, bool is_updated, bool time_to_finish){
+        this->data = data;
+        this->is_updated = is_updated;
+        this->time_to_finish = time_to_finish;
     }
 };
 
@@ -75,26 +84,25 @@ void* producer_routine(void* arg) {
 
     is_consumer_started.wait([](bool started) { return started; });
 
-    // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
-    vector<int> data;
-    
+    bool exit = false;
     int v;
+    int i = 0;
 
-    while(cin >> v){
-        data.push_back(v);
-    }
+    while(!exit){
+        is_data_recieved.set(false);
+        i++;
 
-    for(int i = 0; i < data.size(); i++){
-        
-        if(i == data.size() - 1){
+        if(!(cin >> v)){
+            exit = true;
             is_producer_finished.set(true);
+
+            // Time to finish consumer
+            new_data.set(Data(0, true, true));
+        } else {
+            new_data.set(Data(v, true));
         }
 
-        is_data_recieved.set(false);
-        new_data.set(Data(data[i], true));
-
         is_data_recieved.wait([] (bool received) { return received; });
-
     }
 }
 
@@ -114,9 +122,13 @@ void* consumer_routine(void* arg) {
     while(!exit){
         new_data.wait([] (Data data) { return data.is_updated; });
 
-        sum += new_data.get().data;
+        Data data = new_data.get();
 
-        exit = is_producer_finished.get();
+        if(data.time_to_finish){
+            exit = is_producer_finished.get();
+        } else {
+            sum += new_data.get().data;
+        }
 
         new_data.set(Data(0, false));
         is_data_recieved.set(true);
