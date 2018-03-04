@@ -72,11 +72,8 @@ struct Data {
 };
 
 Holder<Data> new_data = Holder<Data>(Data());
-
 Holder<bool> is_data_recieved = Holder<bool>(false);
-
 Holder<bool> is_consumer_started = Holder<bool>(false);
-
 Holder<bool> is_producer_finished = Holder<bool>(false);
 
 void* producer_routine(void* arg) {
@@ -86,11 +83,9 @@ void* producer_routine(void* arg) {
 
     bool exit = false;
     int v;
-    int i = 0;
 
     while(!exit){
         is_data_recieved.set(false);
-        i++;
 
         if(!(cin >> v)){
             exit = true;
