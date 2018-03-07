@@ -71,7 +71,7 @@ void* consumer_routine(void* arg)
     pthread_mutex_unlock(&cs_mutex);
     
     // allocate value for result
-    int sum = 0;
+    int* sum = new int(0);
     //return reinterpret_cast<void*>(sum);
     // for every update issued by producer, read the value and add to sum
     bool ended = false;
@@ -80,7 +80,7 @@ void* consumer_routine(void* arg)
         lock_data();
         if (data_updated)
         {
-            sum += data;
+            *sum += data;
             data = 0;
             data_updated = false;       
             ended = producer_ended;
@@ -88,7 +88,7 @@ void* consumer_routine(void* arg)
         } 
         unlock_data();
     }    
-    return reinterpret_cast<void*>(sum);
+    return static_cast<void*>(sum);
 
 // return pointer to result
 }
@@ -138,11 +138,18 @@ int run_threads()
     pthread_t interruptor_thread;
     pthread_create(&interruptor_thread, NULL, consumer_interruptor_routine, &consumer_thread);
     
-    int sum = 0;  
+    int* p_sum = nullptr;  
 
     pthread_join(producer_thread, NULL);
     pthread_join(interruptor_thread, NULL);
-    pthread_join(consumer_thread, (void **)(&sum));
+    pthread_join(consumer_thread, reinterpret_cast<void **>(&p_sum));
+    
+    int sum = 0;
+    if (p_sum) 
+    {
+        sum = *p_sum;
+        delete p_sum;
+    } 
     return sum;
 }
 
