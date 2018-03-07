@@ -98,7 +98,7 @@ void *consumer_interruptor_routine(void *arg){
 
 int run_threads(){
 
-    void *result = 0;
+    int *result = 0;
 
     pthread_barrier_init(&barrier, NULL, 3);
     pthread_mutex_init(&mutex, NULL);
@@ -112,7 +112,7 @@ int run_threads(){
     pthread_create(&interruptor, NULL, consumer_interruptor_routine, (void *)consumer);
 
     pthread_join(producer, NULL);
-    pthread_join(consumer, &result);
+    pthread_join(consumer, (void **)&result);
     pthread_join(interruptor, NULL);
 
     pthread_mutex_destroy(&mutex);
@@ -120,8 +120,8 @@ int run_threads(){
     pthread_cond_destroy(&produce);
     pthread_cond_destroy(&consume);
 
-    int ans = *(int *)result;
-    free(result);
+    int ans = *result;
+    delete result;
 
     return ans;
 }
