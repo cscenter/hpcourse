@@ -56,13 +56,10 @@ pthread_t consumer_interruptor_routine_t;
 void *producer_routine(void *arg) {
     wait_consumer();
 
-    int data_size = 0;
-    std::cin >> data_size;
-    for (int i = 0; i < data_size; i++) {
+    while(std::cin >> data) {
         //send data
         pthread_mutex_lock(&producer_to_consumer_mutex);
 
-        std::cin >> data;
         got_data = true;
 
         pthread_cond_signal(&producer_to_consumer_cond);
