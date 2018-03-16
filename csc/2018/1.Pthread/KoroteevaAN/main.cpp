@@ -13,7 +13,7 @@ pthread_cond_t cond_wait_consumer_start;
 pthread_cond_t cond_can_consume;
 pthread_cond_t cond_can_produce;
 
-bool consumer_starded = false;
+bool consumer_started = false;
 bool work_done = false;
 
 int data = 0;
@@ -21,19 +21,16 @@ bool is_data_updated = false;
 
 void wait_for_consumer_to_start() {
     pthread_mutex_lock(&mutex);
-    if (!consumer_starded) pthread_cond_wait(&cond_wait_consumer_start, &mutex);
+    while (!consumer_started) pthread_cond_wait(&cond_wait_consumer_start, &mutex);
     pthread_mutex_unlock(&mutex);
 }
 
 bool is_work_done() {
+    bool local_work_done;
     pthread_mutex_lock(&work_done_mutex);
-    if (work_done) {
-        pthread_mutex_unlock(&work_done_mutex);
-        return true;
-    }
+    local_work_done = work_done;
     pthread_mutex_unlock(&work_done_mutex);
-    return false;
-
+    return local_work_done;
 }
 
 void* producer_routine(void* arg) {
@@ -41,16 +38,14 @@ void* producer_routine(void* arg) {
     std::cout << "producer started" << std::endl;
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
-    std::cout << "please enter number of numbers to be proceed" << std::endl;
     int num;
     std::cin >> num;
-    std::cout << "please enter " << num << " numbers" << std::endl;
 
     for (int i = 0; i < num; i++) {
         int new_data;
         std::cin >> new_data;
         pthread_mutex_lock(&mutex);
-        if (is_data_updated) pthread_cond_wait(&cond_can_produce, &mutex);
+        while (is_data_updated) pthread_cond_wait(&cond_can_produce, &mutex);
         data = new_data;
         is_data_updated = true;
         std::cout << "Produced data: " << data << std::endl;
@@ -71,7 +66,7 @@ void* consumer_routine(void* arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, nullptr);
     std::cout << "consumer started" << std::endl;
     pthread_mutex_lock(&mutex);
-    consumer_starded = true;
+    consumer_started = true;
     pthread_cond_broadcast(&cond_wait_consumer_start);
     pthread_mutex_unlock(&mutex);
 
@@ -79,10 +74,10 @@ void* consumer_routine(void* arg) {
     auto * result_sum = new int(0);
 
     // for every update issued by producer, read the value and add to sum
+    pthread_mutex_lock(&mutex);
     while(!is_work_done()) {
-        pthread_mutex_lock(&mutex);
 
-        if (!is_data_updated) pthread_cond_wait(&cond_can_consume, &mutex);
+        while (!is_data_updated) pthread_cond_wait(&cond_can_consume, &mutex);
 
         if (is_data_updated) {
             is_data_updated = false;
@@ -90,8 +85,8 @@ void* consumer_routine(void* arg) {
             std::cout << "Consumed data: " << data << std::endl;
             pthread_cond_signal(&cond_can_produce);
         }
-        pthread_mutex_unlock(&mutex);
     }
+    pthread_mutex_unlock(&mutex);
 
     // return pointer to result
     pthread_exit(result_sum);
