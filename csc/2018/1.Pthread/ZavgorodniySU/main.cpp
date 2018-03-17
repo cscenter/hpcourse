@@ -99,7 +99,7 @@ private:
 
 struct RoutineParams {
     StateController *state_controller;
-    volatile long *data;
+    long *data;
 };
 
 struct InterceptorParams {
@@ -109,41 +109,42 @@ struct InterceptorParams {
 
 void *producer_routine(void *arg) {
     RoutineParams *params = (RoutineParams *) arg;
+    StateController *controller = params->state_controller;
 
-    params->state_controller->wait_consumer_start();
+    controller->wait_consumer_start();
 
     long n;
     while (std::cin >> n) {
-        params->state_controller->lock_state(PRODUCING);
+        controller->lock_state(PRODUCING);
             *(params->data) = n;
-            params->state_controller->notify_consumer();
-        params->state_controller->unlock_state();
+            controller->notify_consumer();
+        controller->unlock_state();
     }
 
-    params->state_controller->lock_state(PRODUCING);  // Guard for last value
-        params->state_controller->notify_stop();
-    params->state_controller->unlock_state();
+    controller->lock_state(PRODUCING);  // Guard for last value
+        controller->notify_stop();
+    controller->unlock_state();
     pthread_exit(EXIT_SUCCESS);
 }
 
 void *consumer_routine(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     RoutineParams *params = (RoutineParams *) arg;
+    StateController *controller = params->state_controller;
     long *sum = new long();
 
-    params->state_controller->notify_producer();
+    controller->notify_producer();
 
     while (true) {
-        params->state_controller->lock_state(CONSUMING);
-            if (params->state_controller->is_end_of_input()) {
-                pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        controller->lock_state(CONSUMING);
+            if (controller->is_end_of_input()) {
                 // return result
                 pthread_exit((void *) sum);
             } else {
                 *sum += *(params->data);
-                params->state_controller->notify_producer();
+                controller->notify_producer();
             }
-        params->state_controller->unlock_state();
+        controller->unlock_state();
     }
 }
 
@@ -161,7 +162,7 @@ void *consumer_interruptor_routine(void *arg) {
 
 long run_threads() {
     StateController *ctrl = new StateController();
-    volatile long *data = new long(0);
+    long *data = new long(0);
     struct RoutineParams routine_params = {ctrl, data};
 
     pthread_t producer, consumer, interruptor;
