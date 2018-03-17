@@ -62,7 +62,7 @@ void *producer_routine(void *arg)
 	pthread_cond_signal(&producer_recieved);
 	pthread_mutex_unlock(&data_mutex);
 
-	return;
+	return (void* )NULL;
 }
 
 void *consumer_routine(void *arg) 
@@ -133,7 +133,7 @@ void *interruptor_routine(void *arg) {
 		pthread_mutex_unlock(&data_mutex);
 	}
 
-	return;
+	return (void* )NULL;
 }
 
 int run_threads() 
