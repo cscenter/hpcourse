@@ -16,8 +16,8 @@ void* producer_routine(void* args) {
     while(std::cin >> tmp) {
        arr.push_back(tmp);
     }
+    pthread_mutex_lock(&mutex);
     for (int i = 0; i < arr.size(); i++) {
-		pthread_mutex_lock(&mutex);
 		while (unread_element) {
 			pthread_cond_wait(&condition, &mutex);
 		}
@@ -25,8 +25,8 @@ void* producer_routine(void* args) {
 		unread_element = true;
 		last_element = arr.size() == i + 1;
 		pthread_cond_signal(&condition);
-		pthread_mutex_unlock(&mutex);
 	}
+    pthread_mutex_unlock(&mutex);
     pthread_exit(NULL);
 }
 
@@ -41,8 +41,8 @@ void* consumer_routine(void* args) {
 	int* result = new int(0);
 	
 	bool last = false;
+    pthread_mutex_lock(&mutex);
 	while (!last) {
-		pthread_mutex_lock(&mutex);
 		while (!unread_element) {
 				pthread_cond_wait(&condition, &mutex);
 		}
@@ -50,9 +50,9 @@ void* consumer_routine(void* args) {
 		last = last_element;
 		unread_element = false;
 		pthread_cond_signal(&condition);
-		pthread_mutex_unlock(&mutex);
 		*result += current;
 	}
+    pthread_mutex_unlock(&mutex);
 	pthread_exit(result);
 }
 
