@@ -5,27 +5,28 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <iterator>
 
-pthread_cond_t data_cond;
-pthread_mutex_t data_mutex;
+pthread_cond_t data_cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t consumer_mutex = PTHREAD_MUTEX_INITIALIZER;
 int data;
 bool end = false;
 bool change = false;
 
 void* producer_routine(void* arg) {
     std::vector<int>*v = static_cast<std::vector<int>*>(arg);
-    for (auto const& number: *v)
-    {
-      pthread_mutex_lock(&data_mutex);
+    pthread_mutex_lock(&data_mutex);
+    for (auto const& number: *v){
       data = number;
       change = true;
       pthread_cond_signal(&data_cond);
-      pthread_cond_wait(&data_cond, &data_mutex);
-      pthread_mutex_unlock(&data_mutex);
+      while(change){
+        pthread_cond_wait(&data_cond, &data_mutex);
+      }
     }
-
-    pthread_mutex_lock(&data_mutex);
     end = true;
+    change = true;
     pthread_cond_signal(&data_cond);
     pthread_mutex_unlock(&data_mutex);
 }
@@ -33,38 +34,35 @@ void* producer_routine(void* arg) {
 void* consumer_routine(void* arg) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   int& sum = *(int*) arg;
+  pthread_mutex_lock(&data_mutex);
   while(!end){
-      pthread_mutex_lock(&data_mutex);
-      if (!change){
-          pthread_cond_wait(&data_cond, &data_mutex);
-      }
-      if (!end){
-          change = false;
-          sum += data;
-      }
-      pthread_cond_signal(&data_cond);
-      pthread_mutex_unlock(&data_mutex);
+    while (!change){
+        pthread_cond_wait(&data_cond, &data_mutex);
     }
+    if (!end){
+        change = false;
+        sum += data;
+    }
+    pthread_cond_signal(&data_cond);
+  }
+  pthread_mutex_unlock(&data_mutex);
 }
 
 void* consumer_interruptor_routine(void* arg) {
     pthread_t consumer = *(pthread_t*) arg;
+    pthread_mutex_lock(&consumer_mutex);
     while(!end){
       pthread_cancel(consumer);
     }
+    pthread_mutex_unlock(&consumer_mutex);
 }
 
 std::vector<int> read_vector(){
-  std::ifstream in_file("in.txt");
     std::string line;
-    std::getline(in_file, line);
-    std::stringstream iss(line);
-    int number;
-    std::vector<int> v;
-    while(iss >> number){
-      v.push_back(number);
-    }
-    return v;
+    std::getline(std::cin, line);
+    std::istringstream iss(line);
+    std::vector<int> vars{std::istream_iterator<int>(iss), std::istream_iterator<int>()};
+    return vars;
 }
 
 int run_threads() {
@@ -77,6 +75,8 @@ int run_threads() {
     pthread_create(&producer, NULL, producer_routine, &v);
     pthread_create(&interruptor, NULL, consumer_interruptor_routine, &consumer);
     pthread_join(consumer, NULL);
+    pthread_join(producer, NULL);
+    pthread_join(interruptor, NULL);
     return sum;
 }
 
