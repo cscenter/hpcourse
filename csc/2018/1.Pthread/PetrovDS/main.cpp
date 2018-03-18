@@ -133,10 +133,7 @@ void* consumer_routine(void* arg) {
 }
 
 void* interruptor_routine(void* arg) {
-    cout << "wait...T\n";
     wait_for_consumer_state();
-
-    cout << "interruptor_routine START\n";
 
     while (true) {
         pthread_cancel(*((pthread_t*) arg));
