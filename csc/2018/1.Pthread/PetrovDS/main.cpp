@@ -126,9 +126,6 @@ void* consumer_routine(void* arg) {
         pthread_mutex_unlock(&mut);
 
         notify_consumer();
-
-        // debug:
-        cout << "Hello from consumer\n" << "sum = " << *sum << '\n';
     }
 
     notify_consumer_state();
