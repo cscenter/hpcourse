@@ -72,7 +72,7 @@ void *consumer_routine(void* args) {
         // if all_is_done we should exit
         if (all_is_done) {
             pthread_mutex_unlock(&mutex);
-            pthread_exit((void *) sum);
+            pthread_exit(NULL);
         }
         
         *sum += data;
