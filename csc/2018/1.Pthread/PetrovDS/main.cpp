@@ -1,15 +1,5 @@
 #include <iostream>
-#include <algorithm>
-#include <cstdio>
-#include <map>
-#include <string>
-#include <utility>
-#include <vector>
 #include <queue>
-#include <stack>
-#include <cassert>
-#include <set>
-
 #include <pthread.h>
 #include <unistd.h>
 
