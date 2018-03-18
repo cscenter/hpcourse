@@ -24,6 +24,16 @@ void init_pc_buffer(pc_buffer *buffer_p) {
     pthread_cond_init(buffer_p->notEmpty, NULL);
 }
 
+pthread_mutex_t finished_mutex;
+int finished;
+
+void set_finished(int value) {
+    pthread_mutex_lock(&finished_mutex);
+    finished = value;
+    pthread_mutex_unlock(&finished_mutex);
+}
+
+
 void write_to_buffer(pc_buffer *buffer_p, int value) {
     pthread_mutex_lock(&(buffer_p->mutex));
 
@@ -76,6 +86,8 @@ void* producer(void *ptr) {
     return 0;
 }
 
+
+
 void* consumer(void *ptr) {
      char *message;
      message = (char *) ptr;
@@ -91,6 +103,8 @@ void* consumer(void *ptr) {
      int *res = new int[1];
      res[0] = sum; 
 
+     set_finished(1);
+
      pthread_exit(res); 
 }
 
@@ -103,7 +117,12 @@ void* interruptor(void *ptr) {
         if (cnt++ % 1000 == 0) {
             pthread_testcancel();
         }
-        pthread_cancel(*other_p);
+        pthread_mutex_lock(&finished_mutex);
+        if (!finished) {
+            pthread_cancel(*other_p);
+        }
+        pthread_mutex_unlock(&finished_mutex);
+
     }
     return 0;
 }
@@ -114,6 +133,8 @@ void run_threads() {
     int retcode;
 
     static pthread_t cons_thrd, prod_thrd, intr_thrd;
+
+    set_finished(0);
 
     retcode = pthread_create(&cons_thrd, NULL, consumer, NULL);
     if (retcode) {
