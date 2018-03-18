@@ -38,12 +38,9 @@ void* producer_routine(void* arg) {
     std::cout << "producer started" << std::endl;
 
     // Read data, loop through each value and update the value, notify consumer, wait for consumer to process
-    int num;
-    std::cin >> num;
+    int new_data;
 
-    for (int i = 0; i < num; i++) {
-        int new_data;
-        std::cin >> new_data;
+    while (std::cin >> new_data) {
         pthread_mutex_lock(&mutex);
         while (is_data_updated) pthread_cond_wait(&cond_can_produce, &mutex);
         data = new_data;
@@ -122,7 +119,7 @@ int run_threads() {
     pthread_join(consumer_interruptor, nullptr);
 
     int res = *heap_res;
-    delete(heap_res);
+    delete heap_res;
 
     // return sum of update values seen by consumer
     return res;
