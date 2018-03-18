@@ -20,6 +20,20 @@ pthread_mutex_t mut_producer_ready;
 pthread_cond_t cond_consumer;
 pthread_cond_t cond_producer;
 
+void notify_producer() {
+    pthread_mutex_lock(&mut_consumer_ready);
+    consumer_ready = true;
+    pthread_cond_broadcast(&cond_consumer);
+    pthread_mutex_unlock(&mut_consumer_ready);
+}
+
+void notify_consumer() {
+    pthread_mutex_lock(&mut_producer_ready);
+    producer_ready = true;
+    pthread_cond_broadcast(&cond_producer);
+    pthread_mutex_unlock(&mut_producer_ready);
+}
+
 void wait_for_producer() {
     pthread_mutex_lock(&mut_producer_ready);
     if (!producer_ready)
@@ -59,12 +73,7 @@ void* producer_routine(void* arg) {
 
         pthread_mutex_unlock(&mut);
 
-        // notify consumer:
-
-        pthread_mutex_lock(&mut_producer_ready);
-        producer_ready = true;
-        pthread_cond_broadcast(&cond_producer);
-        pthread_mutex_unlock(&mut_producer_ready);
+        notify_consumer();
     }
 
     wait_for_consumer();
@@ -72,11 +81,7 @@ void* producer_routine(void* arg) {
     mem->end_of_sequence = true;
     pthread_mutex_unlock(&mut);
 
-    // notify consumer:
-    pthread_mutex_lock(&mut_producer_ready);
-    producer_ready = true;
-    pthread_cond_broadcast(&cond_producer);
-    pthread_mutex_unlock(&mut_producer_ready);
+    notify_consumer();
 
     //
     pthread_exit(nullptr);
@@ -86,11 +91,7 @@ void* consumer_routine(void* arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, 0);
 
-    // notify producer:
-    pthread_mutex_lock(&mut_consumer_ready);
-    consumer_ready = true;
-    pthread_cond_broadcast(&cond_consumer);
-    pthread_mutex_unlock(&mut_consumer_ready);
+    notify_producer();
 
     shared_mem* mem = (shared_mem*) arg;
     int *sum = new int();
@@ -105,11 +106,7 @@ void* consumer_routine(void* arg) {
         *sum += mem->data;
         pthread_mutex_unlock(&mut);
 
-        // notify producer:
-        pthread_mutex_lock(&mut_consumer_ready);
-        consumer_ready = true;
-        pthread_cond_broadcast(&cond_consumer);
-        pthread_mutex_unlock(&mut_consumer_ready);
+        notify_producer();
 
         // debug:
         cout << "Hello from consumer\n" << "sum = " << *sum << '\n';
