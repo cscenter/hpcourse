@@ -71,15 +71,17 @@ void wait_for_consumer() {
 void* producer_routine(void* arg) {
     shared_mem* mem = (shared_mem*) arg;
 
-    int count, next;
-    cin >> count;
+    int next;
     queue<int> q_input;
 
-    for (int i = 0; i < count; ++i) {
+    while (true) {
         cin >> next;
+        if (!cin)
+            break;
         q_input.push(next);
     }
 
+    int count = q_input.size();
     for (int i = 0; i < count; ++i) {
         wait_for_consumer();
 
@@ -107,7 +109,6 @@ void* producer_routine(void* arg) {
 
 void* consumer_routine(void* arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, 0);
 
     notify_consumer();
     notify_consumer_state();
@@ -120,8 +121,10 @@ void* consumer_routine(void* arg) {
 
         // read data:
         pthread_mutex_lock(&mut);
-        if (mem->end_of_sequence)
+        if (mem->end_of_sequence) {
+            pthread_mutex_unlock(&mut);
             break;
+        }
         *sum += mem->data;
         pthread_mutex_unlock(&mut);
 
@@ -139,8 +142,10 @@ void* interruptor_routine(void* arg) {
         pthread_cancel(*((pthread_t*) arg));
 
         pthread_mutex_lock(&mut_consumer_state);
-        if (consumer_state)
+        if (consumer_state) {
+            pthread_mutex_unlock(&mut_consumer_state);
             break;
+        }
         pthread_mutex_unlock(&mut_consumer_state);
     }
 
@@ -154,6 +159,11 @@ int run_threads() {
     consumer_ready = false;
     producer_ready = false;
     consumer_state = false;
+
+    pthread_mutex_init(&mut, nullptr);
+    pthread_mutex_init(&mut_consumer_ready, nullptr);
+    pthread_mutex_init(&mut_producer_ready, nullptr);
+    pthread_mutex_init(&mut_consumer_state, nullptr);
 
     pthread_t thr_producer;
     if (0 != pthread_create(&thr_producer, nullptr, producer_routine, (void*)(&data)))
