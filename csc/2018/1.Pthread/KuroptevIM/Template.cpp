@@ -59,9 +59,9 @@ void *consumer_routine(void *arg)
     pthread_mutex_unlock(&mutex_start);
     
     int* sum = new int;
+    pthread_mutex_lock(&mutex_update);
     while (true)
     {
-        pthread_mutex_lock(&mutex_update);
         while (consumer_ready)
             pthread_cond_wait(&producer_worked, &mutex_update);
         if (producer_done)
@@ -72,8 +72,8 @@ void *consumer_routine(void *arg)
         *sum += value;
         consumer_ready = true;
         pthread_cond_signal(&consumer_worked);
-        pthread_mutex_unlock(&mutex_update);
     }
+    pthread_mutex_unlock(&mutex_update);
     return sum;
 }
 
