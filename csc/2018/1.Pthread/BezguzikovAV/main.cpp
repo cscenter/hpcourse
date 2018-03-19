@@ -8,7 +8,7 @@ pthread_t producer;
 pthread_t consumer;
 pthread_t interrupter;  
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t       mutex = PTHREAD_MUTEX_INITIALIZER;
 // notify that producer complete a part of work 
 pthread_cond_t producer_signal = PTHREAD_COND_INITIALIZER;
 // notify that consumer complete a processing a nunber 
@@ -26,8 +26,8 @@ void *producer_routine(void* args) {
     std::list<int>* elements = (std::list<int>*) args;
     std::list<int>::iterator it;
   
+    pthread_mutex_lock(&mutex);
     for (it = elements->begin(); it != elements->end(); ++it) {
-        pthread_mutex_lock(&mutex);
         data = *it;
         consumer_should_work = true;
      
@@ -38,10 +38,8 @@ void *producer_routine(void* args) {
         while (consumer_should_work) {
             pthread_cond_wait(&consumer_complete_processing, &mutex);
         }
-        pthread_mutex_unlock(&mutex);
     }
     
-    pthread_mutex_lock(&mutex);
     // need to call that consumer should work and all data were pushed
     consumer_should_work = true;
     all_is_done = true;
@@ -59,11 +57,8 @@ void *consumer_routine(void* args) {
     pthread_mutex_lock(&mutex);
     consumer_started_flag = true;
     pthread_cond_signal(&consumer_started);
-    pthread_mutex_unlock(&mutex);
-    
     int* sum = (int*) args;
     while(true) {
-        pthread_mutex_lock(&mutex);
         // waith for signal from producer
         while (!consumer_should_work) {
             pthread_cond_wait(&producer_signal, &mutex);
@@ -72,7 +67,7 @@ void *consumer_routine(void* args) {
         // if all_is_done we should exit
         if (all_is_done) {
             pthread_mutex_unlock(&mutex);
-            pthread_exit(NULL);
+            pthread_exit((void *) sum);
         }
         
         *sum += data;
@@ -80,8 +75,8 @@ void *consumer_routine(void* args) {
         
         // consumer complete part of job
         pthread_cond_signal(&consumer_complete_processing);
-        pthread_mutex_unlock(&mutex);
     }
+    pthread_mutex_unlock(&mutex);
 }
 
 void *interrupter_routine(void* args) {
@@ -94,8 +89,14 @@ void *interrupter_routine(void* args) {
     pthread_mutex_unlock(&mutex);
     
     // while producer not finishing, should try to cancel consumer
-    while (!all_is_done) {
+    bool should_continue = true;
+    while (should_continue) {
         pthread_cancel(consumer);
+        pthread_mutex_lock(&mutex);
+        if (all_is_done) {
+            should_continue = false;
+        }
+        pthread_mutex_unlock(&mutex);
     }
     
     pthread_exit(NULL);
@@ -105,8 +106,8 @@ int run_threads() {
     
     std::list<int> elements;
     
-    // add elements for producer
-    int n;
+    // add elements to
+    int n = 0;
     while(std::cin >> n) {
         elements.push_back(n);
     }
@@ -127,7 +128,6 @@ int run_threads() {
 
 int main(int argc, char** argv) {
     int result = run_threads();
-    std::cout << "result: " << result;
+    std::cout << result;
     return 0;
 }
-
