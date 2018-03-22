@@ -137,15 +137,13 @@ void* consumer_routine(void* arg) {
 
 void* interruptor_routine(void* arg) {
     wait_for_consumer_state();
+    bool state = false;
 
-    while (true) {
+    while (!state) {
         pthread_cancel(*((pthread_t*) arg));
 
         pthread_mutex_lock(&mut_consumer_state);
-        if (consumer_state) {
-            pthread_mutex_unlock(&mut_consumer_state);
-            break;
-        }
+        state = consumer_state;
         pthread_mutex_unlock(&mut_consumer_state);
     }
 
