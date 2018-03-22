@@ -164,6 +164,11 @@ int run_threads() {
     pthread_mutex_init(&mut_consumer_ready, nullptr);
     pthread_mutex_init(&mut_producer_ready, nullptr);
     pthread_mutex_init(&mut_consumer_state, nullptr);
+    
+    pthread_cond_init(&cond_consumer, nullptr);
+    pthread_cond_init(&cond_producer, nullptr);
+    pthread_cond_init(&cond_consumer_state, nullptr);
+    
 
     pthread_t thr_producer;
     if (0 != pthread_create(&thr_producer, nullptr, producer_routine, (void*)(&data)))
