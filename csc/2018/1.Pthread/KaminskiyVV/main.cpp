@@ -2,7 +2,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <iterator>
 
 std::vector<int> split(const std::string &text, char sep) {
@@ -36,6 +35,7 @@ public:
         }
         value = _value;
         is_updated = true;
+
         pthread_cond_broadcast(&sync_consumers);
         pthread_mutex_unlock(&lock);
     }
@@ -57,7 +57,30 @@ public:
     }
 };
 
-bool is_working = true;
+class State{
+    bool value;
+    pthread_mutex_t lock;
+
+public:
+    State(): value(true),
+             lock(PTHREAD_MUTEX_INITIALIZER) {}
+
+    bool get(){
+        bool local_value;
+        pthread_mutex_lock(&lock);
+        local_value = value;
+        pthread_mutex_unlock(&lock);
+        return local_value;
+    }
+
+    void set(bool is_working){
+        pthread_mutex_lock(&lock);
+        value = is_working;
+        pthread_mutex_unlock(&lock);
+    }
+};
+
+State is_working;
 Data data;
 
 void wait_consumer(bool is_consumer) {
@@ -90,9 +113,8 @@ void *producer_routine(void *arg) {
     for (int n : args) {
         data.produce(n);
     }
-    // Wait last consumers
-    while (data.is_updated) {}
-    is_working = false;
+    is_working.set(false);
+    // Release consumers
     pthread_cond_broadcast(&data.sync_consumers);
     return nullptr;
 }
@@ -106,7 +128,7 @@ void *consumer_routine(void *arg) {
     *sum = 0;
     // for every update issued by producer, read the value and add to sum
     // return pointer to result
-    while (is_working) {
+    while (is_working.get()) {
         *sum += data.consume();
     }
     return nullptr;
@@ -117,7 +139,7 @@ void *consumer_interruptor_routine(void *arg) {
     // wait for consumer to start
     wait_consumer(false);
     // interrupt consumer while producer is running
-    while (is_working) {
+    while (is_working.get()) {
         pthread_cancel(*consumer_t);
     }
     return nullptr;
@@ -133,8 +155,8 @@ int run_threads() {
     pthread_create(&interruptor_t, nullptr, consumer_interruptor_routine, &consumer_t);
 
     pthread_join(interruptor_t, nullptr);
-    pthread_join(producer_t, nullptr);
     pthread_join(consumer_t, nullptr);
+    pthread_join(producer_t, nullptr);
     // return sum of update values seen by consumer
     return result;
 }
