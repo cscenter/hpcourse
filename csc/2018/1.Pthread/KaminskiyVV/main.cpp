@@ -15,12 +15,38 @@ std::vector<int> split(const std::string &text, char sep) {
     return args;
 }
 
+
+class State{
+    bool value;
+    pthread_mutex_t lock;
+
+public:
+    State(): value(false),
+             lock(PTHREAD_MUTEX_INITIALIZER) {}
+
+    bool get(){
+        bool local_value;
+        pthread_mutex_lock(&lock);
+        local_value = value;
+        pthread_mutex_unlock(&lock);
+        return local_value;
+    }
+
+    void set(bool is_working){
+        pthread_mutex_lock(&lock);
+        value = is_working;
+        pthread_mutex_unlock(&lock);
+    }
+};
+
+State is_working;
+
 class Data {
+public:
     int value;
+    bool is_updated;
     pthread_mutex_t lock;
     pthread_cond_t sync_producers;
-public:
-    bool is_updated;
     pthread_cond_t sync_consumers;
 
     Data() : value(0), is_updated(false),
@@ -43,44 +69,20 @@ public:
     int consume() {
         int return_value = 0;
         pthread_mutex_lock(&lock);
-        while (!is_updated) {
+        while (!is_updated && is_working.get()) {
             pthread_cond_wait(&sync_consumers, &lock);
         }
-
-        if (is_updated) {
+        if(is_updated){
             return_value = value;
             is_updated = false;
+            pthread_cond_broadcast(&sync_producers);
         }
-        pthread_cond_broadcast(&sync_producers);
+
         pthread_mutex_unlock(&lock);
         return return_value;
     }
 };
 
-class State{
-    bool value;
-    pthread_mutex_t lock;
-
-public:
-    State(): value(true),
-             lock(PTHREAD_MUTEX_INITIALIZER) {}
-
-    bool get(){
-        bool local_value;
-        pthread_mutex_lock(&lock);
-        local_value = value;
-        pthread_mutex_unlock(&lock);
-        return local_value;
-    }
-
-    void set(bool is_working){
-        pthread_mutex_lock(&lock);
-        value = is_working;
-        pthread_mutex_unlock(&lock);
-    }
-};
-
-State is_working;
 Data data;
 
 void wait_consumer(bool is_consumer) {
@@ -113,9 +115,15 @@ void *producer_routine(void *arg) {
     for (int n : args) {
         data.produce(n);
     }
-    is_working.set(false);
-    // Release consumers
+
+    // Release last consumers
+    pthread_mutex_lock(&data.lock);
+    while(data.is_updated) {
+        pthread_cond_wait(&data.sync_producers, &data.lock);
+    }
     pthread_cond_broadcast(&data.sync_consumers);
+    is_working.set(false);
+    pthread_mutex_unlock(&data.lock);
     return nullptr;
 }
 
@@ -131,6 +139,7 @@ void *consumer_routine(void *arg) {
     while (is_working.get()) {
         *sum += data.consume();
     }
+    pthread_cond_broadcast(&data.sync_producers);
     return nullptr;
 }
 
@@ -147,6 +156,7 @@ void *consumer_interruptor_routine(void *arg) {
 
 int run_threads() {
     int result;
+    is_working.set(true);
     pthread_t producer_t, consumer_t, interruptor_t;
 
     // start 3 threads and wait until they're done
