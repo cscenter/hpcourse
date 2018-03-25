@@ -21,7 +21,7 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
 
     override fun remove(value: T): Boolean {
         traverse(value) { next ->
-            if (next != null && next.obj == value) {
+            if (next != null && next.obj == value && !next.isRemoved()) {
                 if (!next.markRemovedAttempt(next.next)) {
                     return remove(value)
                 }
@@ -37,7 +37,7 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
 
     override fun contains(value: T): Boolean {
         traverse(value) { next ->
-            if (next != null && next.obj == value) {
+            if (next != null && next.obj == value && !next.isRemoved()) {
                 return true
             }
         }
@@ -51,11 +51,10 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
 
         while (next != null && next.obj < value) {
             if (next.isRemoved()) {
-                if (!current.removeAttempt(next)) {
-                    current = head
+                if (current.removeAttempt(next)) {
                     next = current.next
+                    continue
                 }
-                continue
             }
             current = current.next as SimpleNode<T>
             next = next.next
