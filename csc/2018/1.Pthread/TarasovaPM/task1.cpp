@@ -26,16 +26,10 @@ std::vector<int> read_input()
 {
 	std::vector<int> data;
 
-	int n;
-	std::cin >> n;
-
 	int element;
 	while (std::cin >> element)
 	{
 		data.push_back(element);
-
-		if (data.size() == n)
-			break;
 	}
 	return data;
 }
@@ -47,10 +41,10 @@ void* producer_routine(void* arg) {
 
 	while (!consumer.launch)
 		pthread_cond_wait(&condition_consumer_launch, &mutex);
-	
+
 	// Read data, loop through each value and update the value, notify consumer, wait for consumer to process
 	std::vector<int> data = read_input();
-	for (int i = 0; i < data.size(); ++i) 
+	for (int i = 0; i < data.size(); ++i)
 	{
 		value = data[i];
 		producer.ready = true;
@@ -61,10 +55,8 @@ void* producer_routine(void* arg) {
 			pthread_cond_wait(&condition_consumer_ready, &mutex);
 
 		consumer.ready = false;
-		pthread_mutex_unlock(&mutex);
 	}
 
-	pthread_mutex_lock(&mutex);
 	producer.stop = producer.ready = true;
 
 	pthread_cond_signal(&condition_producer_ready);
@@ -75,7 +67,7 @@ void* producer_routine(void* arg) {
 	return arg;
 }
 
-void* consumer_routine(void* arg) 
+void* consumer_routine(void* arg)
 {
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	pthread_mutex_lock(&mutex);
@@ -91,10 +83,9 @@ void* consumer_routine(void* arg)
 
 	// for every update issued by producer, read the value and add to sum
 	bool eof = false;
+	pthread_mutex_lock(&mutex);
 	while (!eof)
 	{
-		pthread_mutex_lock(&mutex);
-
 		while (!producer.ready)
 			pthread_cond_wait(&condition_producer_ready, &mutex);
 
@@ -105,24 +96,20 @@ void* consumer_routine(void* arg)
 			producer.ready = false;
 			consumer.ready = true;
 			pthread_cond_signal(&condition_consumer_ready);
-			pthread_mutex_unlock(&mutex);
 			continue;
 		}
-		
+
 		eof = true;
 		producer.ready = false;
 		consumer.stop = true;
 		pthread_mutex_unlock(&mutex);
-
-		// return pointer to result
-		pthread_exit((void *)result);
 	}
 
 	// return pointer to result
 	return (void *)result;
 }
 
-void* consumer_interruptor_routine(void* arg) 
+void* consumer_interruptor_routine(void* arg)
 {
 	// wait for consumer to start
 	pthread_mutex_lock(&mutex);
@@ -133,14 +120,21 @@ void* consumer_interruptor_routine(void* arg)
 	pthread_mutex_unlock(&mutex);
 
 	// interrupt consumer while producer is running
-	while (!producer.stop)
+	bool stop = false;
+
+	while (!stop)
+	{
 		pthread_cancel(*(pthread_t *)arg);
 
-	pthread_exit(NULL);
-	return arg;
+		pthread_mutex_lock(&mutex);
+		stop = producer.stop;
+		pthread_mutex_unlock(&mutex);
+	}
+
+	return NULL;
 }
 
-int run_threads() 
+int run_threads()
 {
 	int *sum;
 
@@ -153,7 +147,7 @@ int run_threads()
 	pthread_join(producer, NULL);
 	pthread_join(consumer, (void **)&sum);
 	pthread_join(interruptor, NULL);
-	
+
 	// return sum of update values seen by consumer
 	int answer = *sum;
 	delete sum;
@@ -161,7 +155,7 @@ int run_threads()
 	return answer;
 }
 
-int main() 
+int main()
 {
 	std::cout << run_threads() << std::endl;
 	return 0;
