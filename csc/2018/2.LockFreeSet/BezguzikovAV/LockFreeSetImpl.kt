@@ -7,28 +7,31 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
     private val head = SimpleNode<T>(null)
 
     override fun add(value: T): Boolean {
-        traverse(value) { next ->
-            if (next != null && next.obj == value && !next.isRemoved()) {
-                return false
-            }
+        while (true) {
+            traverse(value) { next ->
+                if (next != null && next.obj == value && !next.isRemoved()) {
+                    return false
+                }
 
-            if (!addAttempt(next, Node(value, next))) {
-                return add(value)
+                if (addAttempt(next, Node(value, next))) {
+                    return true
+                }
             }
         }
-        return true
     }
 
     override fun remove(value: T): Boolean {
-        traverse(value) { next ->
-            if (next != null && next.obj == value && !next.isRemoved()) {
-                if (!next.markRemovedAttempt(next.next)) {
-                    return remove(value)
+        while (true) {
+            traverse(value) { next ->
+                if (next != null && next.obj == value && !next.isRemoved()) {
+                    if (next.markRemovedAttempt(next.next)) {
+                        return true
+                    }
+                } else {
+                    return false
                 }
-                return true
             }
         }
-        return false
     }
 
     override fun isEmpty(): Boolean {
@@ -36,12 +39,15 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
     }
 
     override fun contains(value: T): Boolean {
-        traverse(value) { next ->
-            if (next != null && next.obj == value && !next.isRemoved()) {
-                return true
-            }
+        var current = head
+        var next = current.next
+
+        while (next != null && next.obj < value) {
+            current = current.next as SimpleNode<T>
+            next = next.next
         }
-        return false
+
+        return next != null && next.obj == value && !next.isRemoved()
     }
 
     private inline fun traverse(value: T, action: SimpleNode<T>.(Node<T>?) -> Unit) {
@@ -53,8 +59,11 @@ class LockFreeSetImpl<in T : Comparable<T>> : LockFreeSet<T> {
             if (next.isRemoved()) {
                 if (current.removeAttempt(next)) {
                     next = current.next
-                    continue
+                } else {
+                    current = head
+                    next = current.next
                 }
+                continue
             }
             current = current.next as SimpleNode<T>
             next = next.next
