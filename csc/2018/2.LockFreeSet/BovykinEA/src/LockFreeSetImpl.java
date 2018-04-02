@@ -5,6 +5,10 @@ import java.lang.Comparable;
 class MinusInfinity implements Comparable {
     @Override
     public int compareTo(Object o) {
+        if(o instanceof MinusInfinity){
+            return 0;
+        }
+
         return -1;
     }
 }
@@ -12,6 +16,10 @@ class MinusInfinity implements Comparable {
 class PlusInfinity implements Comparable {
     @Override
     public int compareTo(Object o){
+        if(o instanceof PlusInfinity){
+            return 0;
+        }
+
         return 1;
     }
 }
@@ -80,7 +88,7 @@ public class LockFreeSetImpl implements LockFreeSet {
 
     @Override
     public boolean isEmpty() {
-        return head.next.getReference() == null;
+        return ((Node)head.next.getReference()).data.compareTo(new PlusInfinity()) == 0;
     }
 
     private Neighbors find(Node head, Comparable val){
