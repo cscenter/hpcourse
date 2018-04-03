@@ -71,16 +71,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
     @Override
     public boolean contains(T valueToDetect)
     {
-        Node secondNode = head.next.getReference();
+        Node node = head.next.getReference();
 
-        while (secondNode != null && secondNode.value.compareTo(valueToDetect) < 0)
+        while (node != null && node.value.compareTo(valueToDetect) < 0)
         {
-            secondNode = secondNode.next.getReference();
+            node = node.next.getReference();
         }
 
-        return secondNode != null &&
-              !secondNode.next.isMarked() &&
-               secondNode.value.compareTo(valueToDetect) == 0;
+        return node != null &&
+              !node.next.isMarked() &&
+               node.value.compareTo(valueToDetect) == 0;
     }
 
     @Override
