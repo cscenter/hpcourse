@@ -42,7 +42,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
             Node firstNode = pair.first;
             Node secondNode = pair.second;
 
-            if (secondNode.value.compareTo(valueToRemove) == 0 && secondNode != null)
+            if (secondNode != null && secondNode.value.compareTo(valueToRemove) == 0)
             {
                 Node thirdNode = secondNode.next.getReference();
 
@@ -76,9 +76,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
             secondNode = secondNode.next.getReference();
         }
 
-        return !(secondNode == null ||
-                 secondNode.next.isMarked() ||
-                 secondNode.value.compareTo(valueToDetect) != 0);
+        return secondNode != null &&
+              !secondNode.next.isMarked() &&
+               secondNode.value.compareTo(valueToDetect) == 0;
     }
 
     @Override
