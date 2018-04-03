@@ -16,9 +16,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
 
             if (secondNode == null || secondNode.value.compareTo(valueToAdd) != 0)
             {
+                Node addedNode = new Node(secondNode, valueToAdd);
+                
                 if (firstNode.next.compareAndSet(
                         secondNode,
-                        new Node(secondNode, valueToAdd),
+                        addedNode,
                         false, false)
                 )
                 {
