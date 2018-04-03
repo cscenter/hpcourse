@@ -76,17 +76,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
             secondNode = secondNode.next.getReference();
         }
 
-        if (secondNode == null ||
-            secondNode.next.isMarked() ||
-            secondNode.value.compareTo(valueToDetect) != 0
-        )
-        {
-            return false;
-        }
-        else
-        {
-            return true;
-        }
+        return !(secondNode == null ||
+                 secondNode.next.isMarked() ||
+                 secondNode.value.compareTo(valueToDetect) != 0);
     }
 
     @Override
