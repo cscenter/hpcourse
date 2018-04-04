@@ -1,6 +1,6 @@
 import java.util.concurrent.atomic.AtomicReference;
 
-public class MyLockFreeImpl<T extends Comparable<T>> implements LockFreeSet<T> {
+public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     private AtomicReference<Node> head;
 
@@ -24,7 +24,7 @@ public class MyLockFreeImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         Node second;
     }
 
-    public MyLockFreeImpl() {
+    public LockFreeSetImpl() {
         this.head = new AtomicReference<Node>(null);
     }
 
