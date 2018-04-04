@@ -6,7 +6,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean contains(T value) {
-
         NodesPair<T> nodes = search(value);
         if (nodes.right == null || nodes.right.value != value) {
             return false;
@@ -16,7 +15,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean add(T value) {
-
         while (true) {
             NodesPair<T> position = search(value);
 
@@ -35,7 +33,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean remove(T value) {
-
         while (true) {
             NodesPair<T> position = search(value);
             if (position.right == null) {
@@ -49,7 +46,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             }
             return false;
         }
-
     }
 
     @Override
@@ -60,7 +56,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private class Node<T> {
         final T value;
         final AtomicMarkableReference<Node> nextRef;
-
         Node(T value, Node<T> next) {
             this.value = value;
             nextRef = new AtomicMarkableReference<>(next, false);
@@ -72,7 +67,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private class NodesPair<T extends Comparable<T>> {
         final Node<T> left;
         final Node<T> right;
-
         NodesPair(Node<T> left, Node<T> right) {
             this.left = left;
             this.right = right;
@@ -80,7 +74,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private NodesPair<T> search(T value) {
-
         while (true) {
             Node<T> prev = head;
             Node<T> cur = prev.nextRef.getReference();
@@ -98,9 +91,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
                 cur = result;
             }
-
             return new NodesPair<>(prev, null);
         }
     }
-
 }
