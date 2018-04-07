@@ -1,3 +1,4 @@
+//As a reference I used "The Art of Multiprocessor Programming"
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
