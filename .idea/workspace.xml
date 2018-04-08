@@ -9,8 +9,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="removed unnecessary files">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="" />
+    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="hpcourse.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -540,7 +540,7 @@
       <workItem from="1521206679056" duration="31000" />
       <workItem from="1521226435052" duration="278000" />
       <workItem from="1522748998094" duration="3540000" />
-      <workItem from="1523213878817" duration="604000" />
+      <workItem from="1523213878817" duration="632000" />
     </task>
     <task id="LOCAL-00001" summary="first commit">
       <created>1460758573553</created>
@@ -577,11 +577,18 @@
       <option name="project" value="LOCAL" />
       <updated>1523214179421</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="removed unnecessary files">
+      <created>1523214487445</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1523214487445</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="5691000" />
+    <option name="totallyTimeSpent" value="5719000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="43" y="24" width="1606" height="823" extended-state="6" />
