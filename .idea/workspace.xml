@@ -9,11 +9,8 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="" />
+    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="removed unnecessary files">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/csc/2016/jdv/1.iml" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/csc/2016/kdn/1/CS_TaskServer/CS_TaskServer.iml" afterPath="" />
     </list>
     <ignored path="hpcourse.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -70,7 +67,7 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="LockFreeSetImpl.java" pinned="false" current-in-tab="true">
+      <file leaf-file-name="LockFreeSetImpl.java" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/csc/2018/2.LockFreeSet/BordynyukDK/LockFreeSetImpl.java">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="0">
@@ -80,11 +77,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="LockFreeSet.java" pinned="false" current-in-tab="false">
+      <file leaf-file-name="LockFreeSet.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/csc/2018/2.LockFreeSet/LockFreeSet.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="272">
-              <caret line="16" column="32" lean-forward="false" selection-start-line="16" selection-start-column="32" selection-end-line="16" selection-end-column="32" />
+            <state relative-caret-position="343">
+              <caret line="25" column="7" lean-forward="true" selection-start-line="25" selection-start-column="7" selection-end-line="25" selection-end-column="7" />
               <folding />
             </state>
           </provider>
@@ -207,12 +204,6 @@
             <path>
               <item name="hpcourse" type="b2602c69:ProjectViewProjectNode" />
               <item name="hpcourse" type="462c0819:PsiDirectoryNode" />
-              <item name=".idea" type="462c0819:PsiDirectoryNode" />
-              <item name="libraries" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="hpcourse" type="b2602c69:ProjectViewProjectNode" />
-              <item name="hpcourse" type="462c0819:PsiDirectoryNode" />
               <item name="csc" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
@@ -220,21 +211,6 @@
               <item name="hpcourse" type="462c0819:PsiDirectoryNode" />
               <item name="csc" type="462c0819:PsiDirectoryNode" />
               <item name="2018" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="hpcourse" type="b2602c69:ProjectViewProjectNode" />
-              <item name="hpcourse" type="462c0819:PsiDirectoryNode" />
-              <item name="csc" type="462c0819:PsiDirectoryNode" />
-              <item name="2018" type="462c0819:PsiDirectoryNode" />
-              <item name="2.LockFreeSet" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="hpcourse" type="b2602c69:ProjectViewProjectNode" />
-              <item name="hpcourse" type="462c0819:PsiDirectoryNode" />
-              <item name="csc" type="462c0819:PsiDirectoryNode" />
-              <item name="2018" type="462c0819:PsiDirectoryNode" />
-              <item name="2.LockFreeSet" type="462c0819:PsiDirectoryNode" />
-              <item name="BordynyukDK" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -564,7 +540,7 @@
       <workItem from="1521206679056" duration="31000" />
       <workItem from="1521226435052" duration="278000" />
       <workItem from="1522748998094" duration="3540000" />
-      <workItem from="1523213878817" duration="296000" />
+      <workItem from="1523213878817" duration="604000" />
     </task>
     <task id="LOCAL-00001" summary="first commit">
       <created>1460758573553</created>
@@ -594,14 +570,22 @@
       <option name="project" value="LOCAL" />
       <updated>1523214171502</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="removed unnecessary files">
+      <created>1523214179421</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1523214179421</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="5383000" />
+    <option name="totallyTimeSpent" value="5691000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="43" y="24" width="1606" height="823" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -615,7 +599,7 @@
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.204375" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.204375" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
@@ -910,14 +894,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/csc/2018/2.LockFreeSet/LockFreeSet.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="272">
-          <caret line="16" column="32" lean-forward="false" selection-start-line="16" selection-start-column="32" selection-end-line="16" selection-end-column="32" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/csc/2018/1.Pthread/BordynyukDK/hw1.cpp">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1649">
@@ -930,6 +906,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/csc/2018/2.LockFreeSet/LockFreeSet.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="343">
+          <caret line="25" column="7" lean-forward="true" selection-start-line="25" selection-start-column="7" selection-end-line="25" selection-end-column="7" />
           <folding />
         </state>
       </provider>
