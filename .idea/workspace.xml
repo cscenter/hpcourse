@@ -9,7 +9,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="Bordynyuk HW2">
+    <list default="true" id="bb7757fc-5863-43b3-a4b7-10a4ed9e07c5" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="" />
       <change beforePath="$PROJECT_DIR$/csc/2016/jdv/1.iml" afterPath="" />
@@ -21,6 +21,10 @@
     <ignored path="$PROJECT_DIR$/csc/2016/kdn/1/CS_TaskServer/target/" />
     <ignored path=".idea/dataSources.local.xml" />
     <ignored path="$PROJECT_DIR$/csc/2016/geo/CSC#1/target/" />
+    <ignored path="csc/2016/jdv/1.iml" />
+    <ignored path="csc/2016/kdn/1/CS_TaskServer/CS_TaskServer.iml" />
+    <ignored path=".idea/codeStyles/Project.xml" />
+    <ignored path=".idea/misc.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -560,7 +564,7 @@
       <workItem from="1521206679056" duration="31000" />
       <workItem from="1521226435052" duration="278000" />
       <workItem from="1522748998094" duration="3540000" />
-      <workItem from="1523213878817" duration="236000" />
+      <workItem from="1523213878817" duration="296000" />
     </task>
     <task id="LOCAL-00001" summary="first commit">
       <created>1460758573553</created>
@@ -583,11 +587,18 @@
       <option name="project" value="LOCAL" />
       <updated>1522765941471</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="removed unnecessary files">
+      <created>1523214171502</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1523214171502</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="5323000" />
+    <option name="totallyTimeSpent" value="5383000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="43" y="24" width="1606" height="823" extended-state="6" />
@@ -634,7 +645,8 @@
     <MESSAGE value="first commit" />
     <MESSAGE value="Bordynyuk HW1" />
     <MESSAGE value="Bordynyuk HW2" />
-    <option name="LAST_COMMIT_MESSAGE" value="Bordynyuk HW2" />
+    <MESSAGE value="removed unnecessary files" />
+    <option name="LAST_COMMIT_MESSAGE" value="removed unnecessary files" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager />
