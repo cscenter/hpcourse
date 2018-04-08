@@ -5,10 +5,6 @@ import java.lang.Comparable;
 class MinusInfinity implements Comparable {
     @Override
     public int compareTo(Object o) {
-        if(o instanceof MinusInfinity){
-            return 0;
-        }
-
         return -1;
     }
 }
@@ -127,16 +123,16 @@ public class LockFreeSetImpl implements LockFreeSet {
     }
 }
 
-class Node<T extends Comparable> {
-    T data;
+class Node {
+    Comparable data;
     AtomicMarkableReference<Node> next;
 
-    Node(T data, Node next){
+    Node(Comparable data, Node next){
         this.data = data;
         this.next = new AtomicMarkableReference<>(next, false);
     }
 
-    Node(T data){
+    Node(Comparable data){
         this.data = data;
         this.next = new AtomicMarkableReference<>(null, false);
     }
