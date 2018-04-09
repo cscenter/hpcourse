@@ -18,8 +18,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private class NodePair<T> {
-        Node<T> nodeOne;
-        Node<T> nodeTwo;
+        final Node<T> nodeOne;
+        final Node<T> nodeTwo;
 
         NodePair() {
             this.nodeOne = null;
@@ -68,7 +68,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean add(T value) {
 
-        mark:
         while (true) {
             NodePair<T> pair = getNodePair(value);
             Node<T> previousNode = pair.nodeOne;
@@ -87,17 +86,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean remove(T value) {
 
-        mark:
         while (true) {
             NodePair<T> pair = getNodePair(value);
             Node<T> previousNode = pair.nodeOne;
             Node<T> currentNode = pair.nodeTwo;
 
-            if (currentNode.nodeValue.compareTo(value) == 0 && currentNode != null) {
+            if (currentNode != null && currentNode.nodeValue.compareTo(value) == 0) {
                 Node<T> successorNode = currentNode.nextNode.getReference();
 
                 if (!currentNode.nextNode.compareAndSet(currentNode.nextNode.getReference(), currentNode.nextNode.getReference(), false, true)) {
-                    continue mark;
+                    continue;
                 }
 
                 previousNode.nextNode.compareAndSet(currentNode, successorNode, false, false);
@@ -117,11 +115,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             currentNode = currentNode.nextNode.getReference();
         }
 
-        if (currentNode == null || currentNode.nextNode.isMarked() || currentNode.nodeValue.compareTo(value) != 0) {
-            return false;
-        } else {
-            return true;
-        }
+        return !(currentNode == null || currentNode.nextNode.isMarked() || currentNode.nodeValue.compareTo(value) != 0);
     }
 
     @Override
