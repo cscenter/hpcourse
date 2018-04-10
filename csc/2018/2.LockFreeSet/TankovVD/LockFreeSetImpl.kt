@@ -12,14 +12,9 @@ class LockFreeSetImpl<T: Comparable<T>> : LockFreeSet<T> {
                 return false
             }
 
-            val success = if (prev == null) {
-                val node = Node(value, current)
-                head.nextNode.compareAndSet(null, node, 0, 0)
-            }
-            else {
-                val node = Node(value, current)
-                prev.nextNode.compareAndSet(current, node, 0, 0)
-            }
+            val node = Node(value, current)
+
+            val success = prev?.nextNode?.compareAndSet(current, node, 0, 0) ?: head.nextNode.compareAndSet(null, node, 0, 0)
 
             if (success) {
                 return true
@@ -41,15 +36,8 @@ class LockFreeSetImpl<T: Comparable<T>> : LockFreeSet<T> {
                 continue
             }
 
-            //remove any way
-            while (true) {
-                val successDelete = prev!!.nextNode.compareAndSet(current, current.nextNode.reference, 0, 0)
-
-                if (successDelete) {
-                    return true
-                }
-            }
-
+            //try to remove
+            prev!!.nextNode.compareAndSet(current, current.nextNode.reference, 0, 0)
         }
     }
 
@@ -74,10 +62,14 @@ class LockFreeSetImpl<T: Comparable<T>> : LockFreeSet<T> {
         while (current != null && (current.value == null || current.value!! < value)) {
             prev = current
             current = current.nextNode.reference
+            if (current?.nextNode?.stamp == 1) {
+                prev.nextNode.compareAndSet(current, current.nextNode.reference, 0, 0)
+                //reset to start
+                prev = null
+                current = head
+            }
         }
         return NodeInterval(prev, current)
     }
-
-
 
 }
