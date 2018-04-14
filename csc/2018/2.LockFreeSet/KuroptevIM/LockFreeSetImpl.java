@@ -9,8 +9,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private class Node {
-        T value;
-        AtomicMarkableReference<Node> next_element;
+        final T value;
+        final AtomicMarkableReference<Node> next_element;
 
         Node(T val, AtomicMarkableReference<Node> next) {
             this.value = val;
@@ -19,8 +19,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private class SearchProcess {
-        Node prev;
-        Node curr;
+        final Node prev;
+        final Node curr;
 
         SearchProcess(T value) {
 
