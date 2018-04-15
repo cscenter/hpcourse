@@ -2,10 +2,10 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    private Node head;
+    private final Node head;
 
     public LockFreeSetImpl() {
-        this.head = new Node(null, new AtomicMarkableReference<>(null, false));
+        this.head = new Node(null, null);
     }
 
     @Override
@@ -14,7 +14,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             NodePair window = find(value);
             if (window.second != null && window.second.value.compareTo(value) == 0) return false;
             //newNode -> window.second
-            Node newNode = new Node(value, new AtomicMarkableReference<>(window.second, false));
+            Node newNode = new Node(value, window.second);
             //if window.first still exist set window.first -> newNode
             if (window.first.nextAndState.compareAndSet(window.second, newNode, false, false)) return true;
         }
@@ -48,7 +48,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean remove(T value) {
         NodePair window = find(value);
-        if (window.second.getValue().compareTo(value) != 0) return false;
+        if (window.second == null || window.second.getValue().compareTo(value) != 0) return false;
 
         while (true) {
             Node next = window.second.nextAndState.getReference();
@@ -94,9 +94,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
         private final AtomicMarkableReference<Node> nextAndState;
 
-        private Node(T value, AtomicMarkableReference<Node> nextAndState) {
+        private Node(T value, Node next) {
             this.value = value;
-            this.nextAndState = nextAndState;
+            this.nextAndState = new AtomicMarkableReference<>(next, false);
         }
 
         public T getValue() {
