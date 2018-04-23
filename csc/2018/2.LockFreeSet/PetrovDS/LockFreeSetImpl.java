@@ -63,12 +63,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if (null != crnt)
                 return false;
 
-            if (null == prev)
+            if (null == prev) {
                 if (head.compareAndSet(null, newNode, false, false))
                     return true;
-            else
+            } else {
                 if (prev.next.compareAndSet(null, newNode, false, false))
                     return true;
+            }
         }
     }
 
