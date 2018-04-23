@@ -40,9 +40,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 continue;
             }
 
-            if (0 == crnt.value.compareTo(value) && !ref.isMarked())
+            if (crnt.value.compareTo(value) <= 0 && !ref.isMarked())
                 return new NodePair(crnt, prev);
-
 
             ref = crnt.next;
             prev = crnt;
@@ -60,14 +59,19 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             NodePair found = findPair(value);
             Node crnt = found.first, prev = found.second;
 
-            if (null != crnt)
+            if (null != crnt && 0 == crnt.value.compareTo(value))
                 return false;
 
             if (null == prev) {
-                if (head.compareAndSet(null, newNode, false, false))
+                newNode.next.set(crnt, head.isMarked());
+
+                if (head.compareAndSet(crnt, newNode, false, false))
                     return true;
-            } else {
-                if (prev.next.compareAndSet(null, newNode, false, false))
+            }
+            else {
+                newNode.next.set(crnt, prev.next.isMarked());
+
+                if (prev.next.compareAndSet(crnt, newNode, false, false))
                     return true;
             }
         }
@@ -79,7 +83,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             NodePair found = findPair(value);
             Node crnt = found.first, prev = found.second;
 
-            if (null == crnt)
+            if (null == crnt || 0 != crnt.value.compareTo(value))
                 return false;
 
             Node next = crnt.next.getReference();
@@ -102,10 +106,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public boolean contains(T value) {
         Node crnt = findPair(value).first;
 
-        if (null != crnt)
-            return true;
-
-        return false;
+        return null != crnt && 0 == crnt.value.compareTo(value);
     }
 
     @Override
@@ -113,4 +114,3 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         return null == head.getReference();
     }
 }
-
