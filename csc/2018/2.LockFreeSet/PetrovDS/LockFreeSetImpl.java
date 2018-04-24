@@ -104,9 +104,18 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean contains(T value) {
-        Node crnt = findPair(value).first;
+        AtomicMarkableReference<Node> ref = head;
+        Node crnt = ref.getReference();
 
-        return null != crnt && 0 == crnt.value.compareTo(value);
+        while (null != crnt) {
+            if (0 == crnt.value.compareTo(value) && !ref.isMarked())
+                return true;
+
+            ref = crnt.next;
+            crnt = crnt.next.getReference();
+        }
+
+        return false;
     }
 
     @Override
