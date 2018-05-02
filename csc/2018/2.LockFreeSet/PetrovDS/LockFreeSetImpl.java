@@ -25,29 +25,32 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private NodePair findPair(T value) {
-        Node crnt = head.getReference(), prev = null;
-        AtomicMarkableReference<Node> ref = head;
 
-        while (null != crnt) {
+        again:
+        while (true) {
 
-            // try clean:
-            if (ref.isMarked()) {
-                AtomicMarkableReference<Node> crnt_next = crnt.next;
-                if (ref.compareAndSet(crnt, crnt_next.getReference(), true, crnt_next.isMarked())) {
-                    crnt = crnt_next.getReference();
-                    continue;
+            Node crnt = head.getReference(), prev = null;
+            AtomicMarkableReference<Node> ref = head;
+
+            while (null != crnt) {
+
+                // try clean:
+                if (ref.isMarked()) {
+                    AtomicMarkableReference<Node> crnt_next = crnt.next;
+                    if (ref.compareAndSet(crnt, crnt_next.getReference(), true, crnt_next.isMarked()))
+                        continue again;
                 }
+
+                if (crnt.value.compareTo(value) <= 0 && !ref.isMarked())
+                    return new NodePair(crnt, prev);
+
+                ref = crnt.next;
+                prev = crnt;
+                crnt = crnt.next.getReference();
             }
 
-            if (crnt.value.compareTo(value) <= 0 && !ref.isMarked())
-                return new NodePair(crnt, prev);
-
-            ref = crnt.next;
-            prev = crnt;
-            crnt = crnt.next.getReference();
+            return new NodePair(null, prev);
         }
-
-        return new NodePair(null, prev);
     }
 
     @Override
