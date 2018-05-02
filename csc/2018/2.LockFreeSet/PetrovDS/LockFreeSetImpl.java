@@ -37,7 +37,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 // try clean:
                 if (ref.isMarked()) {
                     AtomicMarkableReference<Node> crnt_next = crnt.next;
-                    if (ref.compareAndSet(crnt, crnt_next.getReference(), true, crnt_next.isMarked()))
+                    if (ref.compareAndSet(crnt, crnt_next.getReference(), true, crnt_next.isMarked())) {
+                        crnt = crnt_next.getReference();
+                        continue;
+                    }
+                    else
                         continue again;
                 }
 
