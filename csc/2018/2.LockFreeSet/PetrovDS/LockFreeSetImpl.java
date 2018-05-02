@@ -2,11 +2,7 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    private final AtomicMarkableReference<Node> head;
-
-    {
-        this.head = new AtomicMarkableReference<>(null, false);
-    }
+    private final AtomicMarkableReference<Node> head = new AtomicMarkableReference<>(null, false);
 
     private class Node {
         Node(T value, AtomicMarkableReference<Node> next) {
@@ -35,9 +31,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         while (null != crnt) {
 
             // try clean:
-            if (ref.compareAndSet(crnt, crnt.next.getReference(), true, crnt.next.isMarked())) {
-                crnt = crnt.next.getReference();
-                continue;
+            if (ref.isMarked()) {
+                AtomicMarkableReference<Node> crnt_next = crnt.next;
+                if (ref.compareAndSet(crnt, crnt_next.getReference(), true, crnt_next.isMarked())) {
+                    crnt = crnt_next.getReference();
+                    continue;
+                }
             }
 
             if (crnt.value.compareTo(value) <= 0 && !ref.isMarked())
