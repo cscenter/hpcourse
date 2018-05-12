@@ -51,12 +51,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                     if (current.value.compareTo(value) >= 0) {
                         return new PairNodes<>(previous, current);
                     }
+                    previous = current;
                 } else {
                     if (!previous.next.compareAndSet(current, res, true, false)) {
                         continue retry;
                     }
                 }
-                previous = current;
                 current = res;
             }
 
