@@ -55,7 +55,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T >
             if(node.val.compareTo(value)==0)
                 return false;
 
-            Node newNode=new Node(node.next,value);
+            Node newNode=new Node(new AtomicMarkableReference<>(node,false),value);
             if(ref.compareAndSet(node, newNode,false,false))
                 return true;
         }
@@ -69,9 +69,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T >
             AtomicMarkableReference<Node> ref=searchResult.getKey();
             Node node=searchResult.getValue();
 
-            if(node==null)
+            if(node==null||value.compareTo(node.val)!=0)
                 return false;
-
             if(ref.attemptMark(node, true)){
                 Node next=node.next.get(mark);
                 ref.compareAndSet(node, next, true, mark[0]);
