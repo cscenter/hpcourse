@@ -67,7 +67,7 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
                     }
                     curr = next;
                 } else {
-                    if (!curr.getValue().equals(value)) {
+                    if (curr.getValue().compareTo(value) < 0) {
                         prev = curr;
                         curr = next;
                     }
@@ -101,7 +101,8 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
             PairedNode found = find(value);
             Node prev = found.getFirst();
             Node curr = found.getSecond();
-            if (curr == null || !curr.getValue().equals(value)) {
+
+            if (curr == null) {
                 return false;
             }
 
@@ -124,8 +125,8 @@ public class LockFreeSetImpl<T extends Comparable<T> > implements LockFreeSet<T>
         while (curr != null && !curr.getValue().equals(value)) {
             curr = curr.getNext().getReference();
         }
-        boolean res = curr != null && curr.getValue().equals(value) && !curr.getNext().isMarked();
-        return res;
+
+        return curr != null && curr.getValue().equals(value) && !curr.getNext().isMarked();
     }
 
     public boolean isEmpty() {
