@@ -3,9 +3,9 @@ import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    private Node head;
+    private final Node head;
 
-    LockFreeSetImpl() {
+    public LockFreeSetImpl() {
         this.head = new Node();
     }
 
@@ -85,8 +85,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     private class Node {
-        private  T value;
-        private  AtomicMarkableReference<Node> next;
+        private final T value;
+        private final AtomicMarkableReference<Node> next;
 
         Node() {
             this.value = null;
@@ -100,7 +100,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     }
 
     class Pair {
-        Node previous, current;
+        final Node previous, current;
 
         Pair(Node previous, Node current) {
             this.previous = previous;
