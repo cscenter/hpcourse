@@ -13,6 +13,9 @@ struct Result {
 	int error_code;
 };
 
+std::random_device rd;
+std::mt19937 rng(rd());
+
 int value;
 int active_threads = 0;
 int cons_count = 0;
@@ -93,6 +96,8 @@ void* consumer_routine(void* arg) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   set_last_error(NOERROR);
 
+  std::uniform_int_distribution<int> uni(0, sleep_time);
+
   pthread_mutex_lock(&start_mutex);
   started = true;
   active_threads++;
@@ -124,7 +129,7 @@ void* consumer_routine(void* arg) {
 
     work_done();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+    std::this_thread::sleep_for(std::chrono::milliseconds(uni(rng)));
   }
   active_threads--;
 
@@ -136,8 +141,6 @@ void* consumer_routine(void* arg) {
  
 void* consumer_interruptor_routine(void* arg) {
   wait_start();
-  std::random_device rd;
-  std::mt19937 rng(rd());
   std::uniform_int_distribution<int> uni(0, cons_count - 1);
 
   pthread_t *cons_id = (pthread_t *) arg;
