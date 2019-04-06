@@ -19,6 +19,7 @@ struct sync_data {
   pthread_cond_t dataChanged, dataProcessed;
   int curValue;
   bool shouldContinue, dataExists; // no Optional in c++11, so use separate flag
+  pthread_barrier_t consumersHold;
 };
 
 struct consumer_data {
@@ -26,6 +27,11 @@ struct consumer_data {
   int partialSum;
   int errorCode;
   int maxSleep;
+};
+
+struct interruptor_data {
+  sync_data* sync;
+  vector<pthread_t>* consumers;
 };
 
 // int get_last_error() {
@@ -94,6 +100,10 @@ void* producer_routine(void* arg) {
 void* consumer_routine(void* arg) {
   consumer_data* data = (consumer_data*)arg;
   sync_data* sync = data->sync;
+
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+  pthread_barrier_wait(&sync->consumersHold);
+  
   int value, localSum=0;
   
   while (true) {
@@ -116,20 +126,32 @@ void* consumer_routine(void* arg) {
       pthread_mutex_unlock(&sync->lock);
       break;
     }
-    // supports at least 32 seconds pause, see http://www.cplusplus.com/reference/cstdlib/rand/
-    int stopFor = rand() % data->maxSleep;
-    // safe since no locks are held
-    this_thread::sleep_for(chrono::milliseconds(stopFor));
     log("consumer unlocked");
+
+    // supports at least 32 seconds pause, see http://www.cplusplus.com/reference/cstdlib/rand/
+    if (data->maxSleep > 0){
+      int stopFor = rand() % data->maxSleep;
+      // safe since no locks are held
+      this_thread::sleep_for(chrono::milliseconds(stopFor));
+    }
   }
 
   data->partialSum=localSum;
 }
  
 void* consumer_interruptor_routine(void* arg) {
-  // wait for consumers to start
- 
-  // interrupt random consumer while producer is running                                          
+  interruptor_data* data = (interruptor_data*)arg;
+  pthread_barrier_wait(&data->sync->consumersHold);
+
+  while (true){
+    int targetNum = rand() % data->consumers->size();
+    pthread_t target = (*(data->consumers))[targetNum];
+    int result = pthread_cancel(target);
+    // cout << result << endl;
+    if (!data->sync->shouldContinue){
+      break;
+    }
+  }
 }
  
 int run_threads(int consumersAmount, int maxSleep) {
@@ -138,22 +160,27 @@ int run_threads(int consumersAmount, int maxSleep) {
   vector<pthread_t> consumers(consumersAmount);
   vector<consumer_data> consumersData(consumersAmount);
   pthread_t producer;
+  pthread_t interruptor;
 
   //pthread_key_create(&errorKey, NULL);
   sync_data sync;
   pthread_mutex_init(&sync.lock, NULL);
   pthread_cond_init(&sync.dataChanged, NULL);
   pthread_cond_init(&sync.dataProcessed, NULL);
+  pthread_barrier_init(&sync.consumersHold, NULL, consumersAmount+1);
   sync.shouldContinue = true;
   sync.dataExists = false;
+  interruptor_data irr_data = {sync: &sync, consumers: &consumers};
     
   pthread_create(&producer, NULL, producer_routine, &sync);
   for (int i=0; i<consumersAmount; i++){
     consumersData[i] = {sync: &sync, partialSum: 0, errorCode: 0, maxSleep: maxSleep};
     pthread_create(&consumers[i], NULL, consumer_routine, &consumersData[i]);
   }
-
+  pthread_create(&interruptor, NULL, consumer_interruptor_routine, &irr_data);
+  
   pthread_join(producer, NULL);
+  pthread_join(interruptor, NULL);
   for (int i=0; i<consumersAmount; i++){
     pthread_join(consumers[i], NULL);
     totalSum+=consumersData[i].partialSum;
@@ -165,6 +192,7 @@ int run_threads(int consumersAmount, int maxSleep) {
   pthread_cond_destroy(&sync.dataChanged);
   pthread_cond_destroy(&sync.dataProcessed);
   pthread_mutex_destroy(&sync.lock);
+  pthread_barrier_destroy(&sync.consumersHold);
   //pthread_key_destroy(&errorKey);
   return 0;
 }
