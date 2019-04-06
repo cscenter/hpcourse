@@ -1,10 +1,9 @@
 #include <pthread.h>
 #include <iostream>
 #include <vector>
-#include <cstdlib>
 #include <string>
 #include <sstream>
-
+#include <stdlib.h>
 #include <chrono>
 #include <thread>
 
@@ -26,6 +25,7 @@ struct consumer_data {
   sync_data* sync;
   int partialSum;
   int errorCode;
+  int maxSleep;
 };
 
 // int get_last_error() {
@@ -81,12 +81,12 @@ void* producer_routine(void* arg) {
     log("producer unlocked");
   }
 
-  // now we have to stop consumers
+  // now stop consumers
   pthread_mutex_lock(&sync->lock);
   // at this moment every consumer is either outside lock-unlock block, or is locked on lock(), or is waiting on wait()
   sync->shouldContinue=false;
   pthread_cond_broadcast(&sync->dataChanged); // to wake up consumers of third case
-  // consumers of first case will check the outer condition, when those of second or third will check the condition above wait()  
+  // consumers of first case will check the outer condition, and those of second or third will check the condition above wait()
   pthread_mutex_unlock(&sync->lock);
   
 }
@@ -115,7 +115,11 @@ void* consumer_routine(void* arg) {
     } else {
       pthread_mutex_unlock(&sync->lock);
       break;
-    }    
+    }
+    // supports at least 32 seconds pause, see http://www.cplusplus.com/reference/cstdlib/rand/
+    int stopFor = rand() % data->maxSleep;
+    // safe since no locks are held
+    this_thread::sleep_for(chrono::milliseconds(stopFor));
     log("consumer unlocked");
   }
 
@@ -145,7 +149,7 @@ int run_threads(int consumersAmount, int maxSleep) {
     
   pthread_create(&producer, NULL, producer_routine, &sync);
   for (int i=0; i<consumersAmount; i++){
-    consumersData[i] = {sync: &sync, partialSum: 0, errorCode: 0};
+    consumersData[i] = {sync: &sync, partialSum: 0, errorCode: 0, maxSleep: maxSleep};
     pthread_create(&consumers[i], NULL, consumer_routine, &consumersData[i]);
   }
 
