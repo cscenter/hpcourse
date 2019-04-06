@@ -6,11 +6,14 @@
 #include <stdlib.h>
 #include <chrono>
 #include <thread>
+#include <limits>
 
 using namespace std;
 
 #define NOERROR 0
 #define OVERFLOW 1
+int noerrorValue=NOERROR, overflowValue=OVERFLOW;
+int *noerrorPtr=&noerrorValue, *overflowPtr=&overflowValue;
 
 pthread_key_t errorKey;
 
@@ -34,14 +37,30 @@ struct interruptor_data {
   vector<pthread_t>* consumers;
 };
 
-// int get_last_error() {
-//   auto val = pthread_getspecific(errorKey);
-//   return (int)val;
-// }
+int get_last_error() {
+  void* ptr = pthread_getspecific(errorKey);
+  if (ptr == overflowPtr){
+    return OVERFLOW;
+  } else if (ptr == noerrorPtr){
+    return NOERROR;
+  } else {
+    cout << "UNKNOWN CODE GET";
+    return -1;
+  }
+}
 
-// void set_last_error(int code) {
-//   // set per-thread error code
-// }
+void set_last_error(int code) {
+  int* target;
+  if (code == OVERFLOW){
+    target = overflowPtr;
+  } else if (code == NOERROR){
+    target = noerrorPtr;
+  } else {
+    cout << "UNKNOWN CODE SET";
+    return;
+  }
+  pthread_setspecific(errorKey, (void*)target);
+}
 
 void log(string msg){
   // cout << msg << endl;
@@ -54,7 +73,6 @@ void* producer_routine(void* arg) {
   
   // read data, loop through each value and update the value, notify consumer, wait for consumer to process
   sync_data* sync = (sync_data*)arg;
-  //cout << &sync << endl;
 
   string rawInput;
   getline(cin, rawInput);
@@ -102,6 +120,7 @@ void* consumer_routine(void* arg) {
   sync_data* sync = data->sync;
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+  set_last_error(NOERROR);
   pthread_barrier_wait(&sync->consumersHold);
   
   int value, localSum=0;
@@ -120,8 +139,16 @@ void* consumer_routine(void* arg) {
       sync->dataExists=false; // prevent other consumers from reading this value
       pthread_cond_signal(&sync->dataProcessed);
       log("consumer signaled");
-      localSum+=value;
-      pthread_mutex_unlock(&sync->lock);
+      if (((value > 0) && (localSum+value<localSum)) ||
+	  ((value < 0) && (localSum+value>localSum))) {
+	// under/over-flow occured
+	set_last_error(OVERFLOW);
+	pthread_mutex_unlock(&sync->lock);
+	break;
+      } else {
+	localSum+=value;
+	pthread_mutex_unlock(&sync->lock);	
+      }
     } else {
       pthread_mutex_unlock(&sync->lock);
       break;
@@ -136,18 +163,21 @@ void* consumer_routine(void* arg) {
     }
   }
 
-  data->partialSum=localSum;
+  data->errorCode=get_last_error();
+  data->partialSum=localSum;  
 }
  
 void* consumer_interruptor_routine(void* arg) {
   interruptor_data* data = (interruptor_data*)arg;
   pthread_barrier_wait(&data->sync->consumersHold);
 
+  // don't use synchronization since only way this thread can hang is when he not sees shouldContinue write
+  // (is it possible?)
+  // and this thread can't cause other threads to hang
   while (true){
     int targetNum = rand() % data->consumers->size();
     pthread_t target = (*(data->consumers))[targetNum];
     int result = pthread_cancel(target);
-    // cout << result << endl;
     if (!data->sync->shouldContinue){
       break;
     }
@@ -162,7 +192,7 @@ int run_threads(int consumersAmount, int maxSleep) {
   pthread_t producer;
   pthread_t interruptor;
 
-  //pthread_key_create(&errorKey, NULL);
+  pthread_key_create(&errorKey, NULL);
   sync_data sync;
   pthread_mutex_init(&sync.lock, NULL);
   pthread_cond_init(&sync.dataChanged, NULL);
@@ -181,22 +211,45 @@ int run_threads(int consumersAmount, int maxSleep) {
   
   pthread_join(producer, NULL);
   pthread_join(interruptor, NULL);
+  // first join all consumers, then process results
   for (int i=0; i<consumersAmount; i++){
     pthread_join(consumers[i], NULL);
-    totalSum+=consumersData[i].partialSum;
+  }
+  bool successful=true;
+  for (int i=0; i<consumersAmount; i++){
+    if (consumersData[i].errorCode==NOERROR){
+      int partialSum=consumersData[i].partialSum;
+      if (((partialSum > 0) && (totalSum+partialSum<totalSum)) ||
+	((partialSum < 0) && (totalSum+partialSum>totalSum))) {
+	successful=false;
+	break;
+      } else {
+	totalSum+=partialSum;
+      }      
+    } else {
+      successful=false;
+      break;
+    }    
   }
   
-  
-  cout << totalSum << endl;
-
   pthread_cond_destroy(&sync.dataChanged);
   pthread_cond_destroy(&sync.dataProcessed);
   pthread_mutex_destroy(&sync.lock);
   pthread_barrier_destroy(&sync.consumersHold);
-  //pthread_key_destroy(&errorKey);
-  return 0;
+  pthread_key_delete(errorKey);
+
+  if (successful){
+    cout << totalSum << endl;
+    return 0;
+  } else {
+    cout << "overflow" << endl;
+    return 1;
+  }
+  
 }
  
 int main(int argc, char *argv[]) {
+  //int imax = std::numeric_limits<int>::max();
+  //cout << imax << endl;
   return run_threads(atoi(argv[1]), atoi(argv[2]));
 }
