@@ -92,15 +92,11 @@ void* producer_routine(void* arg) {
 }
  
 void* consumer_routine(void* arg) {
-  // notify about start
-  // for every update issued by producer, read the value and add to sum
-  // return pointer to result (for particular consumer)
   consumer_data* data = (consumer_data*)arg;
   sync_data* sync = data->sync;
-  //cout << &(data->sync) << endl;
   int value, localSum=0;
   
-  while (sync->shouldContinue){
+  while (true) {
     pthread_mutex_lock(&sync->lock);
     log("consumer locked");
 
@@ -115,8 +111,11 @@ void* consumer_routine(void* arg) {
       pthread_cond_signal(&sync->dataProcessed);
       log("consumer signaled");
       localSum+=value;
-    }      
-    pthread_mutex_unlock(&sync->lock);      
+      pthread_mutex_unlock(&sync->lock);
+    } else {
+      pthread_mutex_unlock(&sync->lock);
+      break;
+    }    
     log("consumer unlocked");
   }
 
@@ -143,7 +142,6 @@ int run_threads(int consumersAmount, int maxSleep) {
   pthread_cond_init(&sync.dataProcessed, NULL);
   sync.shouldContinue = true;
   sync.dataExists = false;
-  //sync->curValue = 
     
   pthread_create(&producer, NULL, producer_routine, &sync);
   for (int i=0; i<consumersAmount; i++){
@@ -153,7 +151,6 @@ int run_threads(int consumersAmount, int maxSleep) {
 
   pthread_join(producer, NULL);
   for (int i=0; i<consumersAmount; i++){
-    // temp solution: use return value for partial sum
     pthread_join(consumers[i], NULL);
     totalSum+=consumersData[i].partialSum;
   }
