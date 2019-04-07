@@ -279,7 +279,12 @@ void* producer_routine(void* arg) {
 
     // read data, loop through each value and update the value, notify consumer, wait for consumer to process
     int number;
-    while (std::cin >> number && link->consumers_count() > 0)
+
+    std::string input_string;
+    std::getline(std::cin, input_string);
+    std::stringstream numbers_stream{input_string};
+
+    while (numbers_stream >> number && link->consumers_count() > 0)
     {
         link->put(number);
     }
