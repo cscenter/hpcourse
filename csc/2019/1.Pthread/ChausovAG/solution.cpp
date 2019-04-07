@@ -8,13 +8,24 @@
 #include <sstream>
 
 #define NOERROR 0
-//OWERFLOW is collapsing with OWERFLOW defined in <cmath> (required in <random>)
+//OVERFLOW is colliding with OVERFLOW defined in <cmath> (required in <random>)
 #define OVERFLOW_ERROR 1
+#define ZERO_CONSUMERS_ERROR 2
 
-int get_last_error();
-void set_last_error(int);
+const size_t MESSAGE_QUEUE_MAX_SIZE = 5;
+static_assert(MESSAGE_QUEUE_MAX_SIZE != 0, "Message queue size should be > 0");
+
 
 __thread int tls_last_error = NOERROR;
+
+int get_last_error() {
+    return tls_last_error;
+}
+
+void set_last_error(int code) {
+    tls_last_error = code;
+}
+
 
 class OverflowAwareInt
 {
@@ -53,10 +64,22 @@ private:
     int my_int_;
 };
 
-struct ThreadResult
+
+class PthreadMutexLock
 {
-    int error_code;
-    int result;
+public:
+    explicit PthreadMutexLock(pthread_mutex_t* mutex)
+            : mutex_(mutex)
+    {
+        pthread_mutex_lock(mutex_);
+    }
+
+    ~PthreadMutexLock()
+    {
+        pthread_mutex_unlock(mutex_);
+    }
+private:
+    pthread_mutex_t* mutex_;
 };
 
 template <typename Message>
@@ -67,66 +90,90 @@ public:
             : messages_(),
               max_size_(max_size),
               mutex_(PTHREAD_MUTEX_INITIALIZER),
-              cond_(PTHREAD_COND_INITIALIZER),
-              max_retries_(3),
-              is_closed_(false)
+              cond_empty_(PTHREAD_COND_INITIALIZER),
+              cond_full_(PTHREAD_COND_INITIALIZER),
+              is_closed_(false),
+              consumers_count_(0)
     {}
 
-    enum class LinkState { OK, CLOSED, EMPTY };
+    enum class LinkState { OK, CLOSED };
 
     LinkState get(Message& message)
     {
-        pthread_mutex_lock(&mutex_);
-        if (empty())
+        PthreadMutexLock lock{&mutex_};
+        while (empty())
         {
             if (is_closed_)
             {
-                pthread_mutex_unlock(&mutex_);
                 return LinkState::CLOSED;
             }
-            pthread_mutex_unlock(&mutex_);
-            return LinkState::EMPTY;
+            pthread_cond_wait(&cond_empty_, &mutex_);
         }
         message = messages_.front();
         messages_.pop();
-        pthread_cond_broadcast(&cond_);
-        pthread_mutex_unlock(&mutex_);
+        pthread_cond_broadcast(&cond_full_);
         return LinkState::OK;
     }
 
     template <typename T>
-    bool put(T&& message)
+    void put(T&& message)
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         while (messages_.size() >= max_size_)
         {
-            pthread_cond_wait(&cond_, &mutex_);
+            if (consumers_count_ == 0)
+            {
+                return;
+            }
+            pthread_cond_wait(&cond_full_, &mutex_);
         }
         messages_.push(std::forward<T>(message));
-        pthread_mutex_unlock(&mutex_);
-        return true;
+        pthread_cond_broadcast(&cond_empty_);
     }
 
     void close()
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         is_closed_ = true;
-        pthread_mutex_unlock(&mutex_);
+        pthread_cond_broadcast(&cond_empty_);
+    }
+
+    size_t consumers_count()
+    {
+        return consumers_count_;
+    }
+
+    void add_consumer()
+    {
+        PthreadMutexLock lock(&mutex_);
+        ++consumers_count_;
+    }
+
+    void remove_consumer()
+    {
+        PthreadMutexLock lock(&mutex_);
+        if (consumers_count_ == 1)
+        {
+            pthread_cond_broadcast(&cond_full_);
+        }
+        --consumers_count_;
     }
 
     ~MessageQueue()
     {
         pthread_mutex_destroy(&mutex_);
-        pthread_cond_destroy(&cond_);
+        pthread_cond_destroy(&cond_empty_);
+        pthread_cond_destroy(&cond_full_);
     }
 
 private:
     std::queue<Message> messages_;
     const size_t max_size_;
     pthread_mutex_t mutex_;
-    pthread_cond_t cond_;
-    const size_t max_retries_;
+    pthread_cond_t cond_empty_;
+    pthread_cond_t cond_full_;
     bool is_closed_;
+    size_t consumers_count_;
 
     bool empty()
     {
@@ -144,21 +191,19 @@ public:
 
     void wait()
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         while (!status_)
         {
             pthread_cond_wait(&cond_, &mutex_);
         }
-        pthread_mutex_unlock(&mutex_);
     }
 
     void notify()
     {
         pthread_barrier_wait(&barrier_);
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         status_ = true;
         pthread_cond_broadcast(&cond_);
-        pthread_mutex_unlock(&mutex_);
     }
 
     ~ConsumerWaiter()
@@ -180,29 +225,26 @@ class ProducerFinishChecker
 public:
     bool is_finished()
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         auto ret = is_finished_;
-        pthread_mutex_unlock(&mutex_);
         return ret;
     }
 
     void set_finish()
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         is_finished_ = true;
         while (!is_read_)
         {
             pthread_cond_wait(&cond_, &mutex_);
         }
-        pthread_mutex_unlock(&mutex_);
     }
 
     void confirm_read()
     {
-        pthread_mutex_lock(&mutex_);
+        PthreadMutexLock lock{&mutex_};
         is_read_ = true;
         pthread_cond_broadcast(&cond_);
-        pthread_mutex_unlock(&mutex_);
     }
 
     ~ProducerFinishChecker()
@@ -218,13 +260,6 @@ private:
     pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
 };
 
-int get_last_error() {
-    return tls_last_error;
-}
-
-void set_last_error(int code) {
-    tls_last_error = code;
-}
 
 struct ProducerData
 {
@@ -243,12 +278,8 @@ void* producer_routine(void* arg) {
     waiter->wait();
 
     // read data, loop through each value and update the value, notify consumer, wait for consumer to process
-    std::string numbers_string;
-    std::getline(std::cin, numbers_string);
-    std::stringstream numbers_stream(numbers_string);
-
     int number;
-    while (numbers_stream >> number)
+    while (std::cin >> number && link->consumers_count() > 0)
     {
         link->put(number);
     }
@@ -258,6 +289,13 @@ void* producer_routine(void* arg) {
 
     pthread_exit(nullptr);
 }
+
+
+struct ThreadResult
+{
+    int error_code;
+    int result;
+};
 
 struct ConsumerData
 {
@@ -283,6 +321,7 @@ void* consumer_routine(void* arg) {
     std::mt19937 gen{rd()};
     std::uniform_int_distribution<unsigned int> dis(0, max_sleep_millis);
 
+    link->add_consumer();
     waiter->notify();
 
     using LinkState = MessageQueue<int>::LinkState;
@@ -298,15 +337,16 @@ void* consumer_routine(void* arg) {
         }
         if (get_last_error() != NOERROR)
         {
-            data->out = ThreadResult{get_last_error(), sum.get()};
-            pthread_exit(nullptr);
+            break;
         }
         usleep(dis(gen) * 1000);
     }
 
+    link->remove_consumer();
     data->out = ThreadResult{get_last_error(), sum.get()};
     pthread_exit(nullptr);
 }
+
 
 struct InterrupterData
 {
@@ -341,6 +381,7 @@ void* interrupter_routine(void* arg) {
     pthread_exit(nullptr);
 }
 
+
 int handle_error(int err_code)
 {
     switch (err_code)
@@ -356,15 +397,15 @@ int handle_error(int err_code)
 
 // start N threads and wait until they're done
 // return aggregated sum of values
-int run_threads(size_t number_of_threads, size_t consumer_max_sleep_millis) {
-    if (number_of_threads < 3)
+int run_threads(size_t number_of_consumers_threads, size_t consumer_max_sleep_millis) {
+    if (number_of_consumers_threads == 0)
     {
-        std::cout << "number_of_threads should be >= 3" << std::endl;
-        return 0;
+        std::cerr << "number_of_consumers_threads should be > 0" << std::endl;
+        return ZERO_CONSUMERS_ERROR;
     }
 
-    MessageQueue<int> link{2};
-    ConsumerWaiter waiter(number_of_threads - 2);
+    MessageQueue<int> link{MESSAGE_QUEUE_MAX_SIZE};
+    ConsumerWaiter waiter(number_of_consumers_threads);
     ProducerFinishChecker producer_finish_checker{};
 
     pthread_t producer_thread;
@@ -372,10 +413,10 @@ int run_threads(size_t number_of_threads, size_t consumer_max_sleep_millis) {
     pthread_create(&producer_thread, nullptr, producer_routine, static_cast<void*>(&producer_data));
 
     std::vector<pthread_t> consumer_threads;
-    consumer_threads.reserve(number_of_threads - 2);
+    consumer_threads.reserve(number_of_consumers_threads);
     std::vector<ConsumerData> consumer_data_vec;
-    consumer_data_vec.reserve(number_of_threads - 2);
-    for (size_t i = 0; i < number_of_threads - 2; ++i)
+    consumer_data_vec.reserve(number_of_consumers_threads);
+    for (size_t i = 0; i < number_of_consumers_threads; ++i)
     {
         consumer_data_vec.push_back(ConsumerData{&waiter, &link, consumer_max_sleep_millis});
         consumer_threads.emplace_back();
@@ -388,11 +429,11 @@ int run_threads(size_t number_of_threads, size_t consumer_max_sleep_millis) {
     pthread_create(&interrupter_thread, nullptr, interrupter_routine, static_cast<void*>(&interrupter_data));
 
     pthread_join(producer_thread, nullptr);
+    pthread_join(interrupter_thread, nullptr);
     for (auto const& thread : consumer_threads)
     {
         pthread_join(thread, nullptr);
     }
-    pthread_join(interrupter_thread, nullptr);
 
     OverflowAwareInt sum{0};
     for (auto const& consumer_data : consumer_data_vec)
@@ -419,7 +460,7 @@ int run_threads(size_t number_of_threads, size_t consumer_max_sleep_millis) {
 }
 
 int main(int argc, char** argv) {
-    size_t number_of_threads = std::stoul(std::string(argv[1]));
+    size_t number_of_consumers_threads = std::stoul(std::string(argv[1]));
     size_t consumer_max_sleep_millis = std::stoul(std::string(argv[2]));
-    return run_threads(number_of_threads, consumer_max_sleep_millis);
+    return run_threads(number_of_consumers_threads, consumer_max_sleep_millis);
 }
