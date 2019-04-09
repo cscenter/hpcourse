@@ -64,7 +64,7 @@ private:
 class my_guard_lock {
 public:
   my_guard_lock(pthread_mutex_t &lock) :
-	 lock(lock) {
+     lock(lock) {
     pthread_mutex_lock(&lock)
   }
 
@@ -96,6 +96,24 @@ pthread_cond_t produced_happened_cond;
 pthread_cond_t consumed_happened_cond;
 pthread_mutex_t shared_data_mtx;
 
+void inline check_error(int error_code, const char *msg)
+{
+    if(error_code)
+    {
+        std::cerr << "Error #" << errno << "! " << msg << std::endl;
+        exit(-1);
+    }
+}
+
+void inline check_error_thread (int error_code, const char *msg)
+{
+    if(error_code)
+    {
+        std::cerr << "Error #" << errno << "! " << msg << std::endl;
+        pthread_exit(NULL);
+    }
+}
+
 bool inline check_overflow(int sum, int d)
 {
     return sum > INT32_MAX - d;
@@ -125,7 +143,7 @@ void set_last_error(int code)
         if(pthread_setspecific(last_error_key, error_ptr))
         {
             std::cerr << " pthread_setspecific is failed" << std::endl;
-            pthread_exit((void *)0);
+            pthread_exit(NULL);
         }
     }
     *error_ptr = code;
@@ -182,7 +200,7 @@ void *consumer_routine(void *arg)
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); // If a cancellation request is received, it is blocked until cancelability is enabled.
     set_last_error(NOERROR);
 
-    /*[+] process*/
+    //[+] process
     while(true)
     {
         pthread_mutex_lock(&shared_data_mtx);
@@ -231,8 +249,7 @@ void *consumer_routine(void *arg)
             nanosleep(&sleeptime, NULL);
         }
     }
-
-    /*[-] process*/
+    //[-] process
 
     consumer_result *result = new consumer_result;
     result->error_code = get_last_error();
@@ -246,7 +263,10 @@ void *consumer_interruptor_routine(void *arg)
     // wait for consumers to start
     // interrupt random consumer while producer is running
 
-    consumer_started.wait();
+    consumer_started.wait(); // potential problem, event signals at least one consumer is ready,
+    // but consumers can be unfilled
+    // pthread_cancel can cancel tid=0
+
     auto consumers = reinterpret_cast<std::vector<pthread_t> *>(arg);
     while (!is_stop_interruptor)
     {
@@ -273,53 +293,44 @@ int run_threads(size_t number_consumers_threads)
         return -1;
     }
 
-    if(pthread_key_create(&last_error_key, tls_destructor))
-    {
-        std::cerr << "Error in pthread_key_create" << std::endl;
-        return -1;
-    }
-
-    pthread_mutex_init( &shared_data_mtx, NULL );
-    pthread_cond_init( &produced_happened_cond, NULL );
-    pthread_cond_init( &consumed_happened_cond, NULL );
+    check_error(pthread_key_create(&last_error_key, tls_destructor), "pthread_key_create");
+    check_error(pthread_mutex_init( &shared_data_mtx, NULL ), "pthread_mutex_init");
+    check_error(pthread_cond_init( &produced_happened_cond, NULL ), "pthread_cond_init");
+    check_error(pthread_cond_init( &consumed_happened_cond, NULL ), "pthread_cond_init");
 
     // [-] initializing
 
 
-    /*[+] Creating threads*/
+    //[+] Creating threads
 
     pthread_t producer_tid;
     pthread_t interr_tid;
 
     std::vector<pthread_t> consumers(number_consumers_threads);
-    pthread_create(&producer_tid, NULL, producer_routine, &shared_data);
-    pthread_create(&interr_tid, NULL, consumer_interruptor_routine, &consumers);
+    check_error (pthread_create(&producer_tid, NULL, producer_routine, &shared_data), "pthread_create producer");
+    check_error( pthread_create(&interr_tid, NULL, consumer_interruptor_routine, &consumers), "pthread_create producer");
     active_consumers = number_consumers_threads;
     for(size_t i = 0; i < number_consumers_threads; ++i)
     {
-        if (pthread_create(&consumers[i], NULL, consumer_routine, &shared_data))
-        {
-            std::cerr << "Error in pthread_create" << std::endl;
-            return -1;
-        }
+        check_error (pthread_create(&consumers[i], NULL, consumer_routine, &shared_data), "pthread_create consumers");
     }
-    /*[-] Creating threads*/
+    //[-] Creating threads
 
 
-    /*[+] Waiting producer thread*/
+    //[+] Waiting producer thread
     void *status;
-    pthread_join(producer_tid, &status);
-    pthread_join(interr_tid, NULL);
-    /*[-] Waiting producer threads*/
+    check_error(pthread_join(producer_tid, &status), "pthread_join");
+    check_error(pthread_join(interr_tid, NULL), "pthread_join");
+    //[-] Waiting producer threads
 
 
-    /*[+] Aggregating result*/
+    // [+] Aggregating result
     int result_code = NOERROR;
     int sum = 0;
     for (size_t i = 0; i < number_consumers_threads; ++i)
     {
         consumer_result *res;
-        pthread_join(consumers[i], (void **) &res);
+        check_error(pthread_join(consumers[i], (void **) &res), "pthread_join");;
         if(!res)
         {
             //error
@@ -341,7 +352,7 @@ int run_threads(size_t number_consumers_threads)
         }
         delete res; // anyway we have to delete results of ALL threads
     }
-    /*[-] Aggregating result*/
+    // [-] Aggregating result
 
     if(result_code == NOERROR)
         std::cout <<  sum << std::endl;
