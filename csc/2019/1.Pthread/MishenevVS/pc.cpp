@@ -13,7 +13,7 @@
 pthread_key_t last_error_key;
 
 
-class my_event
+class my_event // same as pthread_barrier with count 2
 {
 public:
     my_event( ) :
@@ -49,9 +49,9 @@ public:
 
     void reset()
     {
-        pthread_mutex_lock( &mutex );
+        //pthread_mutex_lock( &mutex );
         wakeup = false;
-        pthread_mutex_unlock( &mutex );
+        //pthread_mutex_unlock( &mutex );
     }
 
 private:
@@ -148,10 +148,7 @@ void set_last_error(int code)
         }
     }
     *error_ptr = code;
-    /* if(pthread_setspecific(last_error_key, (void *)code)) {
-      std::cerr << " pthread_setspecific is failed" << std::endl;
-      pthread_exit((void*)-1);
-     }*/
+    // pthread_setspecific(last_error_key, (void *)code))
 }
 
 
@@ -162,9 +159,10 @@ void *producer_routine(void *arg)
     int *shared_data = reinterpret_cast<int *>(arg);
     consumer_started.wait();
     int number = 0;
+    pthread_mutex_lock(&shared_data_mtx);
     while(std::cin >> number)
     {
-        pthread_mutex_lock(&shared_data_mtx);
+        //pthread_mutex_lock(&shared_data_mtx);
         while(!is_consumed_data)
         {
             pthread_cond_wait(&consumed_happened_cond, &shared_data_mtx);
@@ -175,13 +173,13 @@ void *producer_routine(void *arg)
         // check - is there at least one consumer?
         if(!active_consumers)
         {
-            pthread_mutex_unlock(&shared_data_mtx);
+            //pthread_mutex_unlock(&shared_data_mtx);
             break;
         }
         pthread_cond_signal(&produced_happened_cond);
-        pthread_mutex_unlock(&shared_data_mtx);
+        //pthread_mutex_unlock(&shared_data_mtx);
     }
-    pthread_mutex_lock(&shared_data_mtx);
+    //pthread_mutex_lock(&shared_data_mtx);
     is_stop_producer = true;
     is_stop_interruptor = true;
     pthread_cond_broadcast(&produced_happened_cond);
@@ -265,9 +263,9 @@ void *consumer_interruptor_routine(void *arg)
     // interrupt random consumer while producer is running
 
     //consumer_started.wait(); // potential problem, event signals at least one consumer is ready,
-    // but consumers can be unfilled
-    // pthread_cancel can cancel tid=0
+    // but consumers can be unfilled, pthread_cancel can cancel tid=0
     // thence we can run the interruptor after creating of consumers
+    // either or use barrier
 
     auto consumers = reinterpret_cast<std::vector<pthread_t> *>(arg);
     while (!is_stop_interruptor)
