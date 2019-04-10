@@ -9,16 +9,22 @@ using namespace std;
 #define NOERROR 0
 #define OVERFLOW 1
 
+int consumers_count;
 int max_sleep_time;
 
 int storage = 0;
 bool storage_updated = false;
+bool producer_done = false;
 
+// producer/consumers sync
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t produced = PTHREAD_COND_INITIALIZER;
 pthread_cond_t consumed = PTHREAD_COND_INITIALIZER;
 
-bool producer_done = false;
+// consumers/interruptor start sync
+int started_consumers = 0;
+pthread_mutex_t on_start_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t consumers_started = PTHREAD_COND_INITIALIZER;
 
 thread_local int error = NOERROR;
 
@@ -82,6 +88,15 @@ void* producer_routine(void* arg) {
 }
 
 void* consumer_routine(void* arg) {
+    // leaving no chance for interruptor
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, nullptr);
+
+    // update count and notify interruptor
+    pthread_mutex_lock(&on_start_mutex);
+    started_consumers++;
+    pthread_cond_signal(&consumers_started);
+    pthread_mutex_unlock(&on_start_mutex);
+
     int* storage_arg = static_cast<int*>(arg);
     int sum = 0;
 
@@ -119,27 +134,40 @@ void* consumer_routine(void* arg) {
 }
 
 void* consumer_interruptor_routine(void* arg) {
-    // wait for consumers to start
+    pthread_mutex_lock(&on_start_mutex);
 
-    // interrupt random consumer while producer is running
+    // wait until all consumers are started
+    while (started_consumers < consumers_count) {
+        pthread_cond_wait(&consumers_started, &on_start_mutex);
+    }
+
+    pthread_mutex_unlock(&on_start_mutex);
+
+    auto consumers = static_cast<pthread_t*>(arg);
+    while (!producer_done) {
+        pthread_cancel(consumers[rand() % consumers_count]);
+    }
 }
 
-int run_threads(int count) {
+int run_threads() {
     int sum = 0;
 
-    // create producer thread
     pthread_t producer;
     pthread_create(&producer, nullptr, producer_routine, &storage);
-    // create consumer threads
-    pthread_t consumers[count];
-    for (int i = 0; i < count; i++) {
+
+    pthread_t consumers[consumers_count];
+    for (int i = 0; i < consumers_count; i++) {
         pthread_create(&consumers[i], nullptr, consumer_routine, &storage);
     }
 
-    // wait until producer and consumers finish the work
+    pthread_t interruptor;
+    pthread_create(&interruptor, nullptr, consumer_interruptor_routine, consumers);
+
+    // wait until all threads finish the work
     // if one of the consumers returns OVERFLOW we don't wait for others
     pthread_join(producer, nullptr);
-    for (int i = 0; i < count; i++) {
+    pthread_join(interruptor, nullptr);
+    for (int i = 0; i < consumers_count; i++) {
         Result* result;
         pthread_join(consumers[i], (void**) &result);
         if (result->error == OVERFLOW || checked_add(sum, result->partial_sum, &sum)) {
@@ -153,8 +181,8 @@ int run_threads(int count) {
 }
 
 int main(int argc, char** argv) {
-    int consumers_count = atoi(argv[1]);
+    consumers_count = atoi(argv[1]);
     max_sleep_time = atoi(argv[2]);
 
-    return run_threads(consumers_count);
+    return run_threads();
 }
