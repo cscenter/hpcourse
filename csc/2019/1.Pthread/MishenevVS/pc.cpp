@@ -1,10 +1,10 @@
 #include <iostream>
 #include <limits.h>
-#include <cstdlib> // for rand
+#include <stdlib.h> // for rand_r
 #include <time.h> // for nanosleep
 #include <vector>
 #include <pthread.h>
-
+#include <errno.h>
 
 #define NOERROR 0
 #define OVERFLOW 1
@@ -82,6 +82,7 @@ struct consumer_result
     int partial_sum;
 };
 
+static unsigned int seed;
 
 my_event consumer_started;
 size_t consumer_max_sleep = 0;
@@ -244,7 +245,7 @@ void *consumer_routine(void *arg)
 
         if(consumer_max_sleep)
         {
-            int msec = std::rand() % (consumer_max_sleep + 1);
+            int msec = rand_r(&seed) % (consumer_max_sleep + 1);
             struct timespec sleeptime = {0, msec * 1000};
             nanosleep(&sleeptime, NULL);
         }
@@ -263,16 +264,17 @@ void *consumer_interruptor_routine(void *arg)
     // wait for consumers to start
     // interrupt random consumer while producer is running
 
-    consumer_started.wait(); // potential problem, event signals at least one consumer is ready,
+    //consumer_started.wait(); // potential problem, event signals at least one consumer is ready,
     // but consumers can be unfilled
     // pthread_cancel can cancel tid=0
+    // thence we can run the interruptor after creating of consumers
 
     auto consumers = reinterpret_cast<std::vector<pthread_t> *>(arg);
     while (!is_stop_interruptor)
     {
-        size_t rand_ind = std::rand() % consumers->size();
+        size_t rand_ind = rand_r(&seed) % consumers->size();
         pthread_t rand_tid = (*consumers)[rand_ind];
-        pthread_cancel(rand_tid);
+        pthread_cancel(rand_tid); // !!! we can cancel already terminated thread
     }
 
     return nullptr;
@@ -287,6 +289,7 @@ int run_threads(size_t number_consumers_threads)
     // [+] initializing
     int shared_data;
 
+    seed = time(0);
     if(number_consumers_threads < 1)
     {
         std::cerr << "Incorrect number of consumers threads" << std::endl;
@@ -308,12 +311,12 @@ int run_threads(size_t number_consumers_threads)
 
     std::vector<pthread_t> consumers(number_consumers_threads);
     check_error (pthread_create(&producer_tid, NULL, producer_routine, &shared_data), "pthread_create producer");
-    check_error( pthread_create(&interr_tid, NULL, consumer_interruptor_routine, &consumers), "pthread_create producer");
     active_consumers = number_consumers_threads;
     for(size_t i = 0; i < number_consumers_threads; ++i)
     {
         check_error (pthread_create(&consumers[i], NULL, consumer_routine, &shared_data), "pthread_create consumers");
     }
+    check_error( pthread_create(&interr_tid, NULL, consumer_interruptor_routine, &consumers), "pthread_create interruptor");
     //[-] Creating threads
 
 
@@ -353,6 +356,12 @@ int run_threads(size_t number_consumers_threads)
         delete res; // anyway we have to delete results of ALL threads
     }
     // [-] Aggregating result
+
+    // destroy
+    pthread_mutex_destroy(&shared_data_mtx);
+    pthread_cond_destroy(&produced_happened_cond);
+    pthread_cond_destroy(&consumed_happened_cond);
+
 
     if(result_code == NOERROR)
         std::cout <<  sum << std::endl;
