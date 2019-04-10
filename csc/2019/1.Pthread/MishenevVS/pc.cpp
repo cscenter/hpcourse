@@ -13,7 +13,7 @@
 pthread_key_t last_error_key;
 
 
-class my_event // same as pthread_barrier with count 2
+class my_event // same as pthread_barrier with count 1
 {
 public:
     my_event( ) :
