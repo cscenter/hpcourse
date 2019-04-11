@@ -117,27 +117,27 @@ void inline check_error_thread (int error_code, const char *msg)
 
 bool inline check_overflow(int sum, int d)
 {
-    return sum > INT32_MAX - d;
+    return (d > 0 && sum > INT32_MAX - d) || (d < 0 && sum < INT32_MIN - d);
 }
 
 void tls_destructor(void *value)
 {
-    delete (int *)value;
+    delete static_cast<int *>(value);
     pthread_setspecific(last_error_key, NULL);
 }
 
 int get_last_error()
 {
     // return per-thread error code
-    return *reinterpret_cast<int *>(pthread_getspecific(last_error_key));
-    //return reinterpret_cast<int>(pthread_getspecific(last_error_key));
+    return *static_cast<int *>(pthread_getspecific(last_error_key));
+
 }
 
 
 void set_last_error(int code)
 {
     // set per-thread error code
-    int *error_ptr = (int *)pthread_getspecific(last_error_key);
+    int *error_ptr = static_cast<int *>(pthread_getspecific(last_error_key));
     if(error_ptr == 0)
     {
         error_ptr = new int();
@@ -156,7 +156,7 @@ void *producer_routine(void *arg)
 {
     // wait for consumer to start
     // read data, loop through each value and update the value, notify consumer, wait for consumer to process
-    int *shared_data = reinterpret_cast<int *>(arg);
+    int *shared_data = static_cast<int *>(arg);
     consumer_started.wait();
     int number = 0;
     pthread_mutex_lock(&shared_data_mtx);
@@ -194,17 +194,19 @@ void *consumer_routine(void *arg)
     // for every update issued by producer, read the value and add to sum
     // return pointer to result (for particular consumer)
 
-    int *shared_data = reinterpret_cast<int *>(arg);
+    int *shared_data = static_cast<int *>(arg);
     int local_sum = 0, local_copy = 0;
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); // If a cancellation request is received, it is blocked until cancelability is enabled.
     set_last_error(NOERROR);
+
+    consumer_started.trigger(); // signal to producer and interruptor
+    // its a guarantee there is at least one running consumer
 
     //[+] process
     while(true)
     {
         pthread_mutex_lock(&shared_data_mtx);
-        consumer_started.trigger(); // signal to producer and interruptor
-        // its a guarantee there is at least one running consumer
+
 
         while(!is_updated_value && !is_stop_producer)   // also check the producing end
         {
@@ -216,18 +218,19 @@ void *consumer_routine(void *arg)
             is_consumed_data = true;
             is_updated_value = false;
             local_copy = *shared_data;
+            if (check_overflow(local_sum, local_copy))   //check in mutex else after consumed signal  there is not a gurantee active consumers
+            {
+                active_consumers--;
+                set_last_error(OVERFLOW);
+            }
         }
         else     // is_stop_producer =true - run out, nothing to do
         {
-            pthread_mutex_unlock(&shared_data_mtx);
             active_consumers--; // is protected by shared_data_mtx
+            pthread_mutex_unlock(&shared_data_mtx);
             break;
         }
-        if (check_overflow(local_sum, local_copy))   //check in mutex else after consumed signal  there is not a gurantee active consumers
-        {
-            active_consumers--;
-            set_last_error(OVERFLOW);
-        }
+
 
         //[-]
         pthread_cond_signal(&consumed_happened_cond); // or pthread_cond_broadcast(&consumed_happened_cond)
@@ -267,7 +270,7 @@ void *consumer_interruptor_routine(void *arg)
     // thence we can run the interruptor after creating of consumers
     // either or use barrier
 
-    auto consumers = reinterpret_cast<std::vector<pthread_t> *>(arg);
+    auto consumers = static_cast<std::vector<pthread_t> *>(arg);
     while (!is_stop_interruptor)
     {
         size_t rand_ind = rand_r(&seed) % consumers->size();
