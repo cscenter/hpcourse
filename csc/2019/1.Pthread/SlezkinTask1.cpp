@@ -2,6 +2,8 @@
 #include <iostream>
 #include <unistd.h>
 #include <cstdlib>
+#include <stdlib.h>
+#include <fstream>
 #define NOERROR 0
 #define OVERFLOW 1
 
@@ -15,9 +17,9 @@ int consumer_count = 0;
 int consumer_exist = 0;
 bool producer_finished = false;
 bool update_value = false;
-bool first_round = true;
-
+static unsigned int timer;
 thread_local int error = NOERROR;
+//std::ifstream inFile;
 
 struct return_struct {
     int sum;
@@ -39,7 +41,7 @@ bool check_overflow(int a, int b) {
 void* producer_routine(void* arg) {
 
     int data = 0;
-    while((consumer_exist || first_round) && std::cin >> data) {
+    while(/*inFile*/std::cin >> data) {
 
         pthread_mutex_lock(&mutex);
 
@@ -60,7 +62,6 @@ void* producer_routine(void* arg) {
     }
 
     pthread_mutex_lock(&mutex);
-    update_value = true;
     producer_finished = true;
     pthread_cond_signal(&consume);
     pthread_mutex_unlock(&mutex);
@@ -73,18 +74,16 @@ void* consumer_routine(void* arg) {
     set_last_error(NOERROR);
     int sum = 0;
     int *value = (int*)arg;
-    consumer_exist++;
 
     while(true) {
         pthread_mutex_lock(&mutex);
 
-        first_round = false;
-
-        while(!update_value) {
+        while(!update_value && !producer_finished) {
             pthread_cond_wait(&consume, &mutex);
         }
 
-        if(producer_finished) {
+        if(!update_value && producer_finished) {
+            consumer_exist--;
             pthread_cond_signal(&consume);
             pthread_mutex_unlock(&mutex);
             break;
@@ -93,6 +92,7 @@ void* consumer_routine(void* arg) {
         if (check_overflow(sum, *value)) {
             set_last_error(OVERFLOW);
             update_value = false;
+            consumer_exist--;
             pthread_cond_signal(&produce);
             pthread_mutex_unlock(&mutex);
             break;
@@ -103,9 +103,8 @@ void* consumer_routine(void* arg) {
 
         pthread_cond_signal(&produce);
         pthread_mutex_unlock(&mutex);
-        usleep(std::rand() % (max_consumer_sleep + 1));
+        usleep(rand_r(&timer) % (max_consumer_sleep + 1));
     }
-    consumer_exist--;
     auto *res = (return_struct*)malloc(sizeof(return_struct));
     *res = {sum,get_last_error()};
     pthread_exit(res);
@@ -113,17 +112,8 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
 
-    while(true) {
-        pthread_mutex_lock(&mutex);
-
-        if (producer_finished) {
-            pthread_mutex_unlock(&mutex);
-            pthread_cancel(((pthread_t *)(arg))[rand()%(consumer_count)]);
-            break;
-        }
-
-        pthread_mutex_unlock(&mutex);
-        pthread_cancel(((pthread_t *)(arg))[rand()%(consumer_count)]);
+    while(!producer_finished) {
+        pthread_cancel(((pthread_t *)(arg))[rand_r(&timer)%consumer_count]);
     }
 
     pthread_exit(nullptr);
@@ -131,15 +121,17 @@ void* consumer_interruptor_routine(void* arg) {
 
 int run_threads(int* err) {
 
+    timer = time(0);
     pthread_mutex_init(&mutex, nullptr);
     pthread_cond_init(&produce, nullptr);
     pthread_cond_init(&consume, nullptr);
     pthread_t consumer[consumer_count], producer, interruptor;
 
     pthread_create(&producer, nullptr, producer_routine, nullptr);
+    consumer_exist = consumer_count;
     for(int i = 0; i < consumer_count; i++)
         pthread_create(&consumer[i], nullptr, consumer_routine, &value);
-    pthread_create(&interruptor, nullptr, consumer_interruptor_routine, (void *)consumer);
+    pthread_create(&interruptor, nullptr, consumer_interruptor_routine, &consumer);
 
     pthread_join(producer, nullptr);
     int common_sum = 0;
@@ -165,6 +157,7 @@ int run_threads(int* err) {
 int main(int argc, char *argv[]) {
     consumer_count = atoi(argv[1]);
     max_consumer_sleep = atoi(argv[2]);
+    //inFile.open("input.txt");
     int err = 0;
     int ans = run_threads(&err);
     if (err) {
