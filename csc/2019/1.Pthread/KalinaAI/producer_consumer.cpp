@@ -23,16 +23,14 @@ int sleep_time = 0;
 
 bool ready = false;
 bool end = false;
-pthread_mutex_t val_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  val_cond = PTHREAD_COND_INITIALIZER;
+bool done = true;
 
-bool started = false;
+pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  val_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t  done_cond = PTHREAD_COND_INITIALIZER;
+
 pthread_mutex_t start_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  start_cond = PTHREAD_COND_INITIALIZER;
-
-bool done = false;
-pthread_mutex_t done_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  done_cond = PTHREAD_COND_INITIALIZER;
 
 pthread_key_t error_code;
 
@@ -41,55 +39,50 @@ int get_last_error() {
 }
 
 void set_last_error(int code) {
-  pthread_setspecific(error_code, &code);
+  int* error_code_ptr = (int*)pthread_getspecific(error_code);
+  if(error_code_ptr == 0) {
+      error_code_ptr = new int();
+      pthread_setspecific(error_code, error_code_ptr);
+  }
+  *error_code_ptr = code;
 }
 
 bool check_overflow(int sum, int value) {
-  return sum > INT32_MAX - value;
-}
-
-void wait_start() {
-  pthread_mutex_lock(&start_mutex);
-  if (!started) {
-    pthread_cond_wait(&start_cond, &start_mutex);
-  }
-  pthread_mutex_unlock(&start_mutex);
-}
-
-void work_done() {
-  ready = false;
-  pthread_mutex_unlock(&val_mutex);
-  pthread_mutex_lock(&done_mutex);
-  done = true;
-
-  pthread_cond_signal(&done_cond);
-  pthread_mutex_unlock(&done_mutex);
+  return value > 0 && sum > INT32_MAX - value || value < 0 && sum < INT32_MIN - value;
 }
 
 void* producer_routine(void* arg) {
-  wait_start();
+  pthread_mutex_lock(&start_mutex);
+  if (active_threads == 0) {
+    pthread_cond_wait(&start_cond, &start_mutex);
+  }
+  pthread_mutex_unlock(&start_mutex);
 
   int num;
-  while (std::cin >> num && active_threads > 0)
-  {
-    pthread_mutex_lock(&val_mutex);
+  while (std::cin >> num) {
+    pthread_mutex_lock(&data_mutex);
+
+    while(!done) {
+      pthread_cond_wait(&done_cond, &data_mutex);
+    }
+
+    done = false;
     value = num;
     ready = true;
-    pthread_cond_signal(&val_cond);
-    pthread_mutex_unlock(&val_mutex);
 
-    pthread_mutex_lock(&done_mutex);
-    while (!done && active_threads > 0) {
-      pthread_cond_wait(&done_cond, &done_mutex);
+    if (active_threads == 0) {
+      pthread_mutex_unlock(&data_mutex);
+      break;
     }
-    done = false;
-    pthread_mutex_unlock(&done_mutex);
+
+    pthread_cond_signal(&val_cond);
+    pthread_mutex_unlock(&data_mutex);
   }
 
-  pthread_mutex_lock(&val_mutex);
+  pthread_mutex_lock(&data_mutex);
   end = true;
   pthread_cond_broadcast(&val_cond);
-  pthread_mutex_unlock(&val_mutex);
+  pthread_mutex_unlock(&data_mutex);
 }
  
 void* consumer_routine(void* arg) {
@@ -99,7 +92,6 @@ void* consumer_routine(void* arg) {
   std::uniform_int_distribution<int> uni(0, sleep_time);
 
   pthread_mutex_lock(&start_mutex);
-  started = true;
   active_threads++;
   pthread_cond_signal(&start_cond);
   pthread_mutex_unlock(&start_mutex);
@@ -108,30 +100,35 @@ void* consumer_routine(void* arg) {
   int local_sum = 0;
 
   while (true) {
-    pthread_mutex_lock(&val_mutex);
+    pthread_mutex_lock(&data_mutex);
+
     while (!ready && !end) {
-      pthread_cond_wait(&val_cond, &val_mutex);
+      pthread_cond_wait(&val_cond, &data_mutex);
     }
 
-    if (end) {
-      pthread_mutex_unlock(&val_mutex);
+    if (!ready && end) {
+      active_threads--;
+      pthread_mutex_unlock(&data_mutex);
       break;
     }
 
-    if (ready) {
-      if (check_overflow(local_sum, *(data))) {
-        set_last_error(OVERFLOW_ERROR);
-        work_done();
-        break;
-      }
-      local_sum += *(data);
-    }
+    ready = false;
+    done = true;
 
-    work_done();
+    if (check_overflow(local_sum, *(data))) {
+      set_last_error(OVERFLOW_ERROR);
+      active_threads--;
+      pthread_cond_signal(&done_cond);
+      pthread_mutex_unlock(&data_mutex);
+      break;
+    }
+    local_sum += *(data);
+
+    pthread_cond_signal(&done_cond);
+    pthread_mutex_unlock(&data_mutex);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(uni(rng)));
   }
-  active_threads--;
 
   Result *res = (Result *) malloc(sizeof(Result));
   res->sum = local_sum;
@@ -140,7 +137,6 @@ void* consumer_routine(void* arg) {
 }
  
 void* consumer_interruptor_routine(void* arg) {
-  wait_start();
   std::uniform_int_distribution<int> uni(0, cons_count - 1);
 
   pthread_t *cons_id = (pthread_t *) arg;
@@ -181,6 +177,12 @@ int run_threads(int* result_code) {
     }
     free(res);
   }
+
+  pthread_mutex_destroy(&start_mutex);
+  pthread_mutex_destroy(&data_mutex);
+  pthread_cond_destroy(&start_cond);
+  pthread_cond_destroy(&val_cond);
+  pthread_cond_destroy(&done_cond);
 
   return result;
 }
