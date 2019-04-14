@@ -24,7 +24,7 @@ bool end_reading_data = false;
 
 pthread_mutex_t consumer_to_producer_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t consumer_to_producer_cond = PTHREAD_COND_INITIALIZER;
-bool proccesed_data = false;
+bool processed_data = false;
 
 int get_last_error() {
     // return per-thread error code
@@ -66,10 +66,10 @@ void* producer_routine(void* arg) {
         pthread_mutex_unlock(&producer_to_consumer_mutex);
 
         pthread_mutex_lock(&consumer_to_producer_mutex);
-        while (!proccesed_data) {
+        while (!processed_data) {
             pthread_cond_wait(&consumer_to_producer_cond, &consumer_to_producer_mutex);
         }
-        proccesed_data = false;
+        processed_data = false;
         pthread_mutex_unlock(&consumer_to_producer_mutex);
     }
     // notify all consumers about ending of reading
@@ -103,7 +103,7 @@ void* consumer_routine(void* arg) {
             pthread_mutex_unlock(&producer_to_consumer_mutex);
 
             pthread_mutex_lock(&consumer_to_producer_mutex);
-            proccesed_data = true;
+            processed_data = true;
             pthread_cond_signal(&consumer_to_producer_cond);
             pthread_mutex_unlock(&consumer_to_producer_mutex);
 
@@ -167,13 +167,15 @@ int run_threads() {
     for (int i = 0; i < consumers_count; ++i) {
         Result* result;
         pthread_join(consumers[i], (void **) &result);
-        if (result->error == OVERFLOW_ERROR || check_overflow(sum, result->sum)) {
-            std::cout << "overflow" << std::endl;
-            delete(result);
-            return 1;
-        }
-        sum += result->sum;
+        if (result->error == OVERFLOW_ERROR || check_overflow(sum, result->sum))
+            error = OVERFLOW_ERROR;
+        if (error != OVERFLOW_ERROR)
+            sum += result->sum;
         delete(result);
+    }
+    if (error == OVERFLOW_ERROR) {
+        std::cout << "overflow" << std::endl;
+        return 1;
     }
     std::cout << sum << std::endl;
     return 0;
