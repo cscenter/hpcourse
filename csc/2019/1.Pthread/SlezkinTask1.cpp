@@ -136,12 +136,13 @@ int run_threads(int* err) {
     pthread_join(producer, nullptr);
     int common_sum = 0;
     bool is_error = false;
-    return_struct* result = nullptr;
     for(int i = 0; i < consumer_count; i++) {
+        return_struct* result;
         pthread_join(consumer[i], (void **)&result);
         if ((*result).err) is_error = true;
         if (!is_error && check_overflow(common_sum, (*result).sum)) is_error = true;
         if (!is_error) common_sum += (*result).sum;
+        free(result);
     }
     pthread_join(interruptor, nullptr);
 
@@ -149,7 +150,6 @@ int run_threads(int* err) {
     pthread_cond_destroy(&produce);
     pthread_cond_destroy(&consume);
 
-    delete result;
     *err = is_error ? OVERFLOW : NOERROR;
     return common_sum;
 }
