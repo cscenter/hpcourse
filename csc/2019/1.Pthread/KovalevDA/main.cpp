@@ -171,9 +171,11 @@ int run_threads() {
         Result* result;
         pthread_join(consumers[i], (void**) &result);
         if (result->error == OVERFLOW || checked_add(sum, result->partial_sum, &sum)) {
+            delete result;
             cout << "overflow";
             return 1;
         }
+        delete result;
     }
 
     cout << sum << endl;
