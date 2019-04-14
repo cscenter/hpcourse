@@ -10,10 +10,10 @@
 
 using namespace std;
 
+//#define DEBUG
+
 #define NOERROR 0
 #define OVERFLOW 1
-int noerrorValue=NOERROR, overflowValue=OVERFLOW;
-int *noerrorPtr=&noerrorValue, *overflowPtr=&overflowValue;
 
 pthread_key_t errorKey;
 
@@ -38,53 +38,27 @@ struct interruptor_data {
 };
 
 int get_last_error() {
-  void* ptr = pthread_getspecific(errorKey);
-  if (ptr == overflowPtr){
-    return OVERFLOW;
-  } else if (ptr == noerrorPtr){
-    return NOERROR;
-  } else {
-    cout << "UNKNOWN CODE GET";
-    return -1;
-  }
+  return *((int*)pthread_getspecific(errorKey));
 }
 
 void set_last_error(int code) {
-  int* target;
-  if (code == OVERFLOW){
-    target = overflowPtr;
-  } else if (code == NOERROR){
-    target = noerrorPtr;
-  } else {
-    cout << "UNKNOWN CODE SET";
-    return;
-  }
-  pthread_setspecific(errorKey, (void*)target);
+  *((int*)pthread_getspecific(errorKey))=code;
 }
 
-void log(string msg){
-  // cout << msg << endl;
-  //this_thread::sleep_for(chrono::seconds(3));
+void log(const string& msg){
+  #ifdef DEBUG
+  cout << msg << endl;
+  this_thread::sleep_for(chrono::seconds(3));
+  #endif
 }
 
 
 void* producer_routine(void* arg) {
-  // wait for consumer to start
-  
-  // read data, loop through each value and update the value, notify consumer, wait for consumer to process
+  // no need to wait for consumers - just post value and wait for someone to read it
+
   sync_data* sync = (sync_data*)arg;
-
-  string rawInput;
-  getline(cin, rawInput);
-  stringstream stream(rawInput);
   int cur;
-
-  while(true) {
-    stream >> cur;
-    if(!stream){
-      break;
-    }
-    
+  while(cin >> cur) {
     pthread_mutex_lock(&sync->lock);
     log("producer locked");
 
@@ -120,6 +94,8 @@ void* consumer_routine(void* arg) {
   sync_data* sync = data->sync;
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+  int errorCodeStorage;
+  pthread_setspecific(errorKey, &errorCodeStorage);
   set_last_error(NOERROR);
   pthread_barrier_wait(&sync->consumersHold);
   
