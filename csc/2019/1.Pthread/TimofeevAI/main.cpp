@@ -75,6 +75,7 @@ void *consumer_routine(void *arg) {
     pthread_cond_signal(&consumer_started);
     pthread_mutex_unlock(&start_mutex);
     output* consumer_output = new output;
+    set_last_error(NOERROR);
     int local_sum = 0;
     while (true) {
         pthread_mutex_lock(&the_mutex);
