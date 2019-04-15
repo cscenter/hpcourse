@@ -185,7 +185,7 @@ int run_threads(int n_consumers, int max_consumer_sleep_time) {
         pthread_join(consumers[i], nullptr);
     }
 
-
+    std::cout << sum << std::endl;
     return *(int *)result;
 }
 
