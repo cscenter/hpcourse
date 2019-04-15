@@ -135,7 +135,7 @@ void *consumer_interruptor_routine(void *arg) {
 
 int run_threads() {
     int sum = 0;
-    status_code = NOERROR;
+    set_last_error(NOERROR);
     pthread_mutex_init(&the_mutex, NULL);
     pthread_cond_init(&condc, NULL);
     pthread_cond_init(&condp, NULL);
@@ -153,7 +153,7 @@ int run_threads() {
         pthread_join(threads[i], (void **)&out);
         if (
         out->status_code == OVERFLOW || check_overflow(sum, out->local_sum)) {
-            status_code = OVERFLOW;
+            set_last_error(OVERFLOW);
         }
         sum += out->local_sum;
     }
@@ -161,7 +161,7 @@ int run_threads() {
     pthread_cond_destroy(&condp);
     pthread_cond_destroy(&condc);
     pthread_mutex_destroy(&the_mutex);
-    if (status_code == OVERFLOW) {
+    if (get_last_error() == OVERFLOW) {
         std::cout << "overflow" << std::endl;
         return 1;
     }
