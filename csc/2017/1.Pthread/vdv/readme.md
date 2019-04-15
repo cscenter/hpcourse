@@ -1,4 +1,0 @@
-make
-
-make clean
-
