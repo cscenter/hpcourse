@@ -3,6 +3,8 @@
 #include <vector>
 #include <sstream>
 #include <unistd.h>
+#include <assert.h>
+#include <atomic>
 
 
 #define NOERROR 0
@@ -179,7 +181,7 @@ int start_producer_thread(pthread_t &producer_thread, update *current_update) {
   return 0;
 }
 
-result get_result(std::vector<pthread_t> &consumer_threads) {
+result get_result(const std::vector<pthread_t> &consumer_threads) {
   int sum = 0;
   for (auto & consumer_thread : consumer_threads) {
     void *res_ptr = nullptr;
