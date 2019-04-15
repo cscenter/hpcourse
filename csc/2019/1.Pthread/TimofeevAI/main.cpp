@@ -157,6 +157,7 @@ int run_threads() {
             set_last_error(OVERFLOW);
         }
         sum += out->local_sum;
+        delete out;
     }
     pthread_join(threads[1], NULL);
     pthread_cond_destroy(&condp);
