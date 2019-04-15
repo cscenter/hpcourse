@@ -25,7 +25,7 @@ struct output {
     int status_code;
 };
 
-thread_local output consumer_output;
+thread_local int status_code;
 
 int check_overflow(int a, int b) {
     int r = (uint)a + (uint)b;
@@ -33,11 +33,11 @@ int check_overflow(int a, int b) {
 }
 
 int get_last_error() {
-    return consumer_output.status_code;
+    return status_code;
 }
 
 void set_last_error(int code) {
-    consumer_output.status_code = code;
+    status_code = code;
 }
 
 void *producer_routine(void *arg) {
@@ -72,11 +72,10 @@ void *consumer_routine(void *arg) {
     pthread_mutex_lock(&start_mutex);
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     n_active_consumers++;
-    consumer_output.local_sum = 0;
-    consumer_output.status_code = NOERROR;
     pthread_cond_signal(&consumer_started);
     pthread_mutex_unlock(&start_mutex);
-
+    output* consumer_output = new output;
+    int local_sum = 0;
     while (true) {
         pthread_mutex_lock(&the_mutex);
         while (!is_value_new) {
@@ -89,12 +88,14 @@ void *consumer_routine(void *arg) {
                 else pthread_cond_signal(&condc);
 
                 pthread_mutex_unlock(&the_mutex);
-                pthread_exit(&consumer_output);
+                consumer_output->local_sum = local_sum;
+                consumer_output->status_code = get_last_error();
+                pthread_exit(consumer_output);
             }
             pthread_cond_wait(&condc, &the_mutex);
         }
 
-        if (check_overflow(consumer_output.local_sum, current_value)) {
+        if (check_overflow(local_sum, current_value)) {
             set_last_error(OVERFLOW);
             n_active_consumers--;
 
@@ -102,12 +103,13 @@ void *consumer_routine(void *arg) {
                 pthread_cond_signal(&condp);
             }
             else pthread_cond_signal(&condc);
-
             pthread_mutex_unlock(&the_mutex);
-            pthread_exit(&consumer_output);
+            consumer_output->local_sum = local_sum;
+            consumer_output->status_code = get_last_error();
+            pthread_exit(consumer_output);
         }
 
-        consumer_output.local_sum += current_value;
+        local_sum += current_value;
         is_value_new = false;
         pthread_cond_signal(&condp);
         pthread_mutex_unlock(&the_mutex);
@@ -133,6 +135,7 @@ void *consumer_interruptor_routine(void *arg) {
 
 int run_threads() {
     int sum = 0;
+    status_code = NOERROR;
     pthread_mutex_init(&the_mutex, NULL);
     pthread_cond_init(&condc, NULL);
     pthread_cond_init(&condp, NULL);
@@ -150,16 +153,18 @@ int run_threads() {
         pthread_join(threads[i], (void **)&out);
         if (
         out->status_code == OVERFLOW || check_overflow(sum, out->local_sum)) {
-            std::cout << "overflow" << std::endl;
-            return 1;
+            status_code = OVERFLOW;
         }
         sum += out->local_sum;
     }
     pthread_join(threads[1], NULL);
-
     pthread_cond_destroy(&condp);
     pthread_cond_destroy(&condc);
     pthread_mutex_destroy(&the_mutex);
+    if (status_code == OVERFLOW) {
+        std::cout << "overflow" << std::endl;
+        return 1;
+    }
     std::cout << sum << std::endl;
     return 0;
 }
