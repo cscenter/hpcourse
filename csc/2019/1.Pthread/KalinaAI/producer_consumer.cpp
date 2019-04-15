@@ -47,6 +47,11 @@ void set_last_error(int code) {
   *error_code_ptr = code;
 }
 
+void free_tls(void *value) {
+    delete((int*)value);
+    pthread_setspecific(error_code, NULL);
+}
+
 bool check_overflow(int sum, int value) {
   return value > 0 && sum > INT32_MAX - value || value < 0 && sum < INT32_MIN - value;
 }
@@ -151,7 +156,7 @@ int run_threads(int* result_code) {
   pthread_t cons_id[cons_count];
   pthread_t inter_id;
 
-  pthread_key_create(&error_code, NULL);
+  pthread_key_create(&error_code, free_tls);
 
   pthread_create(&prod_id, NULL, producer_routine, NULL);
   for (int i = 0; i < cons_count; i++) {
