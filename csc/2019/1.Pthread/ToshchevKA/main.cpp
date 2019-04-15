@@ -178,13 +178,13 @@ void* consumer_routine(void* arg) {
     pthread_mutex_unlock(&mutex);
 
     // allocate value for result
-    Value *sum = new Value();
+    Value * sum = new Value();
 
     while (state != work_done)
     {
         pthread_mutex_lock(&mutex);
         // read the value, check overflow and add to sum
-        Value *value = static_cast<Value *>(arg);
+        Value * value = static_cast<Value*>(arg);
         if (check_overflow(sum->get(), value->get())) {
             sum->update_code(OVERFLOW);
             set_last_error(OVERFLOW);
@@ -241,7 +241,7 @@ int run_threads() {
 
     // start 2+N threads
     CHECK_ERROR(pthread_create(&producer, NULL, producer_routine, (void *) v), "create Producer");
-    CHECK_ERROR(pthread_create(&interruptor, NULL, consumer_interruptor_routine, (void *) &consumer), "create Interruptor");
+    CHECK_ERROR(pthread_create(&interruptor, NULL, consumer_interruptor_routine, (void *) consumer), "create Interruptor");
     for (size_t i = 0; i < consumers_count; ++i) {
         CHECK_ERROR(pthread_create(&consumer[i], NULL, consumer_routine, (void *) v), "create Consumer " + std::to_string(i));
     }
@@ -298,6 +298,6 @@ int main(int argc, char* argv[]) {
     consumers_count = a > 0 ? a : 0;
     max_sleep_time = b > 0 ? b : 0;
 
-    run_log(true);
+    run_log(false);
     return run_threads();
 }
