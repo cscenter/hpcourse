@@ -58,9 +58,6 @@ void* producer_routine(void* arg) {
 	std::getline(std::cin, line);
 	std::istringstream input(line);
 	int value;
-	pthread_mutex_lock(&consumers_start_mutex);
-	wait_consumers_start();
-	pthread_mutex_unlock(&consumers_start_mutex);	
 	while (input >> value) {
 		pthread_mutex_lock(&mutex);
 		wait_consumers_receive_value();
