@@ -44,7 +44,7 @@ void *producer_routine(void *arg) {
 
     std::vector<int> arguments;
     int tmp;
-    std::cout << "Write arguments for sum: " << std::endl;
+//    std::cout << "Write arguments for sum: " << std::endl;
     while (std::cin >> tmp) {
         arguments.push_back(tmp);
     }
@@ -158,7 +158,7 @@ int run_threads() {
 }
 
 int main(int argc, char *argv[]) {
-    std::cout << "Write consumers count and sleep time for them: " << std::endl;
+//    std::cout << "Write consumers count and sleep time for them: " << std::endl;
     std::cin >> consumersCount;
     std::cin >> sleepLimit;
     return run_threads();
