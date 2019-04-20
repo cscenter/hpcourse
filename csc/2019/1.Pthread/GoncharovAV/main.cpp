@@ -49,7 +49,7 @@ struct SharedDataT {
 pthread_key_t tkey;
 
 void init_error_storage() {
-    pthread_setspecific(tkey, nullptr);
+    pthread_setspecific(tkey, new int(NOERROR));
 }
 
 void clear_error_storage() {
@@ -63,10 +63,8 @@ int get_last_error() {
 }
 
 void set_last_error(int code) {
-    clear_error_storage();
-
-    auto code_p = new int(code);
-    pthread_setspecific(tkey, code_p);
+    auto code_p = static_cast<int *>(pthread_getspecific(tkey));
+    *code_p = code;
 }
 
 void exit_consumer(int sum) {
@@ -78,20 +76,11 @@ void exit_consumer(int sum) {
     pthread_exit(result);
 }
 
-stringstream get_input_stream() {
-    string input;
-    getline(cin, input);
-    stringstream input_stream(input);
-
-    return input_stream;
-}
-
 void *producer_routine(void *arg) {
     auto data = static_cast<SharedDataT *>(arg);
 
     int number;
-    stringstream input = get_input_stream();
-    while (input >> number) {
+    while (cin >> number) {
         pthread_mutex_lock(&data->lock);
 
         while (data->wait_reading)
@@ -200,7 +189,7 @@ int run_threads(int n_consumers, int max_time_to_sleep) {
         pthread_join(consumers_ids[i], &resultv);
 
         unique_ptr<ResultT> result(static_cast<ResultT *>(resultv));
-        if (result->err_code == OVERFLOW) {
+        if (result->err_code == OVERFLOW || sum > INT_MAX - result->sum) {
             stop_interruption = true;
             cout << "overflow" << endl;
             return OVERFLOW;
