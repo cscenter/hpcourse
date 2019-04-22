@@ -23,6 +23,11 @@ pthread_cond_t isConsumersLaunched = PTHREAD_COND_INITIALIZER;
 
 thread_local int exitCode = NOERROR;
 
+struct output {
+    int sum = 0;
+    int exitCode = 0;
+};
+
 int get_last_error() {
     return exitCode;
 }
@@ -44,15 +49,13 @@ void *producer_routine(void *arg) {
 
     std::vector<int> arguments;
     int tmp;
-//    std::cout << "Write arguments for sum: " << std::endl;
     while (std::cin >> tmp) {
         arguments.push_back(tmp);
     }
     elementsToProcess = true;
     for (int argument : arguments) {
-        data = argument;
-
         pthread_mutex_lock(&threadsMutex);
+        data = argument;
         dataReceived = true;
         pthread_cond_signal(&condition);
         pthread_mutex_unlock(&threadsMutex);
@@ -81,7 +84,7 @@ void notifyLaunch() {
 void *consumer_routine(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, nullptr);
     notifyLaunch();
-    int *currentSum = new int(0);
+    int currentSum = 0;
 
     while (true) {
         pthread_mutex_lock(&threadsMutex);
@@ -90,7 +93,6 @@ void *consumer_routine(void *arg) {
         }
 
         if (dataReceived) {
-            int currentData = *(int *) arg;
             dataReceived = false;
             pthread_mutex_unlock(&threadsMutex);
 
@@ -99,13 +101,12 @@ void *consumer_routine(void *arg) {
             pthread_cond_signal(&elementProcessingCondition);
             pthread_mutex_unlock(&elementsMutex);
 
-            if ((currentData > 0 && *currentSum > INT_MAX - currentData)
-                || (currentData < 0 && *currentSum < INT_MIN - currentData)) {
+            if ((data > 0 && data > INT_MAX - data) || (data < 0 && data < INT_MIN - data)) {
                 set_last_error(OVERFLOW);
                 break;
             }
 
-            *currentSum += data;
+            currentSum += data;
 
             usleep(rand() % (sleepLimit + 1) * 1000);
         }
@@ -115,16 +116,18 @@ void *consumer_routine(void *arg) {
             break;
         }
     }
-    return (void *) currentSum;
+
+    auto *out = new output;
+    out->sum = currentSum;
+    out->exitCode = get_last_error();
+    pthread_exit(out);
 }
 
 void *consumer_interruptor_routine(void *arg) {
     waitConsumersLaunch();
 
     while (!inputFinished) {
-        pthread_mutex_lock(&threadsMutex);
         pthread_cancel(*static_cast<pthread_t *>(arg));
-        pthread_mutex_unlock(&threadsMutex);
     }
     pthread_exit(nullptr);
 }
@@ -142,24 +145,38 @@ int run_threads() {
     pthread_join(producer, nullptr);
     pthread_join(interruptor, nullptr);
     for (pthread_t consumer : consumers) {
-        int *result;
-        pthread_join(consumer, (void **) &result);
+        output *output;
+        pthread_join(consumer, (void **) &output);
 
-        if (get_last_error() == OVERFLOW) {
-            std::cout << "overflow" << std::endl;
-            return 1;
+        if (output->exitCode == OVERFLOW
+            || ((output->sum > 0 && sum > INT_MAX - output->sum) || (output->sum < 0 && sum < INT_MIN - output->sum))) {
+            set_last_error(OVERFLOW);
+            delete (output);
+            break;
         }
 
-        sum += *result;
-        delete (result);
+        sum += output->sum;
+        delete (output);
+    }
+
+    pthread_mutex_destroy(&threadsMutex);
+    pthread_mutex_destroy(&elementsMutex);
+    pthread_mutex_destroy(&consumerMutex);
+
+    pthread_cond_destroy(&elementProcessingCondition);
+    pthread_cond_destroy(&condition);
+    pthread_cond_destroy(&isConsumersLaunched);
+
+    if (get_last_error() == OVERFLOW) {
+        std::cout << "overflow" << std::endl;
+        return 1;
     }
     std::cout << sum << std::endl;
     return 0;
 }
 
 int main(int argc, char *argv[]) {
-//    std::cout << "Write consumers count and sleep time for them: " << std::endl;
-    std::cin >> consumersCount;
-    std::cin >> sleepLimit;
+    consumersCount = atoi(argv[1]);
+    sleepLimit = atoi(argv[2]);
     return run_threads();
 }
