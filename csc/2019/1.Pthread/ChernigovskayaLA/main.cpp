@@ -168,12 +168,12 @@ int run_threads() {
         Result* result;
         pthread_join(consumers[i], (void **) &result);
         if (result->error == OVERFLOW_ERROR || check_overflow(sum, result->sum))
-            error = OVERFLOW_ERROR;
-        if (error != OVERFLOW_ERROR)
+            set_last_error(OVERFLOW_ERROR);
+        if (get_last_error() != OVERFLOW_ERROR)
             sum += result->sum;
         delete(result);
     }
-    if (error == OVERFLOW_ERROR) {
+    if (get_last_error() == OVERFLOW_ERROR) {
         std::cout << "overflow" << std::endl;
         return 1;
     }
