@@ -148,11 +148,14 @@ int run_threads() {
         output *output;
         pthread_join(consumer, (void **) &output);
 
+        if (get_last_error() == OVERFLOW) {
+            delete(output);
+            continue;
+        }
+
         if (output->exitCode == OVERFLOW
             || ((output->sum > 0 && sum > INT_MAX - output->sum) || (output->sum < 0 && sum < INT_MIN - output->sum))) {
             set_last_error(OVERFLOW);
-            delete (output);
-            break;
         }
 
         sum += output->sum;
