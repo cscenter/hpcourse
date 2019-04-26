@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <chrono>
+#include <thread>
 #include <windows.h>
 #include <ctime>
 #include <cstdlib>
@@ -120,7 +121,7 @@ void* consumer_routine(void* arg) {
 
 			local_sum += local_data;
 
-			Sleep(rand() % max_time_milliseconds_sleep);
+			std::this_thread::sleep_for(std::chrono::microseconds(max_time_milliseconds_sleep));
 		}
 
 	}
@@ -190,7 +191,7 @@ int run_threads() {
 
 
 int main(int argc, char *argv[]) {
-	N = (int)argv[1];
-	max_time_milliseconds_sleep = (int)argv[2];
+	N = atoi(argv[1]);
+	max_time_milliseconds_sleep = atoi(argv[2]);
 	return run_threads();
 }
