@@ -53,7 +53,8 @@ thread_local int thread_status = NOERROR;
 /**
  * Represents a single consumer thread data.
  */
-struct ConsumerData {
+struct ConsumerData
+{
   /**
    * Shared value.
    */
@@ -116,7 +117,8 @@ void set_last_error(int code)
  */
 bool safe_accumulation(int &sum, int inc)
 {
-  if ((sum > 0 && inc > 0 && sum + inc < sum) || (sum < 0 && inc < 0 && sum + inc > sum)) {
+  if ((sum > 0 && inc > 0 && sum + inc < sum) || (sum < 0 && inc < 0 && sum + inc > sum))
+  {
     set_last_error(OVERFLOW);
     return false;
   }
@@ -141,7 +143,8 @@ void* producer_routine(void* arg)
     pthread_mutex_lock(&producer_consumer_lock);
 
     // wait until accumulation processed
-    while (value_changed) {
+    while (value_changed)
+    {
       pthread_cond_wait(&accumulation_processed, &producer_consumer_lock);
     }
 
@@ -184,17 +187,20 @@ void* consumer_routine(void* arg)
   pthread_cond_signal(&consumers_started);
   pthread_mutex_unlock(&consumer_start_lock );
 
-  ConsumerData *data = static_cast<ConsumerData*> arg;
+  ConsumerData *data = static_cast<ConsumerData*>(arg);
   //std::cout << "Consumer started" << std::endl;
 
-  while (true) {
+  while (true)
+  {
     pthread_mutex_lock(&producer_consumer_lock);
 
-    while (!value_changed) {
+    while (!value_changed)
+    {
       pthread_cond_wait(&accumulation_scheduled, &producer_consumer_lock);
     }
 
-    if (!producer_running) {
+    if (!producer_running)
+    {
       pthread_mutex_unlock(&producer_consumer_lock);
       data->status_code = get_last_error();
       pthread_exit(nullptr);
@@ -204,7 +210,8 @@ void* consumer_routine(void* arg)
     //std::cout << "Shared data is=" << *data->shared_data << std::endl;
     value_changed = false;
 
-    if (isOverflowed) {
+    if (isOverflowed)
+    {
       data->status_code = get_last_error();
 
       pthread_cond_signal(&accumulation_processed);
@@ -231,15 +238,29 @@ void* consumer_interruptor_routine(void* arg)
   pthread_mutex_lock(&consumer_start_lock );
 
   // wait for consumers to start
-  while (started_consumers < consumers->size()) {
+  while (started_consumers < consumers->size())
+  {
     pthread_cond_wait(&consumers_started, &consumer_start_lock);
   }
   pthread_mutex_unlock(&consumer_start_lock);
 
   // interrupt random consumer while producer is running
-  while (producer_running) {
+  while (producer_running)
+  {
     std::size_t idx = std::rand() % (consumers->size());
     pthread_cancel((*consumers)[idx]);
+  }
+}
+
+/**
+ * Finishes passed threads.
+ * @param threads_to_cleanup. Vector of started threads to join.
+ */
+void thread_cleanup(const std::vector<pthread_t> &threads_to_cleanup)
+{
+  for (std::size_t i = 0; i < threads_to_cleanup.size(); ++i)
+  {
+    pthread_join(threads_to_cleanup[i], nullptr);
   }
 }
 
@@ -261,7 +282,7 @@ int run_threads()
   thread_operation_status = pthread_create(&producer, nullptr, producer_routine, &shared_value);
   if (thread_operation_status != 0)
   {
-    // failed to create thread.
+    // failed to create thread, there are no started threads yet.
     return 1;
   }
 
@@ -272,6 +293,13 @@ int run_threads()
     if (thread_operation_status != 0)
     {
       // failed to create thread.
+      // cleanup producer and started consumers
+      std::vector<pthread_t> already_started {producer};
+      for (std::size_t j = 0; j < i; ++j)
+      {
+        already_started.push_back(consumers[j]);
+      }
+      thread_cleanup(already_started);
       return 1;
     }
   }
@@ -281,17 +309,28 @@ int run_threads()
   if (thread_operation_status != 0)
   {
     // failed to create thread.
+    // cleanup producer and started consumers
+    std::vector<pthread_t> already_started(consumers.begin(), consumers.end());
+    already_started.push_back(producer);
+    thread_cleanup(already_started);
     return 1;
   }
 
   thread_operation_status = pthread_join(producer, nullptr);
-  if (thread_operation_status != 0) {
+  if (thread_operation_status != 0)
+  {
     // failed to finish thread
+    std::vector<pthread_t> already_started(consumers.begin(), consumers.end());
+    already_started.push_back(interruptor);
+    thread_cleanup(already_started);
     return 1;
   }
   thread_operation_status = pthread_join(interruptor, nullptr);
-  if (thread_operation_status != 0) {
+  if (thread_operation_status != 0)
+  {
     // failed to finish thread
+    std::vector<pthread_t> already_started(consumers.begin(), consumers.end());
+    thread_cleanup(already_started);
     return 1;
   }
 
@@ -299,8 +338,10 @@ int run_threads()
   for (std::size_t i = 0; i < consumers.size(); ++i)
   {
     thread_operation_status = pthread_join(consumers[i], nullptr);
-    if (thread_operation_status != 0) {
+    if (thread_operation_status != 0)
+    {
       // failed to finish thread
+      std::vector<pthread_t> already_started(consumers.begin(), consumers.begin() + i);
       return 1;
     }
 
@@ -308,6 +349,7 @@ int run_threads()
     if (consumers_data[i].status_code == OVERFLOW || !safe_accumulation(sum, consumers_data[i].aggregated_val))
     {
       std::cout << "overflow" << std::endl;
+      std::vector<pthread_t> already_started(consumers.begin(), consumers.end());
       return 1;
     }
   }
