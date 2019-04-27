@@ -1,3 +1,8 @@
+//!
+//! @file solution.cpp
+//! @brief Program to calculate sum of passed numbers using producer-consumer pattern.
+//!
+
 #include <pthread.h>
 #include <iostream>
 #include <cstdlib>
@@ -5,45 +10,81 @@
 #include <cstring>
 #include <unistd.h>
 
-// Count of consumer threads
+/**
+ * Count of consumer threads.
+ */
 int consumer_cnt = 0;
 
-// Sleep max duration (ms)
+/**
+ * Sleep max duration (ms).
+ */
 int max_sleep_duration = 0;
 
-// Shared value to increment local sum
+/**
+ *  Shared value to increment local sum.
+ */
 int shared_value = 0;
 
-// Shared value change trigger
+/**
+ * Shared value change trigger.
+ */
 bool value_changed = false;
 
-// Producer thread status
+/**
+ * Producer thread status.
+ */
 bool producer_running = false;
 
-// Consumer status codes
+/**
+ * Consumer status code, means no error happen.
+ */
 #define NOERROR 0
+
+/**
+ * Consumer status code, means overflow happen.
+ */
 #define OVERFLOW 1
 
-// TLS variable for storing each thread status
+/**
+ * TLS variable for storing each thread status.
+ */
 thread_local int thread_status = NOERROR;
 
-// Represents a single consumer thread data
+/**
+ * Represents a single consumer thread data.
+ */
 struct ConsumerData {
-  // Shared value
+  /**
+   * Shared value.
+   */
   int *shared_data;
-  // Consumer status
+
+  /**
+   * Consumer status.
+   */
   int status_code;
-  // Aggregated value
+
+  /**
+   * Aggregated value.
+   */
   int aggregated_val;
 };
 
 pthread_mutex_t producer_consumer_lock = PTHREAD_MUTEX_INITIALIZER;
-// new value passed by producer to consumer
+
+/**
+ * New value passed by producer to consumer.
+ */
 pthread_cond_t accumulation_scheduled = PTHREAD_COND_INITIALIZER;
-// new value processed by consumer
+
+/**
+ * New value processed by consumer.
+ */
 pthread_cond_t accumulation_processed= PTHREAD_COND_INITIALIZER;
 
-// started consumer counter
+/**
+ * Started consumer counter.
+ */
 int started_consumers = 0;
 pthread_mutex_t consumer_start_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t consumers_started = PTHREAD_COND_INITIALIZER;
@@ -63,10 +104,7 @@ int get_last_error()
  */
 void set_last_error(int code)
 {
-  if (code == 0 || code == 1)
-  {
-    thread_status = code;
-  }
+  thread_status = code;
 }
 
 /**
@@ -146,7 +184,7 @@ void* consumer_routine(void* arg)
   pthread_cond_signal(&consumers_started);
   pthread_mutex_unlock(&consumer_start_lock );
 
-  ConsumerData *data = (ConsumerData *) arg;
+  ConsumerData *data = static_cast<ConsumerData*> arg;
   //std::cout << "Consumer started" << std::endl;
 
   while (true) {
