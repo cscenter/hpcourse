@@ -19,6 +19,7 @@ struct ResultT {
 };
 
 bool stop_interruption = false;
+bool no_more_consumers = false;
 
 struct SharedDataT {
 
@@ -83,8 +84,15 @@ void *producer_routine(void *arg) {
     while (cin >> number) {
         pthread_mutex_lock(&data->lock);
 
-        while (data->wait_reading)
+        while (data->wait_reading && !no_more_consumers)
             pthread_cond_wait(&data->write_cond, &data->lock);
+
+        if (no_more_consumers){
+            stop_interruption = true;
+
+            pthread_mutex_unlock(&data->lock);
+            pthread_exit(nullptr);
+        }
 
         data->number = number;
 
@@ -96,8 +104,14 @@ void *producer_routine(void *arg) {
     stop_interruption = true;
     pthread_mutex_lock(&data->lock);
 
-    while (data->wait_reading)
+    while (data->wait_reading && !no_more_consumers)
         pthread_cond_wait(&data->write_cond, &data->lock);
+
+    if (no_more_consumers){
+        pthread_mutex_unlock(&data->lock);
+        pthread_exit(nullptr);
+    }
+
     data->end_of_input = true;
 
     pthread_cond_broadcast(&data->read_cond);
@@ -130,7 +144,13 @@ void *consumer_routine(void *arg) {
             exit_consumer(sum);
         }
 
-        if (sum > INT_MAX - data->number) {
+        bool overflowed;
+        if (data->number > 0)
+            overflowed = sum > INT_MAX - data->number;
+        else
+            overflowed = sum < INT_MIN - data->number;
+
+        if (overflowed) {
             pthread_mutex_unlock(&data->lock);
             set_last_error(OVERFLOW);
             exit_consumer(sum);
@@ -184,22 +204,40 @@ int run_threads(int n_consumers, int max_time_to_sleep) {
     pthread_create(&interruptor_id, nullptr, consumer_interruptor_routine, &consumers_ids);
 
     int sum = 0;
+    int status = NOERROR;
     for (size_t i = 0; i < n_consumers; i++) {
         void *resultv;
         pthread_join(consumers_ids[i], &resultv);
 
         unique_ptr<ResultT> result(static_cast<ResultT *>(resultv));
-        if (result->err_code == OVERFLOW || sum > INT_MAX - result->sum) {
-            stop_interruption = true;
-            cout << "overflow" << endl;
-            return OVERFLOW;
-        }
 
-        sum += result->sum;
+        bool overflowed = result->err_code == OVERFLOW;
+        if (result->sum > 0)
+            overflowed = overflowed || sum > INT_MAX - result->sum;
+        else
+            overflowed = overflowed || sum < INT_MIN - result->sum;
+
+        if (overflowed)
+            status = OVERFLOW;
+
+        if (not overflowed)
+            sum += result->sum;
     }
 
-    cout << sum << endl;
-    return NOERROR;
+    no_more_consumers = true;
+    pthread_mutex_lock(&data.lock);
+    pthread_cond_broadcast(&data.write_cond);
+    pthread_mutex_unlock(&data.lock);
+
+    pthread_join(producer_id, nullptr);
+    pthread_join(interruptor_id, nullptr);
+
+    if (status == OVERFLOW)
+        cout << "overflow" << endl;
+    else
+        cout << sum << endl;
+
+    return status;
 }
 
 
@@ -211,5 +249,6 @@ int main(int argc, char *argv[]) {
     int n_consumers = atoi(argv[1]);
     int max_time_to_sleep = atoi(argv[2]);
 
-    return run_threads(n_consumers, max_time_to_sleep);
+    int result_code = run_threads(n_consumers, max_time_to_sleep);
+    return result_code;
 }
