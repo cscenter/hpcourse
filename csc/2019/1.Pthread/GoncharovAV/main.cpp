@@ -6,6 +6,8 @@
 #include <memory>
 #include <random>
 #include <unistd.h>
+#include <utility>
+#include <map>
 
 
 #define NOERROR 0
@@ -87,7 +89,7 @@ void *producer_routine(void *arg) {
         while (data->wait_reading && !no_more_consumers)
             pthread_cond_wait(&data->write_cond, &data->lock);
 
-        if (no_more_consumers){
+        if (no_more_consumers) {
             stop_interruption = true;
 
             pthread_mutex_unlock(&data->lock);
@@ -107,7 +109,7 @@ void *producer_routine(void *arg) {
     while (data->wait_reading && !no_more_consumers)
         pthread_cond_wait(&data->write_cond, &data->lock);
 
-    if (no_more_consumers){
+    if (no_more_consumers) {
         pthread_mutex_unlock(&data->lock);
         pthread_exit(nullptr);
     }
@@ -124,7 +126,10 @@ void *producer_routine(void *arg) {
 void *consumer_routine(void *arg) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, nullptr);
 
-    auto data = static_cast<SharedDataT *>(arg);
+    auto consumer_arg = static_cast<pair<SharedDataT *, map<pthread_t, bool> *> *>(arg);
+    SharedDataT *data = consumer_arg->first;
+    map<pthread_t, bool> *is_alive = consumer_arg->second;
+
     init_error_storage();
     set_last_error(NOERROR);
 
@@ -141,6 +146,8 @@ void *consumer_routine(void *arg) {
 
         if (data->end_of_input) {
             pthread_mutex_unlock(&data->lock);
+            pthread_t self_id = pthread_self();
+            (*is_alive)[self_id] = false;
             exit_consumer(sum);
         }
 
@@ -153,6 +160,8 @@ void *consumer_routine(void *arg) {
         if (overflowed) {
             pthread_mutex_unlock(&data->lock);
             set_last_error(OVERFLOW);
+            pthread_t self_id = pthread_self();
+            (*is_alive)[self_id] = false;
             exit_consumer(sum);
         }
 
@@ -170,7 +179,10 @@ void *consumer_routine(void *arg) {
 
 
 void *consumer_interruptor_routine(void *arg) {
-    auto consumers_ids = static_cast<vector<pthread_t> *>(arg);
+
+    auto interruptor_arg = static_cast<pair<vector<pthread_t> *, map<pthread_t, bool> *> *>(arg);
+    auto consumers_ids = interruptor_arg->first;
+    map<pthread_t, bool> *is_alive = interruptor_arg->second;
 
     random_device rd;
     mt19937 rng(rd());
@@ -178,7 +190,9 @@ void *consumer_interruptor_routine(void *arg) {
 
     while (!stop_interruption) {
         ulong index = uni(rng);
-        pthread_cancel((*consumers_ids)[index]);
+        auto consumer_id = (*consumers_ids)[index];
+        if ((*is_alive)[consumer_id])
+            pthread_cancel(consumer_id);
     }
 
     pthread_exit(nullptr);
@@ -190,18 +204,23 @@ int run_threads(int n_consumers, int max_time_to_sleep) {
     pthread_key_create(&tkey, nullptr);
 
     vector<pthread_t> consumers_ids;
+    map<pthread_t, bool> is_alive;
+
     pthread_t producer_id;
     pthread_t interruptor_id;
 
     SharedDataT data(max_time_to_sleep);
+    auto consumers_arg = make_pair(&data, &is_alive);
+    auto interruptor_arg = make_pair(&consumers_ids, &is_alive);
 
     for (size_t i = 0; i < n_consumers; i++) {
         pthread_t tid;
-        pthread_create(&tid, nullptr, consumer_routine, &data);
+        pthread_create(&tid, nullptr, consumer_routine, &consumers_arg);
         consumers_ids.push_back(tid);
+        is_alive[tid] = true;
     }
     pthread_create(&producer_id, nullptr, producer_routine, &data);
-    pthread_create(&interruptor_id, nullptr, consumer_interruptor_routine, &consumers_ids);
+    pthread_create(&interruptor_id, nullptr, consumer_interruptor_routine, &interruptor_arg);
 
     int sum = 0;
     int status = NOERROR;
