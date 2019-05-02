@@ -70,12 +70,11 @@ void* producer_routine(void* arg) {
 		data_read = true;
 		pthread_mutex_unlock(&producer_consumer_mutex);
 
-		pthread_mutex_lock(&consumer_producer_mutex );
-		
 		while (!consumer_procceed);
+
+		pthread_mutex_lock(&consumer_producer_mutex);
 		consumer_procceed = false;
-		
-		pthread_mutex_unlock(&consumer_producer_mutex );
+		pthread_mutex_unlock(&consumer_producer_mutex);
 	}
 
 	producer_running = false;
@@ -97,22 +96,18 @@ void* consumer_routine(void* arg) {
 	int local_sum = 0;
 	while (true)
 	{
-		pthread_mutex_lock(&producer_consumer_mutex);
 		while (!data_read && producer_running);
 
 		if (!producer_running) {
-			pthread_mutex_unlock(&producer_consumer_mutex);
 			break;
 		}
 
 		if (data_read) {
 			int local_data = *(int*)arg;
+
+			pthread_mutex_lock(&producer_consumer_mutex);
 			data_read = false;
 			pthread_mutex_unlock(&producer_consumer_mutex);
-
-			pthread_mutex_lock(&consumer_producer_mutex);
-			consumer_procceed = true;
-			pthread_mutex_unlock(&consumer_producer_mutex);
 
 			if ((local_sum > 0 && local_data > INT_MAX - local_sum) || (local_sum < 0 && local_data < INT_MIN - local_sum)) {
 				set_last_error(OVERFLOW);
@@ -122,8 +117,11 @@ void* consumer_routine(void* arg) {
 			local_sum += local_data;
 
 			std::this_thread::sleep_for(std::chrono::microseconds(max_time_milliseconds_sleep));
-		}
 
+			pthread_mutex_lock(&consumer_producer_mutex);
+			consumer_procceed = true;
+			pthread_mutex_unlock(&consumer_producer_mutex);
+		}
 	}
 
 	pthread_mutex_lock(&mutex_consumers_counter);
@@ -134,6 +132,7 @@ void* consumer_routine(void* arg) {
 	Result *res = new Result;
 	res->sum = local_sum;
 	res->error = get_last_error();
+
 	return (void *)res;
 }
 
@@ -144,7 +143,7 @@ void* consumer_interruptor_routine(void* arg) {
 
 	// interrupt random consumer while producer is running 
 	while (actual_consumers_count > 0)
-		pthread_cancel(consumers[rand() % actual_consumers_count - 1]);
+		pthread_cancel(consumers[(1 + rand() % actual_consumers_count) - 1]);
 
 	return NULL;
 }
