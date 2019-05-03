@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <chrono>
 #include <thread>
-#include <windows.h>
 #include <ctime>
 #include <cstdlib>
 
@@ -35,9 +34,16 @@ pthread_t producer;
 pthread_t interruptor;
 
 bool consumer_started = false;
+pthread_cond_t consumer_started_cond = PTHREAD_COND_INITIALIZER;
+
 bool producer_running = false;
+pthread_cond_t producer_runnning_cond = PTHREAD_COND_INITIALIZER;
+
 bool data_read = false;
+pthread_cond_t data_read_cond = PTHREAD_COND_INITIALIZER;
+
 bool consumer_procceed = false;
+pthread_cond_t consumer_procceed_cond = PTHREAD_COND_INITIALIZER;
 
 pthread_mutex_t mutex_consumers_counter = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_common = PTHREAD_MUTEX_INITIALIZER;
@@ -61,23 +67,28 @@ void* producer_routine(void* arg) {
 	producer_running = true;
 
 	// wait for consumer to start
-	while (!consumer_started);
+	while (!consumer_started)
+		pthread_cond_wait(&consumer_started_cond, &mutex_common);
 
 	// read data, loop through each value and update the value, notify consumer, wait for consumer to process 
 	while (cin >> sharedata_thread)
 	{
 		pthread_mutex_lock(&producer_consumer_mutex);
 		data_read = true;
+		pthread_cond_signal(&data_read_cond);
 		pthread_mutex_unlock(&producer_consumer_mutex);
 
-		while (!consumer_procceed);
+		while (!consumer_procceed)
+			pthread_cond_wait(&consumer_procceed_cond, &mutex_common);
 
 		pthread_mutex_lock(&consumer_producer_mutex);
 		consumer_procceed = false;
+		pthread_cond_signal(&consumer_procceed_cond);
 		pthread_mutex_unlock(&consumer_producer_mutex);
 	}
 
 	producer_running = false;
+	pthread_cond_signal(&data_read_cond);
 
 	return NULL;
 }
@@ -86,28 +97,27 @@ void* producer_routine(void* arg) {
 void* consumer_routine(void* arg) {
 	// notify about start
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-	consumer_started = true;
 
 	pthread_mutex_lock(&mutex_consumers_counter);
+	consumer_started = true;
 	actual_consumers_count++;
+	pthread_cond_signal(&consumer_started_cond);
 	pthread_mutex_unlock(&mutex_consumers_counter);
 
 	// for every update issued by producer, read the value and add to sum	
 	int local_sum = 0;
 	while (true)
 	{
-		while (!data_read && producer_running);
-
-		if (!producer_running) {
+		if (!producer_running)
 			break;
-		}
 
-		if (data_read) {
-			int local_data = *(int*)arg;
-
+		if (data_read)
+		{
 			pthread_mutex_lock(&producer_consumer_mutex);
 			data_read = false;
 			pthread_mutex_unlock(&producer_consumer_mutex);
+
+			int local_data = *(int*)arg;
 
 			if ((local_sum > 0 && local_data > INT_MAX - local_sum) || (local_sum < 0 && local_data < INT_MIN - local_sum)) {
 				set_last_error(OVERFLOW);
@@ -120,6 +130,7 @@ void* consumer_routine(void* arg) {
 
 			pthread_mutex_lock(&consumer_producer_mutex);
 			consumer_procceed = true;
+			pthread_cond_signal(&consumer_procceed_cond);
 			pthread_mutex_unlock(&consumer_producer_mutex);
 		}
 	}
@@ -139,11 +150,17 @@ void* consumer_routine(void* arg) {
 
 void* consumer_interruptor_routine(void* arg) {
 	// wait for consumers to start
-	while (!consumer_started);
+	while (!consumer_started)
+		pthread_cond_wait(&consumer_started_cond, &mutex_common);
 
 	// interrupt random consumer while producer is running 
 	while (actual_consumers_count > 0)
-		pthread_cancel(consumers[(1 + rand() % actual_consumers_count) - 1]);
+	{
+		pthread_mutex_lock(&mutex_consumers_counter);
+		if (actual_consumers_count == 0)
+			pthread_cancel(consumers[rand() % (actual_consumers_count - 1)]);
+		pthread_mutex_unlock(&mutex_consumers_counter);
+	}
 
 	return NULL;
 }
@@ -185,6 +202,7 @@ int run_threads() {
 
 	// return aggregated sum of values
 	std::cout << sum << std::endl;
+	system("pause");
 	return 0;
 }
 
