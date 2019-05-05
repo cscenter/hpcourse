@@ -202,7 +202,7 @@ int run_threads() {
 
 	// return aggregated sum of values
 	std::cout << sum << std::endl;
-	system("pause");
+	//system("pause");
 	return 0;
 }
 
