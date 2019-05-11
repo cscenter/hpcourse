@@ -18,7 +18,7 @@ public class LockFreeSetImplTest {
 
     public static void main(String[] args) {
         randomTests();
-        test();
+        lincheckTests();
     }
 
 
@@ -33,7 +33,7 @@ public class LockFreeSetImplTest {
     }
 
     @org.junit.Test
-    public static void test() {
+    public static void lincheckTests() {
         Options opts = new StressOptions()
                 .iterations(50)
                 .threads(4)
