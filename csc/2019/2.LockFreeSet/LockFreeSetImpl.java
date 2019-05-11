@@ -68,7 +68,12 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         Set<Node> pointers;
 
         SnapCollector() {
-            deactivate();
+            isActive = true;
+            blockFurtherPointers = false;
+            blockFurtherReports = false;
+            insertReports = new HashSet<Node>();
+            deleteReports = new HashSet<Node>();
+            pointers = new HashSet<Node>();
         }
 
         boolean isActive() {
@@ -77,11 +82,6 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
         void deactivate() {
             isActive = false;
-            blockFurtherPointers = false;
-            blockFurtherReports = false;
-            insertReports = new HashSet<Node>();
-            deleteReports = new HashSet<Node>();
-            pointers = new HashSet<Node>();
         }
 
         void report(Node n, boolean action) {
