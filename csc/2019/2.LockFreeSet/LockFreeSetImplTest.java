@@ -41,7 +41,7 @@ public class LockFreeSetImplTest {
     public boolean contains(@Param(name = "key") int key) {
         return set.contains(key);
     }
-//
+
     @Operation
     public boolean isEmpty() {
         return set.isEmpty();
@@ -50,13 +50,13 @@ public class LockFreeSetImplTest {
     @org.junit.Test
     public static void lincheckTests() {
         Options opts = new StressOptions()
-                .iterations(100)
-                .threads(3)
+                .iterations(30000)
+                .threads(2)
                 .invocationsPerIteration(10) // what does this parameter affect ?
-                .actorsPerThread(5)
-                .actorsBefore(5)
-                .actorsAfter(5)
-                .logLevel(LoggingLevel.INFO);
+                .actorsPerThread(4)
+                .actorsBefore(0)
+                .actorsAfter(0)
+                .logLevel(LoggingLevel.WARN);
         LinChecker.check(LockFreeSetImplTest.class, opts);
     }
 
