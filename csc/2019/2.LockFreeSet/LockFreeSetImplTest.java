@@ -11,50 +11,40 @@ import com.devexperts.dxlab.lincheck.verifier.linearizability.LinearizabilityVer
 
 import java.util.*;
 
-@Param(name = "key", gen = IntGen.class, conf = "1:2") // what does conf affect ?
+@Param(name = "key", gen = IntGen.class, conf = "1:2")
 @StressCTest(verifier = LinearizabilityVerifier.class)
 public class LockFreeSetImplTest {
 
     private LockFreeSetImpl<Integer> set = new LockFreeSetImpl<>();
 
     public static void main(String[] args) {
-        randomTests();
+        //randomTests();
         lincheckTests();
     }
 
-//    @Operation
-//    public boolean add(@Param(name = "key") int key) {
-//        return set.add(key);
-//    }
-//
-//    @Operation
-//    public boolean remove(@Param(name = "key") int key) {
-//        return set.remove(key);
-//    }
-
-    @Operation(runOnce = true)
-    public String A2R2C2(){
-        boolean r1 = set.add(2), r2 = set.remove(2), r3 = set.contains(2);
-        return String.format("%d%d%d", (r1?1:0), (r2?1:0), (r3?1:0));
+    @Operation
+    public boolean add(@Param(name = "key") int key) {
+        return set.add(key);
     }
 
-    @Operation(runOnce = true)
-    public String A1R1(){
-        boolean r1 = set.add(1), r2 = set.remove(1);
-        return String.format("%d%d", (r1?1:0), (r2?1:0));
-//        return "T";
+    @Operation
+    public boolean remove(@Param(name = "key") int key) {
+        return set.remove(key);
     }
+
+    @Operation
+    public boolean contains(@Param(name = "key") int key) {
+        return set.contains(key);
+    }
+
 
     /*@Operation
     public  tryReadSecond() {
         return set.remove(key);
     }
 */
-//    @Operation
-//    public boolean contains(@Param(name = "key") int key) {
-//        return set.contains(key);
-//    }
-//
+
+    //
 //    @Operation
 //    public boolean isEmpty() {
 //        return set.isEmpty();
@@ -63,13 +53,13 @@ public class LockFreeSetImplTest {
     @org.junit.Test
     public static void lincheckTests() {
         Options opts = new StressOptions()
-                .iterations(30000)
-                .threads(2)
+                .iterations(1000)
+                .threads(3)
                 .invocationsPerIteration(10) // what does this parameter affect ?
-                .actorsPerThread(1)
+                .actorsPerThread(5)
                 .actorsBefore(0)
                 .actorsAfter(0)
-                .logLevel(LoggingLevel.WARN);
+                .logLevel(LoggingLevel.INFO);
         LinChecker.check(LockFreeSetImplTest.class, opts);
     }
 
