@@ -70,7 +70,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             prevInfo = prev.info.get();
             cur=prevInfo.next;
             while (cur!=null) { // inner repeat: list iteration
-                if (cur.info.get().isPresented){
+                Info<T> info = cur.info.get();
+                if (info.isPresented){
                     if (cur.item.compareTo(key)>=0){
                         return new Slot<T>(prev, cur);
                     } else {
@@ -79,10 +80,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                         cur=prevInfo.next;
                     }
                 } else { // cur is marked for deletion; only proceed after actual deletion
-                    Info<T> replacement = new Info<T>(true, cur.info.get().next);
+                    Info<T> replacement = new Info<T>(true, info.next);
                     boolean replaced=prev.CASinfo(true, cur, replacement);
                     if (replaced) {
-                        cur = prev.info.get().next;
+                        cur = info.next;
                     } else {
                         continue retry;
                     }
@@ -106,9 +107,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
         boolean found=cur.item.equals(key) && info.isPresented;
         if (found){
-            if (cur.info.get().isPresented){
+            if (info.isPresented){
                 snapCollector.get().reportInsert(cur);
-                //System.out.println("reported 3");
             } else {
                 snapCollector.get().reportDelete(cur);
             }
@@ -149,12 +149,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             snapCollector.compareAndSet(snapCollector.get(), new SnapCollector<T>(true));
         } // otherwise participate in current snapshot
     }
-
 }
 
 class ItemWrapper<T extends Comparable<T>> implements Comparable<ItemWrapper<T>>{
-    T item;
-    AtomicReference<Info> info;
+    final T item;
+    final AtomicReference<Info> info;
 
     ItemWrapper(T item, Info info){
         this.item=item;
