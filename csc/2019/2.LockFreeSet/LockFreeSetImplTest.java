@@ -3,6 +3,7 @@ import com.devexperts.dxlab.lincheck.LoggingLevel;
 import com.devexperts.dxlab.lincheck.Options;
 import com.devexperts.dxlab.lincheck.annotations.Operation;
 import com.devexperts.dxlab.lincheck.annotations.Param;
+import com.devexperts.dxlab.lincheck.paramgen.IntGen;
 import com.devexperts.dxlab.lincheck.paramgen.StringGen;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressCTest;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressOptions;
@@ -10,38 +11,32 @@ import com.devexperts.dxlab.lincheck.verifier.linearizability.LinearizabilityVer
 
 import java.util.*;
 
-@Param(name = "key", gen = StringGen.class, conf = "1:3") // what does conf affect ?
+@Param(name = "key", gen = IntGen.class, conf = "1:3") // what does conf affect ?
 @StressCTest(verifier = LinearizabilityVerifier.class)
 public class LockFreeSetImplTest {
 
-    private LockFreeSetImpl<String> set = new LockFreeSetImpl<>();
+    private LockFreeSetImpl<Integer> set = new LockFreeSetImpl<>();
 
     public static void main(String[] args) {
-        //randomTests();
+        randomTests();
         lincheckTests();
-
-//        LockFreeSetImpl<String> impl = new LockFreeSetImpl<>();
-//        impl.add("1");
-//        impl.remove("1");
-//        impl.add("1");
-//        Iterator<String> it = impl.iterator();
-//        System.out.println("In iter:");
-//        while (it.hasNext()){
-//            System.out.println(it.next());
-//        }
-        //
     }
 
     @Operation
-    public boolean add(@Param(name = "key") String key) {
+    public boolean add(@Param(name = "key") int key) {
         return set.add(key);
     }
 
     @Operation
-    public boolean remove(@Param(name = "key") String key) {
+    public boolean remove(@Param(name = "key") int key) {
         return set.remove(key);
     }
 
+    /*@Operation
+    public  tryReadSecond() {
+        return set.remove(key);
+    }
+*/
 //    @Operation
 //    public boolean contains(@Param(name = "key") String key) {
 //        return set.contains(key);
@@ -55,11 +50,13 @@ public class LockFreeSetImplTest {
     @org.junit.Test
     public static void lincheckTests() {
         Options opts = new StressOptions()
-                .iterations(50)
-                .threads(4)
-                .invocationsPerIteration(5)
+                .iterations(100)
+                .threads(3)
+                .invocationsPerIteration(10) // what does this parameter affect ?
+                .actorsPerThread(5)
+                .actorsBefore(5)
+                .actorsAfter(5)
                 .logLevel(LoggingLevel.INFO);
-        //opts.
         LinChecker.check(LockFreeSetImplTest.class, opts);
     }
 
