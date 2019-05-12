@@ -10,6 +10,7 @@ import static java.util.stream.Collectors.toList;
  */
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     final private ItemWrapper<T> root;
+    private AtomicInteger insertsCounter = new AtomicInteger(0);
 
     public LockFreeSetImpl(){
         root=new ItemWrapper<>(null, new Info<T>(true, null)); // root value doesn't matter since it is never used
@@ -27,6 +28,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 Info replacement = new Info<T>(true, newNode);
                 boolean inserted = slot.first.CASinfo(true, slot.second, replacement);
                 if (inserted) {
+                    insertsCounter.incrementAndGet();
                     return true;
                 }
             }
@@ -106,7 +108,23 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean isEmpty() {
-        throw new RuntimeException("debug");
+        int insertsBefore = insertsCounter.get();
+        ItemWrapper<T> cur=root;
+        Info info=cur.info.get();
+        if (info.next==null) { // empty for sure
+            return true;
+        }
+        while (info.next!=null){
+            cur=info.next;
+            info=cur.info.get();
+            if (info.isPresented) {
+                return false;
+            }
+        }
+        // at this point we haven't detected non-deleted nodes
+        // if there were no inserts, then set is actually empty
+        int insertsAfter = insertsCounter.get();
+        return (insertsBefore == insertsAfter);
     }
 
     @Override

@@ -37,6 +37,11 @@ public class LockFreeSetImplTest {
         return set.contains(key);
     }
 
+    @Operation
+    public boolean isEmpty() {
+        return set.isEmpty();
+    }
+
 
     /*@Operation
     public  tryReadSecond() {
@@ -44,16 +49,10 @@ public class LockFreeSetImplTest {
     }
 */
 
-    //
-//    @Operation
-//    public boolean isEmpty() {
-//        return set.isEmpty();
-//    }
-//
     @org.junit.Test
     public static void lincheckTests() {
         Options opts = new StressOptions()
-                .iterations(1000)
+                .iterations(5000)
                 .threads(3)
                 .invocationsPerIteration(10) // what does this parameter affect ?
                 .actorsPerThread(5)
