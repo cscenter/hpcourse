@@ -10,17 +10,27 @@ import com.devexperts.dxlab.lincheck.verifier.linearizability.LinearizabilityVer
 
 import java.util.*;
 
-@Param(name = "key", gen = StringGen.class, conf = "1:5")
+@Param(name = "key", gen = StringGen.class, conf = "1:3") // what does conf affect ?
 @StressCTest(verifier = LinearizabilityVerifier.class)
 public class LockFreeSetImplTest {
 
     private LockFreeSetImpl<String> set = new LockFreeSetImpl<>();
 
     public static void main(String[] args) {
-        randomTests();
+        //randomTests();
         lincheckTests();
-    }
 
+//        LockFreeSetImpl<String> impl = new LockFreeSetImpl<>();
+//        impl.add("1");
+//        impl.remove("1");
+//        impl.add("1");
+//        Iterator<String> it = impl.iterator();
+//        System.out.println("In iter:");
+//        while (it.hasNext()){
+//            System.out.println(it.next());
+//        }
+        //
+    }
 
     @Operation
     public boolean add(@Param(name = "key") String key) {
@@ -32,12 +42,22 @@ public class LockFreeSetImplTest {
         return set.remove(key);
     }
 
+//    @Operation
+//    public boolean contains(@Param(name = "key") String key) {
+//        return set.contains(key);
+//    }
+//
+    @Operation
+    public boolean isEmpty() {
+        return set.isEmpty();
+    }
+
     @org.junit.Test
     public static void lincheckTests() {
         Options opts = new StressOptions()
                 .iterations(50)
                 .threads(4)
-                .invocationsPerIteration(50) // what does it affect? still 5 operations are shown in log
+                .invocationsPerIteration(5)
                 .logLevel(LoggingLevel.INFO);
         //opts.
         LinChecker.check(LockFreeSetImplTest.class, opts);
@@ -48,7 +68,7 @@ public class LockFreeSetImplTest {
             Set<Integer> etalon = new HashSet<>();
             LockFreeSet<Integer> impl = new LockFreeSetImpl<>();
             List<String> log = new ArrayList<>();
-            for (int operation = 0; operation < 500; operation++) {
+            for (int operation = 0; operation < 50; operation++) {
                 int op = new Random().nextInt(4);
                 int value = new Random().nextInt(5);
                 switch (op) {

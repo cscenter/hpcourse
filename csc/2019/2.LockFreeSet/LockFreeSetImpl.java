@@ -2,6 +2,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
+
 /**
  * Created by fresheed on 09.05.19.
  */
@@ -11,7 +13,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     public LockFreeSetImpl(){
         root=new ItemWrapper<>(null, new Info<T>(true, null)); // root value doesn't matter since it is never used
-        snapCollector=new AtomicReference<>(new SnapCollector<T>());
+        snapCollector=new AtomicReference<>(new SnapCollector<T>(false));
     }
 
     @Override
@@ -127,24 +129,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     private void updateCollector() {
         if (!snapCollector.get().isActive()){
-            snapCollector.compareAndSet(snapCollector.get(), new SnapCollector<T>());
+            snapCollector.compareAndSet(snapCollector.get(), new SnapCollector<T>(true));
         } // otherwise participate in current snapshot
     }
 
-//    @Override
-//    public String toString(){
-//        ItemWrapper<T> cur=root;
-//        Info info=cur.info.get();
-//        if (info.)
-//        StringBuffer buf=new StringBuffer("");
-//        while (cur!=null){
-//            buf.append("-> "+info.next.toString());
-//
-//        }
-//    }
 }
 
-class ItemWrapper<T extends Comparable<T>> {
+class ItemWrapper<T extends Comparable<T>> implements Comparable<ItemWrapper<T>>{
     T item;
     AtomicReference<Info> info;
 
@@ -163,6 +154,15 @@ class ItemWrapper<T extends Comparable<T>> {
         }
     }
 
+    @Override
+    public int compareTo(ItemWrapper<T> o) {
+        return item.compareTo(o.item);
+    }
+
+    @Override
+    public String toString(){
+        return String.format("{%s, %s}", (item == null ? "N" : item).toString(), info.get().toString());
+    }
 }
 
 class Info<T extends Comparable<T>> {
@@ -172,6 +172,11 @@ class Info<T extends Comparable<T>> {
     Info(boolean isPresented, ItemWrapper<T> next){
         this.isPresented=isPresented;
         this.next=next;
+    }
+
+    @Override
+    public String toString(){
+        return String.format("(%b, --> %s)", isPresented, (next == null ? "X" : next.toString()));
     }
 }
 
@@ -187,24 +192,88 @@ class Slot<T extends Comparable<T>> {
 
 /* Every time thread gathers insert/delete -related data, he reports it in order to keep snapshot being built consistent
  */
+
+class Report<T extends Comparable<T>> implements Comparable<Report<T>> {
+    @Override
+    public int compareTo(Report<T> o) {
+        return item.compareTo(o.item);
+    }
+
+    enum ReportType {
+        INSERT, DELETE
+    }
+    public final T item;
+    public final ReportType reportType;
+
+    Report(T item, ReportType reportType){
+        this.item=item;
+        this.reportType=reportType;
+    }
+
+    @Override
+    public String toString(){
+        return String.format("(%s, %s)", (reportType==ReportType.INSERT ? "I": "D"),
+                (item == null ? "X" : item).toString());
+    }
+}
+
 class SnapCollector<T extends Comparable<T>> {
 
-    private boolean isActive = true;
-    private final Set<ItemWrapper<T>> reportedInserts = new HashSet(), reportedRemovals = new HashSet<>(),
-            reportedFounds = new HashSet<>();
+    // volatile since some threads may try to report after deactivate() and don't see isActive's new value
+    volatile private boolean isActive;
+//    private final Set<ItemWrapper<T>> reportedInserts = new HashSet(), reportedRemovals = new HashSet<>(),
+//            reportedFounds = new HashSet<>();
+    private GrowingQueue<GrowingQueue<Report<T>>> allThreadsReports = new GrowingQueue<>(null);
+    private ThreadLocal<GrowingQueue<Report<T>>> curThreadReports = new ThreadLocal<>();
+    private GrowingQueue<ItemWrapper<T>> additions = new GrowingQueue<>(null);
+
+    private final Report<T> DUMMY = new Report<T>(null, null);
+
+    SnapCollector(boolean initActive){
+        isActive=initActive;
+    }
+
+    private void setupThreadReports() {
+        if (curThreadReports.get() == null){
+            GrowingQueue<Report<T>> reports = new GrowingQueue<>(DUMMY);
+            curThreadReports.set(reports);
+            allThreadsReports.insert(reports); // lock-free, NOT wait-free
+        }
+    }
 
     public void reportDelete(ItemWrapper<T> item){
         if (isActive){
-            reportedRemovals.add(item);
+            setupThreadReports();
+            curThreadReports.get().tryInsert(new Report<T>(item.item, Report.ReportType.DELETE));
         }
     }
 
     public void reportInsert(ItemWrapper<T> item){
         if (isActive){
-            reportedInserts.add(item);
+            setupThreadReports();
+            curThreadReports.get().tryInsert(new Report<T>(item.item, Report.ReportType.INSERT));
         }
     }
 
+    private void blockReports(){
+        // no new local queues can be added now since deactivate() was called, so we can iterate big queue
+        ItemWrapper<GrowingQueue<Report<T>>> queue = allThreadsReports.head;
+        while (queue.info.get().next != null) {
+            queue = queue.info.get().next;
+            queue.item.tryInsert(queue.item.dummy);
+        }
+    }
+
+    private void blockAdditions(){
+        additions.insert(additions.dummy);
+    }
+
+    public void reportFound(ItemWrapper<T> item){
+        if (isActive){
+            additions.insert(item);
+        }
+    }
+//
     public void deactivate(){
         isActive = false;
     }
@@ -218,26 +287,98 @@ class SnapCollector<T extends Comparable<T>> {
         while (isActive){
             Info<T> info = cur.info.get();
             if (info.isPresented && cur!=root){
-                reportedFounds.add(cur);
+                reportFound(cur);
             }
             if (info.next!=null){
                 cur=info.next;
             } else {
+                blockAdditions();
                 deactivate(); // interrupts this loop in other collecting threads
             }
         }
+        blockReports();
 
-        Set<ItemWrapper<T>> snapshot=new HashSet<>();
-        //System.out.println("Init: " + snapshot);
-        snapshot.addAll(reportedInserts);
-        //System.out.println("After inserts: " + snapshot);
-        snapshot.addAll(reportedFounds);
-        //System.out.println("After found: " + snapshot);
-        snapshot.removeAll(reportedRemovals);
-        //System.out.println("After removals: " + snapshot);
-        List<T> listSnapshot=snapshot.stream().map(it -> it.item).collect(Collectors.toList());
+        ItemWrapper<GrowingQueue<Report<T>>> queue = allThreadsReports.head;
+        Set<T> inserts = new HashSet<T>(), removals = new HashSet<T>();
+        while (queue.info.get().next != null && queue.info.get().next.item != null) {
+            queue = queue.info.get().next;
+            ItemWrapper<Report<T>> ptr = queue.item.head;
+            while (ptr.info.get().next != null && ptr.info.get().next.item != null) {
+                ptr = ptr.info.get().next;
+                (ptr.item.reportType == Report.ReportType.INSERT ? inserts : removals).add(ptr.item.item);
+            }
+        }
+        ItemWrapper<ItemWrapper<T>> ptr = additions.head;
+        while (ptr.info.get().next != null && ptr.info.get().next.item != null) {
+            ptr = ptr.info.get().next;
+            inserts.add(ptr.item.item);
+        }
+
+        Set<T> snapshot=new HashSet<>();
+        snapshot.addAll(inserts);
+        snapshot.removeAll(removals);
+
+        List<T> listSnapshot=new ArrayList<T>(snapshot);
         Collections.sort(listSnapshot);
         return listSnapshot;
     }
+}
 
+/* Implements a lock-free interface for insertions only
+ */
+class GrowingQueue<T extends Comparable<T>> implements Comparable<GrowingQueue<T>> {
+    public ItemWrapper<T> head;
+    public AtomicReference<ItemWrapper<T>> tail;
+    public final T dummy;
+    private static int idc = 0;
+    private int id;
+
+    public GrowingQueue(T dummyItem){
+        head = new ItemWrapper<T>(null, new Info<T>(true, null));
+        tail = new AtomicReference<>(head);
+        dummy = dummyItem;
+        id = idc;
+        idc++;
+    }
+
+    public void insert(T item){
+        if (tail == dummy) return;
+        while (!tryInsert(item)) { }
+    }
+
+    public boolean tryInsert(T item){
+        if (tail == dummy) return false;
+        ItemWrapper<T> curLast = tail.get();
+        Info<T> curLastInfo = curLast.info.get();
+        if (curLastInfo.next == null) {
+            ItemWrapper<T> newLast = new ItemWrapper<T>(item, new Info<>(true, null));
+            Info<T> replacement = new Info<T>(true, newLast);
+            boolean added = curLast.CASinfo(true, null, replacement);
+            if (added){
+                //boolean fixed = tail.CASinfo(true, curLastInfo.next, replacement);
+                boolean fixed = tail.compareAndSet(curLast, newLast);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            Info<T> replacement = new Info<T>(true, curLastInfo.next);
+            //tail.CASinfo(true, curLast, replacement);
+            tail.compareAndSet(curLast, curLastInfo.next);
+            return false;
+        }
+    }
+
+    // needed to organize queue of queues
+    @Override
+    public int compareTo(GrowingQueue<T> o) {
+        // ? is it valid ?
+        //return tail.item.compareTo(o.tail.item);
+        return tail.get().item.compareTo(o.tail.get().item);
+    }
+
+    @Override
+    public String toString(){
+        return String.format("Q%d", id);
+    }
 }
