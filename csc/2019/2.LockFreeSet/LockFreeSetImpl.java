@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -10,6 +11,7 @@ import static java.util.stream.Collectors.toList;
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     final private ItemWrapper<T> root;
     final private AtomicReference<SnapCollector<T>> snapCollector;
+    private AtomicInteger insertsCounter = new AtomicInteger(0);
 
     public LockFreeSetImpl(){
         root=new ItemWrapper<>(null, new Info<T>(true, null)); // root value doesn't matter since it is never used
@@ -23,15 +25,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             // slot represents candidate position to insert valid at some point of time
             if (slot.second!=null && slot.second.item.equals(key)) { // already presented - skip
                 snapCollector.get().reportInsert(slot.second);
-                //System.out.println("reported 1");
                 return false;
             } else {
-                ItemWrapper inserted = new ItemWrapper(key, new Info<T>(true, slot.second));
-                Info replacement = new Info<T>(true, inserted);
-                boolean result = slot.first.CASinfo(true, slot.second, replacement);
-                if (result) {
-                    snapCollector.get().reportInsert(inserted);
-                    //System.out.println("reported 2 " + inserted);
+                ItemWrapper newNode = new ItemWrapper(key, new Info<T>(true, slot.second));
+                Info replacement = new Info<T>(true, newNode);
+                boolean inserted = slot.first.CASinfo(true, slot.second, replacement);
+                if (inserted) {
+                    insertsCounter.incrementAndGet();
+                    snapCollector.get().reportInsert(newNode);
                     return true;
                 }
             }
@@ -117,7 +118,23 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean isEmpty() {
-        return iterator().hasNext();
+        int insertsBefore = insertsCounter.get();
+        ItemWrapper<T> cur=root;
+        Info info=cur.info.get();
+        if (info.next==null) { // empty for sure
+            return true;
+        }
+        while (info.next!=null){
+            cur=info.next;
+            info=cur.info.get();
+            if (info.isPresented) {
+                return false;
+            }
+        }
+        // at this point we haven't detected non-deleted nodes
+        // if there were no inserts, then set is actually empty
+        int insertsAfter = insertsCounter.get();
+        return (insertsBefore == insertsAfter);
     }
 
     @Override

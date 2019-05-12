@@ -37,10 +37,10 @@ public class LockFreeSetImplTest {
         return set.remove(key);
     }
 */
-//    @Operation
-//    public boolean contains(@Param(name = "key") String key) {
-//        return set.contains(key);
-//    }
+    @Operation
+    public boolean contains(@Param(name = "key") int key) {
+        return set.contains(key);
+    }
 //
     @Operation
     public boolean isEmpty() {
