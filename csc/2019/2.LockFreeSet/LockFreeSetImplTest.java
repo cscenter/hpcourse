@@ -23,37 +23,34 @@ public class LockFreeSetImplTest {
 
     public static void main(String[] args) {
 //        randomTests();
-        lincheckTests();
-
-//        LockFreeSetImpl<Integer> impl = new LockFreeSetImpl<>();
-//        impl.iterator();
-//        impl.add(1);
+        //lincheckShortTests();
+        lincheckLongTests();
     }
 
-//    @Operation
-//    public boolean add(@Param(name = "key") int key) {
-//        return set.add(key);
-//    }
-//
-//    @Operation
-//    public boolean remove(@Param(name = "key") int key) {
-//        return set.remove(key);
-//    }
-//
-//    @Operation
-//    public boolean contains(@Param(name = "key") int key) {
-//        return set.contains(key);
-//    }
-//
-//    @Operation
-//    public boolean isEmpty() {
-//        return set.isEmpty();
-//    }
-//
-//    @Operation
-//    public int tryReadFirst() {
-//        return tryReadFirst(set.iterator());
-//    }
+    @Operation
+    public boolean add(@Param(name = "key") int key) {
+        return set.add(key);
+    }
+
+    @Operation
+    public boolean remove(@Param(name = "key") int key) {
+        return set.remove(key);
+    }
+
+    @Operation
+    public boolean contains(@Param(name = "key") int key) {
+        return set.contains(key);
+    }
+
+    @Operation
+    public boolean isEmpty() {
+        return set.isEmpty();
+    }
+
+    @Operation
+    public int tryReadFirst() {
+        return tryReadFirst(set.iterator());
+    }
 
     private int tryReadFirst(Iterator<Integer> iterator){
         if (iterator.hasNext()){
@@ -63,20 +60,28 @@ public class LockFreeSetImplTest {
         }
     }
 
-    @Operation(runOnce = true, group="T1") public int trf(){ return tryReadFirst(set.iterator());}
-    @Operation(runOnce = true, group="T2") public boolean a2_(){ return set.add(2);}
-    @Operation(runOnce = true, group="T2") public int trf_(){ return tryReadFirst(set.iterator());}
-    @Operation(runOnce = true, group="T3") public boolean a3(){ return set.add(3);}
-
     @org.junit.Test
-    public static void lincheckTests() {
+    public static void lincheckShortTests() {
         Options opts = new StressOptions()
-                .iterations(5000)
+                .iterations(3000)
                 .threads(3)
-                .invocationsPerIteration(1000) // what does this parameter affect ?
+                .invocationsPerIteration(1000)
                 .actorsPerThread(2)
                 .actorsBefore(0)
                 .actorsAfter(0)
+                .logLevel(LoggingLevel.INFO);
+        LinChecker.check(LockFreeSetImplTest.class, opts);
+    }
+
+    @org.junit.Test
+    public static void lincheckLongTests() {
+        Options opts = new StressOptions()
+                .iterations(1000)
+                .threads(3)
+                .invocationsPerIteration(1000)
+                .actorsPerThread(5)
+                .actorsBefore(2)
+                .actorsAfter(2)
                 .logLevel(LoggingLevel.INFO);
         LinChecker.check(LockFreeSetImplTest.class, opts);
     }
