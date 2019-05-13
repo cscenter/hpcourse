@@ -1,4 +1,0 @@
-Two main classes: MyServer and MyClient.
-
-Can be executed through tests.
-Error handling is done only for Arithmetic errors - error code will be returned for this task and all dependencies.
