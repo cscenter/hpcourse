@@ -28,7 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.sample.test;
+package org.sample.jcstress_tests;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.*;
@@ -41,55 +41,46 @@ import java.util.Random;
 
 @JCStressTest
 // Outline the outcomes here. The default outcome is provided, you need to remove it:
-@Outcome(id = "0", expect = Expect.ACCEPTABLE, desc = "All values were successfully added.")
-@Outcome(id = "1", expect = Expect.FORBIDDEN, desc = "Some values was missed.")
+@Outcome(id = "0, 0", expect = Expect.ACCEPTABLE, desc = "Find all values.")
+@Outcome(id = "0, 1", expect = Expect.FORBIDDEN, desc = "Some values was not found.")
 @State
-public class AddTest {
+public class ContainsTest {
 
     private final int maxValue = 10000;
     private final int nElements = 1000;
 
     private final LockFreeSet<Integer> set = new LockFreeSetImpl<>();
 
-    private final int[] first_data;
-    private final int[] second_data;
+    private final int[] add_data;
+    private final int[] contains_data;
 
-    AddTest() {
-        first_data = new int[nElements];
-        second_data = new int[nElements];
+    ContainsTest(){
+        add_data = new int[nElements];
+        contains_data = new int[nElements];
 
         Random r = new Random();
 
-        for (int i = 0; i < nElements; ++i)
-            first_data[i] = r.nextInt(maxValue) + 1;
+        for (int i=0; i< nElements; ++i)
+            add_data[i] = r.nextInt(maxValue) + 1;
 
-        for (int i = 0; i < nElements; ++i)
-            second_data[i] = r.nextInt(maxValue) + 1;
+        for (int i=0; i< nElements; ++i) {
+            contains_data[i] = r.nextInt(maxValue) + 1;
+            set.add(contains_data[i]);
+        }
 
     }
 
     @Actor
-    public void actor1() {
-        for (int value : first_data) {
+    public void actor1(II_Result r) {
+        for (int value:add_data){
             set.add(value);
         }
     }
 
     @Actor
-    public void actor2() {
-        for (int value : second_data) {
-            set.add(value);
-        }
-    }
-
-    @Arbiter
-    public void arbiter(I_Result r) {
-
+    public void actor2(II_Result r) {
         boolean ok = true;
-        for (int value : first_data) {
-            ok &= set.contains(value);
-        }
-        for (int value : second_data) {
+        for (int value:contains_data){
             ok &= set.contains(value);
         }
 
@@ -98,5 +89,5 @@ public class AddTest {
         else
             r.r1 = 1;
     }
-
 }
+

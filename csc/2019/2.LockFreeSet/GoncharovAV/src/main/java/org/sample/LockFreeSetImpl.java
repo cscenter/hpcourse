@@ -3,12 +3,11 @@ package org.sample;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.Random;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
-    static final int maxHeight = 64;
+    static final int maxHeight = 32;
 
     private final SkipListNode<T> head;
     private final SkipListNode<T> tail;
@@ -25,28 +24,27 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean add(T value) {
         retry:
-        while (true){
+        while (true) {
             Bounds<T> search_result = search(value);
             SkipListNode<T> closest_node = search_result.rights.get(0);
 
-            if (closest_node != tail && closest_node.value.compareTo(value) == 0){
+            if (closest_node != tail && closest_node.value.compareTo(value) == 0) {
                 int height = closest_node.next.size();
-                if (closest_node.next.get(height - 1).isMarked()){
-                    mark(closest_node);
+                if (closest_node.next.get(0).isMarked()) {
                     continue retry;
                 } else
                     return false;
             }
 
             SkipListNode<T> new_node = SkipListNode.make(value);
-            for (int i=0; i< new_node.next.size(); i++)
+            for (int i = 0; i < new_node.next.size(); i++)
                 new_node.next.get(i).compareAndSet(null, search_result.rights.get(i), false, false);
 
             if (!search_result.lefts.get(0).next.get(0).compareAndSet(search_result.rights.get(0), new_node, false, false))
-                continue  retry;
+                continue retry;
 
-            for (int i = 1; i<new_node.next.size(); ++i){
-                while(true){
+            for (int i = 1; i < new_node.next.size(); ++i) {
+                while (true) {
                     if (new_node.next.get(i).isMarked())
                         break;
 
@@ -67,13 +65,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         Bounds<T> search_result = search(value);
         SkipListNode<T> closest_node = search_result.rights.get(0);
 
-        if (closest_node.value.compareTo(value) != 0)
+        if (closest_node == tail || closest_node.value.compareTo(value) != 0)
             return false;
 
-        mark(closest_node);
+        boolean marked_by_current_thread = mark(closest_node);
         search(value);
 
-        return true;
+        return marked_by_current_thread;
     }
 
     @Override
@@ -147,17 +145,22 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
     }
 
-    private void mark(SkipListNode<T> node) {
+    private boolean mark(SkipListNode<T> node) {
+        boolean marked_by_current_thread = true;
         for (int i = node.next.size() - 1; i >= 0; i--) {
             boolean mark_success;
             do {
-                if (node.next.get(i).isMarked())
+                if (node.next.get(i).isMarked()) {
+                    marked_by_current_thread = false;
                     break;
+                } else
+                    marked_by_current_thread = true;
 
                 SkipListNode<T> node_next = node.next.get(i).getReference();
                 mark_success = node.next.get(i).compareAndSet(node_next, node_next, false, true);
             } while (!mark_success);
         }
+        return marked_by_current_thread;
     }
 }
 
@@ -168,10 +171,22 @@ class SkipListNode<T extends Comparable<T>> {
     ArrayList<AtomicMarkableReference<SkipListNode<T>>> next;
 
     static <T2 extends Comparable<T2>> SkipListNode<T2> make(T2 value) {
-        Random r = new Random();
-        int height = r.nextInt(LockFreeSetImpl.maxHeight) + 1;
+        long number =  1 + (long) (Math.random() * (1L << (LockFreeSetImpl.maxHeight-1)));
+        int height = leastSignificantBitPosition(number);
 
         return new SkipListNode<>(value, height);
+    }
+
+    static int leastSignificantBitPosition(long number) {
+        number &= -number;
+
+        int pos = 0;
+        while (number != 0) {
+            number >>= 1;
+            pos++;
+        }
+
+        return pos;
     }
 
     SkipListNode(T value, int height) {
