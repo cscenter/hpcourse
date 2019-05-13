@@ -22,12 +22,12 @@ public class LockFreeSetImplTest {
     private LockFreeSetImpl<Integer> set = new LockFreeSetImpl<>();
 
     public static void main(String[] args) {
-        randomTests();
+//        randomTests();
         lincheckTests();
 
 //        LockFreeSetImpl<Integer> impl = new LockFreeSetImpl<>();
+//        impl.iterator();
 //        impl.add(1);
-//        System.out.println(impl.iterator().hasNext());
     }
 
 //    @Operation
