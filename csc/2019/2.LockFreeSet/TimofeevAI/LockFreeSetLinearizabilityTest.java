@@ -29,16 +29,21 @@ public class LockFreeSetLinearizabilityTest {
         return map.remove(key);
     }
 
-    // @Operation
-    // public boolean contains(@Param(name = "key") int key) {
-    //     return map.contains(key);
-    // }
+    @Operation
+    public boolean contains(@Param(name = "key") int key) {
+        return map.contains(key);
+    }
+
+    @Operation
+    public boolean isEmpty() {
+        return map.isEmpty();
+    }
 
     @Test
     public void test() {
         Options opts = new StressOptions()
-            .iterations(5)
-            .invocationsPerIteration(15)
+            .iterations(500)
+            .invocationsPerIteration(10)
             .threads(2)
             .logLevel(LoggingLevel.DEBUG);
         LinChecker.check(LockFreeSetLinearizabilityTest.class, opts);

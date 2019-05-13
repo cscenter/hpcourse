@@ -2,6 +2,8 @@ package da;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicMarkableReference;
+import java.util.concurrent.atomic.AtomicReference;
+
 import static java.util.stream.Collectors.*;
 
 class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
@@ -10,7 +12,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     final boolean DELETED = true;
 
     private Node head;
-    private AtomicMarkableReference<SnapCollector> PSC;
+    private AtomicReference<SnapCollector> PSC;
 
     private class Node {
         T value;
@@ -28,7 +30,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class Window {
-        final Node pred, curr;
+        Node pred, curr;
 
         Window(Node predNode, Node currNode) {
             pred = predNode;
@@ -122,7 +124,8 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     public LockFreeSetImpl() {
         head = new Node();
-        PSC = new AtomicMarkableReference<SnapCollector>(new SnapCollector(), false);
+        PSC = new AtomicReference<SnapCollector>(new SnapCollector());
+        PSC.get().deactivate();
     }
 
     @Override
@@ -147,6 +150,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     @Override
     public boolean remove(T value) {
+
         boolean snip;
         while (true) {
             Window w = find(head, value);
@@ -156,7 +160,8 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
                 return false;
             }
             Node next = curr.next.getReference();
-            snip = curr.next.attemptMark(next, true);
+            // snip = curr.next.attemptMark(next, true);
+            snip = curr.next.compareAndSet(next, next, false, true);
             if (!snip) {
                 continue;
             }
@@ -174,7 +179,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
             curr = curr.next.get(marked);
         }
         if (curr != null && curr.value.compareTo(value) == 0) {
-            if (marked[0]) {
+            if (curr.next.isMarked()) {
                 reportDelete(curr);
                 return false;
             } else {
@@ -188,6 +193,17 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     @Override
     public boolean isEmpty() {
         return head.next.getReference() == null;
+        // return iterator().hasNext();
+        // Node curr = head.next.getReference();
+        // while (curr != null) {
+        // if (curr.next.isMarked()) {
+        // curr = curr.next.getReference();
+        // }
+        // else {
+        // return false;
+        // }
+        // }
+        // return true;
     }
 
     @Override
@@ -196,14 +212,14 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     public void reportDelete(Node victim) {
-        SnapCollector SC = PSC.getReference();
+        SnapCollector SC = PSC.get();
         if (SC.isActive()) {
             SC.report(victim, DELETED);
         }
     }
 
     public void reportInsert(Node newNode) {
-        SnapCollector SC = PSC.getReference();
+        SnapCollector SC = PSC.get();
         if (SC.isActive()) {
             Node next = newNode.next.getReference();
             if (newNode.next.compareAndSet(next, next, false, false)) {
@@ -219,13 +235,13 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     public SnapCollector acquireSnapCollector() {
-        SnapCollector SC = PSC.getReference();
+        SnapCollector SC = PSC.get();
         if (SC.isActive()) {
             return SC;
         }
         SnapCollector newSC = new SnapCollector();
-        PSC.compareAndSet(SC, newSC, false, false);
-        newSC = PSC.getReference();
+        PSC.compareAndSet(SC, newSC);
+        newSC = PSC.get();
         return newSC;
     }
 
