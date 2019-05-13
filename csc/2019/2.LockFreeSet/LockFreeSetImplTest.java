@@ -24,6 +24,10 @@ public class LockFreeSetImplTest {
     public static void main(String[] args) {
         randomTests();
         lincheckTests();
+
+//        LockFreeSetImpl<Integer> impl = new LockFreeSetImpl<>();
+//        impl.add(1);
+//        System.out.println(impl.iterator().hasNext());
     }
 
 //    @Operation
@@ -59,19 +63,10 @@ public class LockFreeSetImplTest {
         }
     }
 
-    @Operation(runOnce = true, group="T1") public boolean o2(){ return set.isEmpty();}
-    @Operation(runOnce = true, group="T1") public boolean o3(){ return set.add(2);}
-    @Operation(runOnce = true, group="T1") public int o4(){ return tryReadFirst(set.iterator());}
-
-    @Operation(runOnce = true, group="T2") public boolean o6(){ return set.add(2);}
-    @Operation(runOnce = true, group="T2") public int o7(){ return tryReadFirst(set.iterator());}
-    @Operation(runOnce = true, group="T2") public boolean o8(){ return set.contains(2);}
-    @Operation(runOnce = true, group="T2") public boolean o10(){ return set.contains(3);}
-
-    @Operation(runOnce = true, group="T3") public boolean o11(){ return set.add(3);}
-    @Operation(runOnce = true, group="T3") public boolean o12(){ return set.remove(2);}
-    @Operation(runOnce = true, group="T3") public int o13(){ return tryReadFirst(set.iterator());}
-
+    @Operation(runOnce = true, group="T1") public int trf(){ return tryReadFirst(set.iterator());}
+    @Operation(runOnce = true, group="T2") public boolean a2_(){ return set.add(2);}
+    @Operation(runOnce = true, group="T2") public int trf_(){ return tryReadFirst(set.iterator());}
+    @Operation(runOnce = true, group="T3") public boolean a3(){ return set.add(3);}
 
     @org.junit.Test
     public static void lincheckTests() {
@@ -79,7 +74,7 @@ public class LockFreeSetImplTest {
                 .iterations(5000)
                 .threads(3)
                 .invocationsPerIteration(1000) // what does this parameter affect ?
-                .actorsPerThread(5)
+                .actorsPerThread(2)
                 .actorsBefore(0)
                 .actorsAfter(0)
                 .logLevel(LoggingLevel.INFO);

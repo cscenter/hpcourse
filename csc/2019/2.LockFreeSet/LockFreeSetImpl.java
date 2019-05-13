@@ -181,7 +181,7 @@ class ItemWrapper<T extends Comparable<T>> implements Comparable<ItemWrapper<T>>
 
     @Override
     public String toString(){
-        return String.format("{%s, %s}", (item == null ? "N" : item).toString(), info.get().toString());
+        return String.format("{%s, %s}", (item == null ? "N" : item).toString(), (info == null ? "N" : info.get()).toString());
     }
 }
 
@@ -240,7 +240,8 @@ class SnapCollector<T extends Comparable<T>> {
     volatile private boolean isActive;
     private GrowingQueue<GrowingQueue<Report<T>>> allThreadsReports = new GrowingQueue<>(null);
     private ThreadLocal<GrowingQueue<Report<T>>> curThreadReports = new ThreadLocal<>();
-    private GrowingQueue<ItemWrapper<T>> additions = new GrowingQueue<>(null);
+    private GrowingQueue<ItemWrapper<T>> additions = new GrowingQueue<>(
+            new ItemWrapper<T>(null, new Info(false, null)));
 
     private final Report<T> DUMMY = new Report<T>(null, null);
 
@@ -326,12 +327,14 @@ class SnapCollector<T extends Comparable<T>> {
         Set<T> inserts = new HashSet<T>(), removals = new HashSet<T>();
         ItemWrapper<GrowingQueue<Report<T>>> oneThreadReports = allThreadsReports.head;
         Info<GrowingQueue<Report<T>>> threadReportsInfo = oneThreadReports.info.get();
-        while (threadReportsInfo.next != null && threadReportsInfo.next.item != null) {
+        //while (threadReportsInfo != null && threadReportsInfo.next.item != null) {
+        while (oneThreadReports.item != allThreadsReports.dummy) {
             oneThreadReports = threadReportsInfo.next;
             threadReportsInfo = oneThreadReports.info.get();
             ItemWrapper<Report<T>> report = oneThreadReports.item.head;
             Info<Report<T>> reportInfo = report.info.get();
-            while (reportInfo.next != null && reportInfo.next.item != null) {
+            //while (reportInfo.next != null && reportInfo.next.item != null) {
+            while (report.item != oneThreadReports.item.dummy) {
                 report = reportInfo.next;
                 reportInfo = report.info.get();
                 (report.item.reportType == Report.ReportType.INSERT ? inserts : removals).add(report.item.item);
@@ -339,11 +342,12 @@ class SnapCollector<T extends Comparable<T>> {
         }
 
         ItemWrapper<ItemWrapper<T>> foundNode = additions.head;
-        Info<ItemWrapper<T>> nodeInfo = foundNode.info.get();
-        while (nodeInfo.next != null && nodeInfo.next.item != null) {
-            foundNode = nodeInfo.next;
-            nodeInfo = foundNode.info.get();
-            inserts.add(foundNode.item.item);
+//        Info<ItemWrapper<T>> nodeInfo = foundNode.info.get();
+        //while (nodeInfo.next != null && nodeInfo.next.item != null) {
+        while (foundNode.item != additions.dummy) {
+//            nodeInfo = foundNode.info.get();
+            if (foundNode != additions.head) {inserts.add(foundNode.item.item); }
+            foundNode = foundNode.info.get().next;
         }
 
         Set<T> snapshot=new HashSet<>();
