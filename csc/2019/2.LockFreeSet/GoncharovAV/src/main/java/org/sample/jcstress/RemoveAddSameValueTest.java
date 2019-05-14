@@ -28,75 +28,37 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.sample.jcstress_tests;
+package org.sample.jcstress;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.*;
 import org.sample.LockFreeSet;
 import org.sample.LockFreeSetImpl;
 
-import java.util.Random;
-
 // See jcstress-samples or existing tests for API introduction and testing guidelines
 
 @JCStressTest
 // Outline the outcomes here. The default outcome is provided, you need to remove it:
-@Outcome(id = "0", expect = Expect.ACCEPTABLE, desc = "All values were successfully added.")
-@Outcome(id = "1", expect = Expect.FORBIDDEN, desc = "Some values was missed.")
+@Outcome(id = "0, 0", expect = Expect.ACCEPTABLE, desc = "It works.")
 @State
-public class AddTest {
-
-    private final int maxValue = 10000;
-    private final int nElements = 1000;
+public class RemoveAddSameValueTest {
 
     private final LockFreeSet<Integer> set = new LockFreeSetImpl<>();
 
-    private final int[] first_data;
-    private final int[] second_data;
-
-    AddTest() {
-        first_data = new int[nElements];
-        second_data = new int[nElements];
-
-        Random r = new Random();
-
-        for (int i = 0; i < nElements; ++i)
-            first_data[i] = r.nextInt(maxValue) + 1;
-
-        for (int i = 0; i < nElements; ++i)
-            second_data[i] = r.nextInt(maxValue) + 1;
-
-    }
+    private final int value = 100;
+    private final int nRepeats = 100;
 
     @Actor
-    public void actor1() {
-        for (int value : first_data) {
+    public void actor1(II_Result r) {
+        for (int i=0; i<nRepeats;++i) {
             set.add(value);
         }
     }
 
     @Actor
-    public void actor2() {
-        for (int value : second_data) {
-            set.add(value);
+    public void actor2(II_Result r) {
+        for (int i=0; i<nRepeats;++i) {
+            set.remove(value);
         }
     }
-
-    @Arbiter
-    public void arbiter(I_Result r) {
-
-        boolean ok = true;
-        for (int value : first_data) {
-            ok &= set.contains(value);
-        }
-        for (int value : second_data) {
-            ok &= set.contains(value);
-        }
-
-        if (ok)
-            r.r1 = 0;
-        else
-            r.r1 = 1;
-    }
-
 }

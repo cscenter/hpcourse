@@ -87,7 +87,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean isEmpty() {
-        return head.next.get(0).compareAndSet(tail, tail, false, false);
+
+        SkipListNode<T> second = head.next.get(0).getReference();
+        while (second != tail && second.next.get(0).isMarked())
+            second = second.next.get(0).getReference();
+
+        return second == tail;
     }
 
     @Override

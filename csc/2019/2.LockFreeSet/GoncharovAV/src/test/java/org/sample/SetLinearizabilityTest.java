@@ -1,17 +1,11 @@
-package org.sample.lincheck_tests;
+package org.sample;
 
 import com.devexperts.dxlab.lincheck.LinChecker;
 import com.devexperts.dxlab.lincheck.annotations.Operation;
 import com.devexperts.dxlab.lincheck.annotations.Param;
 import com.devexperts.dxlab.lincheck.paramgen.IntGen;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressCTest;
-import com.devexperts.dxlab.lincheck.verifier.serializability.SerializabilityVerifier;
 import org.junit.Test;
-import org.sample.LockFreeSetImpl;
-
-import java.util.concurrent.ConcurrentHashMap;
-
-import java.util.HashMap;
 
 @Param(name = "value", gen = IntGen.class, conf = "1:10")
 @StressCTest(actorsBefore = 5, actorsAfter = 5, actorsPerThread = 5)
