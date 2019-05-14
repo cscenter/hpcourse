@@ -12,7 +12,7 @@ import com.devexperts.dxlab.lincheck.verifier.linearizability.LinearizabilityVer
 
 import java.util.*;
 
-@Param(name = "key", gen = IntGen.class, conf = "1:2")
+@Param(name = "key", gen = IntGen.class, conf = "1:3")
 @StressCTest(verifier = LinearizabilityVerifier.class)
 @OpGroupConfig(name = "T1", nonParallel = true)
 @OpGroupConfig(name = "T2", nonParallel = true)
@@ -96,7 +96,7 @@ public class LockFreeSetImplTest {
         Options opts = new StressOptions()
                 .iterations(5000)
                 .threads(3)
-                .invocationsPerIteration(100)
+                .invocationsPerIteration(5000)
                 .actorsPerThread(5)
                 .actorsBefore(0)
                 .actorsAfter(0)
