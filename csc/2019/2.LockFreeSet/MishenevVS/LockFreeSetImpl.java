@@ -167,6 +167,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 localListOfReports[dummyTid.get()] = new ReportNode();
             }
             ReportNode localNode = localListOfReports[dummyTid.get()];
+            while (localNode.next != null) {
+                localNode = localNode.next.get();
+            }
+            if (localNode.type == ReportType.DUMMY) return;
             if (localNode.type == ReportType.DUMMY) return;
             ReportNode newNode = new ReportNode(node, type);
 
@@ -176,11 +180,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
         public Node addNode(Node v) {
             return nodes.enq(v);
-        }
-
-        public void BlockFurtherPointers() {
-            // isBlock = true;
-
         }
 
         public void BlockFurtherNodes() {
@@ -293,7 +292,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
     }
 
-    /// вопрос - возможен ли уйти по мертвой ветке из-за встретившигося мертвого узла?!
+
     // it's wait-free
     public boolean contains(T key) {
         Node crnt = head.getNext();
