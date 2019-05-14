@@ -12,7 +12,7 @@ import com.devexperts.dxlab.lincheck.verifier.linearizability.LinearizabilityVer
 
 import java.util.*;
 
-@Param(name = "key", gen = IntGen.class, conf = "1:3")
+@Param(name = "key", gen = IntGen.class, conf = "1:2")
 @StressCTest(verifier = LinearizabilityVerifier.class)
 @OpGroupConfig(name = "T1", nonParallel = true)
 @OpGroupConfig(name = "T2", nonParallel = true)
@@ -52,6 +52,24 @@ public class LockFreeSetImplTest {
         return tryReadFirst(set.iterator());
     }
 
+    private int b2i(boolean b){return b?1:0;};
+
+//    @Operation(runOnce = true, group = "T1") public int isEmpty_0(){ return b2i(set.isEmpty());}
+//    @Operation(runOnce = true, group = "T1") public int remove_1(){ return b2i(set.remove(2));}
+//    @Operation(runOnce = true, group = "T1") public int add_2(){ return b2i(set.add(3));}
+//    @Operation(runOnce = true, group = "T1") public int isEmpty_3(){ return b2i(set.isEmpty());}
+//    @Operation(runOnce = true, group = "T1") public int isEmpty_4(){ return b2i(set.isEmpty());}
+//    @Operation(runOnce = true, group = "T2") public int iterator_5(){ return tryReadFirst(set.iterator());}
+//    @Operation(runOnce = true, group = "T2") public int remove_6(){ return b2i(set.remove(2));}
+//    @Operation(runOnce = true, group = "T2") public int isEmpty_7(){ return b2i(set.isEmpty());}
+//    @Operation(runOnce = true, group = "T2") public int contains_8(){ return b2i(set.contains(1));}
+//    @Operation(runOnce = true, group = "T2") public int remove_9(){ return b2i(set.remove(1));}
+//    @Operation(runOnce = true, group = "T3") public int contains_10(){ return b2i(set.contains(2));}
+//    @Operation(runOnce = true, group = "T3") public int add_11(){ return b2i(set.add(2));}
+//    @Operation(runOnce = true, group = "T3") public int iterator_12(){ return tryReadFirst(set.iterator());}
+//    @Operation(runOnce = true, group = "T3") public int isEmpty_13(){ return b2i(set.isEmpty());}
+//    @Operation(runOnce = true, group = "T3") public int iterator_14(){ return tryReadFirst(set.iterator());}
+
     private int tryReadFirst(Iterator<Integer> iterator){
         if (iterator.hasNext()){
             return iterator.next();
@@ -76,12 +94,12 @@ public class LockFreeSetImplTest {
     @org.junit.Test
     public static void lincheckLongTests() {
         Options opts = new StressOptions()
-                .iterations(1000)
+                .iterations(5000)
                 .threads(3)
-                .invocationsPerIteration(1000)
+                .invocationsPerIteration(100)
                 .actorsPerThread(5)
-                .actorsBefore(2)
-                .actorsAfter(2)
+                .actorsBefore(0)
+                .actorsAfter(0)
                 .logLevel(LoggingLevel.INFO);
         LinChecker.check(LockFreeSetImplTest.class, opts);
     }

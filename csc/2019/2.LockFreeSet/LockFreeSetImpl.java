@@ -81,6 +81,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                         cur=prevInfo.next;
                     }
                 } else { // cur is marked for deletion; only proceed after actual deletion
+                    snapCollector.get().reportDelete(cur); // should it be there ?
                     Info<T> replacement = new Info<T>(true, curInfo.next);
                     boolean replaced=prev.CASinfo(true, cur, replacement);
                     if (replaced) {
@@ -106,16 +107,17 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             cur=info.next;
             info=cur.info.get();
         }
-        // ? an error was here: should re-read cur.info before return ?
-        boolean found=cur.item.equals(key) && cur.info.get().isPresented;
-        if (found){
-            if (info.isPresented){
+        if (cur.item.equals(key)){
+            if (cur.info.get().isPresented){
                 snapCollector.get().reportInsert(cur);
+                return true;
             } else {
                 snapCollector.get().reportDelete(cur);
+                return false;
             }
+        } else {
+            return false;
         }
-        return found;
     }
 
     @Override
@@ -130,6 +132,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             cur=info.next;
             info=cur.info.get();
             if (info.isPresented) {
+                snapCollector.get().reportInsert(cur);
                 return false;
             }
         }
@@ -238,11 +241,9 @@ class SnapCollector<T extends Comparable<T>> {
 
     // volatile since some threads may try to report after deactivate() and don't see isActive's new value
     volatile private boolean isActive;
-    private GrowingQueue<GrowingQueue<Report<T>>> allThreadsReports = new GrowingQueue<>();
-    private ThreadLocal<GrowingQueue<Report<T>>> curThreadReports = new ThreadLocal<>();
-    private GrowingQueue<T> additions = new GrowingQueue<>();
-
-    private final Report<T> DUMMY = new Report<T>(null, null);
+    private GrowingQueue<GrowingQueue<Report<ItemWrapper<T>>>> allThreadsReports = new GrowingQueue<>();
+    private ThreadLocal<GrowingQueue<Report<ItemWrapper<T>>>> curThreadReports = new ThreadLocal<>();
+    private GrowingQueue<ItemWrapper<T>> additions = new GrowingQueue<>();
 
     SnapCollector(boolean initActive){
         isActive=initActive;
@@ -250,7 +251,7 @@ class SnapCollector<T extends Comparable<T>> {
 
     private boolean setupThreadReports() {
         if (curThreadReports.get() == null){
-            GrowingQueue<Report<T>> reports = new GrowingQueue<>();
+            GrowingQueue<Report<ItemWrapper<T>>> reports = new GrowingQueue<>();
             boolean inserted = allThreadsReports.insert(reports); // lock-free, NOT wait-free
             if (inserted) {
                 curThreadReports.set(reports);
@@ -265,22 +266,20 @@ class SnapCollector<T extends Comparable<T>> {
 
     public void reportDelete(ItemWrapper<T> item){
         if (isActive && setupThreadReports()){
-            try {curThreadReports.get().tryInsert(new Report<T>(item.item, Report.ReportType.DELETE));}
-            catch (RuntimeException e) {}
+            curThreadReports.get().tryInsert(new Report<>(item, Report.ReportType.DELETE));
         }
     }
 
     public void reportInsert(ItemWrapper<T> item){
-        if (isActive && setupThreadReports()){
-            try {curThreadReports.get().tryInsert(new Report<T>(item.item, Report.ReportType.INSERT));}
-            catch (RuntimeException e) {}
+        if (isActive && setupThreadReports() && item.info.get().isPresented){
+            curThreadReports.get().tryInsert(new Report<>(item, Report.ReportType.INSERT));
         }
     }
 
     private void blockReports(){
         // no new local queues can be added now since deactivate() was called, so we can iterate big queue
         allThreadsReports.freeze();
-        Iterator<GrowingQueue<Report<T>>> threadsIterator = allThreadsReports.iterate();
+        Iterator<GrowingQueue<Report<ItemWrapper<T>>>> threadsIterator = allThreadsReports.iterate();
         while (threadsIterator.hasNext()){
             threadsIterator.next().freeze();
         }
@@ -290,7 +289,7 @@ class SnapCollector<T extends Comparable<T>> {
         additions.freeze();
     }
 
-    public void reportFound(T item){
+    public void reportFound(ItemWrapper<T> item){
         if (isActive){
             additions.insert(item);
         }
@@ -310,7 +309,7 @@ class SnapCollector<T extends Comparable<T>> {
             Info<T> info = cur.info.get();
             if (info.isPresented && cur!=root){
                 if (cur.item == null){ throw new RuntimeException("Null item is stored"); }
-                reportFound(cur.item);
+                reportFound(cur);
             }
             if (info.next!=null){
                 cur=info.next;
@@ -318,35 +317,43 @@ class SnapCollector<T extends Comparable<T>> {
                 break;
             }
         }
-        // do it outside loop since other threads may attempt to iterate before dummy insertion
-        deactivate(); // interrupts this loop in other collecting threads
+        // differs from the paper algorithm: do it outside loop since other threads may attempt to iterate before dummy insertion
         blockAdditions();
+        deactivate(); // interrupts this loop in other collecting threads
         blockReports();
 
-        Set<T> inserts = new HashSet<T>(), removals = new HashSet<T>();
-        Iterator<GrowingQueue<Report<T>>> threadsIterator = allThreadsReports.iterate();
+        List<ItemWrapper<T>> inserts = new ArrayList<>(), removals = new ArrayList<>();
+        Iterator<GrowingQueue<Report<ItemWrapper<T>>>> threadsIterator = allThreadsReports.iterate();
         while (threadsIterator.hasNext()){
-            GrowingQueue<Report<T>> oneThreadReports = threadsIterator.next();
-            Iterator<Report<T>> reportIterator = oneThreadReports.iterate();
+            GrowingQueue<Report<ItemWrapper<T>>> oneThreadReports = threadsIterator.next();
+            Iterator<Report<ItemWrapper<T>>> reportIterator = oneThreadReports.iterate();
             while (reportIterator.hasNext()){
-                Report<T> report = reportIterator.next();
+                Report<ItemWrapper<T>> report = reportIterator.next();
                 (report.reportType == Report.ReportType.INSERT ? inserts : removals).add(report.item);
             }
         }
 
-        Iterator<T> addsIterator = additions.iterate();
+        Iterator<ItemWrapper<T>> addsIterator = additions.iterate();
         while (addsIterator.hasNext()){
-            T next = addsIterator.next();
+            ItemWrapper<T> next = addsIterator.next();
             if (next == null) {
                 System.err.println("trying to add item from null wrapper");
             }
             inserts.add(next);
         }
 
-        Set<T> snapshot=new HashSet<>();
-        snapshot.addAll(inserts);
-        snapshot.removeAll(removals);
-
+        // cannot use Set<T> directly since comparison should be done by reference, not value
+        // otherwise there would be errros with same values being added and removed (only removal will count)
+        List<ItemWrapper<T>> refs = new ArrayList<>();
+        outer: for (ItemWrapper<T> ins: inserts){
+            for (ItemWrapper<T> rm: removals){
+                if (ins == rm){ // compare by reference!
+                    continue outer;
+                }
+            }
+            refs.add(ins);
+        }
+        Set<T> snapshot=refs.stream().map(it -> it.item).collect(Collectors.toSet());
         List<T> listSnapshot=new ArrayList<T>(snapshot);
         Collections.sort(listSnapshot);
         return listSnapshot;
