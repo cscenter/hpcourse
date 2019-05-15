@@ -63,6 +63,7 @@ class AscendingMichaelQueue<T extends Comparable<T>> {
         List<T> list = new LinkedList<T>();
         Node crnt = head.get();
         while (true) {
+
             crnt = crnt.next.get();
             if (crnt == null) break;
             if (crnt.value == null) break; // dummy node
@@ -200,12 +201,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             return nodes.enq(v);
         }
 
-        public void BlockFurtherNodes() {
+        public void blockFurtherNodes() {
             // isBlock = true;
             nodes.enq(null); // null is Dummy T - than greater than any other T-type object
         }
 
-        public void BlockFurtherReports() {
+        public void blockFurtherReports() {
             for (int i = 0; i < MAX_THREADS; ++i) {
                 ReportNode localNode = localListOfReports[i];
                 if (localNode == null) continue; // even break;
@@ -215,7 +216,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
         }
 
-        public void Deactivate() {
+        public void deactivate() {
             isActive = false;
         }
 
@@ -271,7 +272,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         head = new Node(null, null);
         //PSC = new AtomicMarkableReference(new SnapCollector(), false);
         PSC = new AtomicReference(new SnapCollector());
-        PSC.get().Deactivate();
+        PSC.get().deactivate();
     }
 
     public boolean add(T value) {
@@ -280,12 +281,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node currentNode = cursor.LeftNode;
             Node nextNode = cursor.RightNode;
             if (nextNode != null && nextNode.value.compareTo(value) == 0) {//  already exists
-                ReportInsert(nextNode);
+                reportInsert(nextNode);
                 return false;
             }
             Node node = new Node(value, nextNode);
             if (currentNode.next.compareAndSet(nextNode, node, false, false)) {
-                ReportInsert(node);
+                reportInsert(node);
                 return true;
             }
         }
@@ -307,7 +308,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
 
             // optimization - try to really remove element right now
-            ReportDelete(nextNode);
+            reportDelete(nextNode);
             currentNode.next.compareAndSet(nextNode, nextNext, false, false);
             return true;
         }
@@ -322,8 +323,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             crnt = crnt.getNext();
         }
         if (crnt != null && crnt.value.compareTo(key) == 0) {// for report
-            if (!crnt.next.isMarked()) ReportInsert(crnt);
-            else ReportDelete(crnt);
+            if (!crnt.next.isMarked()) reportInsert(crnt);
+            else reportDelete(crnt);
         }
 
         return crnt != null && crnt.value.compareTo(key) == 0 && !crnt.next.isMarked();
@@ -347,7 +348,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 boolean[] isDeleted = {false};
                 tmp = next.next.get(isDeleted);
                 if (isDeleted[0]) { // next is removed
-                    ReportDelete(next);
+                    reportDelete(next);
                     // help to another  thread
                     if (!current.next.compareAndSet(next, tmp, false, false)) { // try to replace references for really removing
                         break; //restart
@@ -364,7 +365,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
     }
 
-    private void ReportDelete(Node victim) {
+    private void reportDelete(Node victim) {
         //boolean[] isActivate = {false};
         //SnapCollector snapCollector = PSC.get(isActivate);
         //if(isActivate[0] )
@@ -373,7 +374,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             snapCollector.report(victim, ReportType.DELETED);
     }
 
-    private void ReportInsert(Node newNode) {
+    private void reportInsert(Node newNode) {
         SnapCollector snapCollector = PSC.get();
         if (snapCollector.isActive())
             snapCollector.report(newNode, ReportType.INSERTED);
@@ -395,26 +396,26 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public void collectSnapshot(SnapCollector snapCollector) {
         Node curr = head.getNext();
         if (snapCollector.isActive() && curr == null) {
-            snapCollector.BlockFurtherNodes();
-            snapCollector.Deactivate();
+            snapCollector.blockFurtherNodes();
+            snapCollector.deactivate();
         }
         while (snapCollector.isActive()) {
             if (!curr.isMarkedAsDeleted())
                 curr = snapCollector.addNode(curr);
 
             if (curr == null ) {// curr is the last
-                snapCollector.BlockFurtherNodes();
-                snapCollector.Deactivate();
+                snapCollector.blockFurtherNodes();
+                snapCollector.deactivate();
                 break;
             }
             curr = curr.getNext();
             if (curr == null ) {// curr is the last
-                snapCollector.BlockFurtherNodes();
-                snapCollector.Deactivate();
+                snapCollector.blockFurtherNodes();
+                snapCollector.deactivate();
                 break;
             }
         }
-        snapCollector.BlockFurtherReports();
+        snapCollector.blockFurtherReports();
     }
 
 
