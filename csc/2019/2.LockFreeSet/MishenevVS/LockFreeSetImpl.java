@@ -59,6 +59,18 @@ class AscendingMichaelQueue<T extends Comparable<T>> {
         tail = new AtomicReference<Node>(sentinel);
     }
 
+    public List<T> getContent() {
+        List<T> list = new LinkedList<T>();
+        Node crnt = head.get();
+        while (true) {
+            crnt = crnt.next.get();
+            if (crnt == null) break;
+            if (crnt.value == null) break; // dummy node
+            list.add(crnt.value);
+        }
+        return list;
+    }
+
     public T enq(T value) {
         Node node = new Node(value, null);
         while (true) {
@@ -142,7 +154,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
     }
 
-    private class SnapCollector {
+    public class SnapCollector {
         final int MAX_THREADS = 10;
         private volatile boolean isActive = true;
         private ThreadLocal<Integer> dummyTid; // for indices array
@@ -154,6 +166,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         String[] arr = new String[5];
 
         SnapCollector() {
+            isActive = true;
             dummyTid = new ThreadLocal();
 
             counter = new AtomicInteger(0);
@@ -167,8 +180,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 localListOfReports[dummyTid.get()] = new ReportNode();
             }
             ReportNode localNode = localListOfReports[dummyTid.get()];
-            while (localNode.next != null) {
-                localNode = localNode.next.get();
+            if (localNode == null) {
+                System.err.println("local Node is null");
+            }
+            while (true) {
+                ReportNode buf = localNode.next.get();
+                if (buf == null) break;
+                localNode = buf;
             }
             if (localNode.type == ReportType.DUMMY) return;
             if (localNode.type == ReportType.DUMMY) return;
@@ -178,7 +196,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
 
 
-        public Node addNode(Node v) {
+        public Node addNode(Node v) { // we return tail of queue because of AddNode is wait free
             return nodes.enq(v);
         }
 
@@ -212,8 +230,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
                 ReportNode crnNode = localListOfReports[i];
                 if (crnNode == null) continue; // even break;
-                while (crnNode.next != null) {
+                while (true) {
                     crnNode = crnNode.next.get();
+                    if (crnNode == null) break;
                     if (crnNode.value != null && crnNode.type == type) {
                         reports.add((Node) crnNode.value);
                     }
@@ -223,7 +242,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
 
         public Set<Node> getNodes() {
-            Set<Node> reports = new HashSet<Node>();
+          /*  Set<Node> reports = new HashSet<Node>();
 
             try {
                 while (true) {
@@ -236,8 +255,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
             } catch (EmptyException e) {
                 e.printStackTrace();
-            }
-            return reports;
+            }*/
+            // queque is immutable after Blocking
+            return new HashSet<Node>(nodes.getContent());
         }
     }
 
@@ -260,11 +280,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             Node currentNode = cursor.LeftNode;
             Node nextNode = cursor.RightNode;
             if (nextNode != null && nextNode.value.compareTo(value) == 0) {//  already exists
-
+                ReportInsert(nextNode);
                 return false;
             }
             Node node = new Node(value, nextNode);
             if (currentNode.next.compareAndSet(nextNode, node, false, false)) {
+                ReportInsert(node);
                 return true;
             }
         }
@@ -300,13 +321,17 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         while (crnt != null && crnt.value.compareTo(key) < 0) {
             crnt = crnt.getNext();
         }
+        if (crnt != null && crnt.value.compareTo(key) == 0) {// for report
+            if (!crnt.next.isMarked()) ReportInsert(crnt);
+            else ReportDelete(crnt);
+        }
 
         return crnt != null && crnt.value.compareTo(key) == 0 && !crnt.next.isMarked();
     }
 
     public boolean isEmpty() {
-        return head.getNext() == null;
-        //= return iterator().hasNext();
+        //= return head.getNext() == null;
+        return !iterator().hasNext();
     }
 
     private CursorDTO search(T key) {
@@ -354,7 +379,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             snapCollector.report(newNode, ReportType.INSERTED);
     }
 
-    private SnapCollector acquireSnapCollector() {
+    public SnapCollector acquireSnapCollector() {
         while (true) {
             SnapCollector snapCollector = PSC.get();
             if (snapCollector.isActive()) {
@@ -367,8 +392,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
     }
 
-    private void collectSnapshot(SnapCollector snapCollector) {
+    public void collectSnapshot(SnapCollector snapCollector) {
         Node curr = head.getNext();
+        if (snapCollector.isActive() && curr == null) {
+            snapCollector.BlockFurtherNodes();
+            snapCollector.Deactivate();
+        }
         while (snapCollector.isActive()) {
             if (!curr.isMarkedAsDeleted())
                 curr = snapCollector.addNode(curr);
@@ -387,9 +416,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     public List<T> reconstructUsingReports(SnapCollector snapCollector) {
         Set<Node> snapshot = new HashSet<Node>();
-        snapshot.addAll(snapCollector.getReports(ReportType.INSERTED));
-        snapshot.addAll(snapCollector.getNodes());
-        snapshot.removeAll(snapCollector.getReports(ReportType.DELETED));
+        Set<Node> inserted = snapCollector.getReports(ReportType.INSERTED);
+        Set<Node> deleted = snapCollector.getReports(ReportType.DELETED);
+        Set<Node> nodes = snapCollector.getNodes();
+        snapshot.addAll(inserted);
+        snapshot.addAll(nodes);
+        snapshot.removeAll(deleted);
         List<T> list = new LinkedList<T>();
         for (Node n : snapshot) {
             list.add(n.value);
@@ -397,6 +429,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         return list;
     }
 
+    // it's wait-free because of some optimization
     public Iterator<T> iterator() {
         SnapCollector snapCollector = acquireSnapCollector();
         collectSnapshot(snapCollector);

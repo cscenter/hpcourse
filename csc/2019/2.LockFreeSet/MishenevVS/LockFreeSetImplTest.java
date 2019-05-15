@@ -5,6 +5,11 @@ import com.devexperts.dxlab.lincheck.paramgen.IntGen;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressCTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -12,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Param(name = "key", gen = IntGen.class)//, conf = "1:15"
 
-@StressCTest(iterations = 300, threads = 4)
+/// Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 121.111 sec
+@StressCTest(iterations = 100, threads = 3)
 public class LockFreeSetImplTest {
     LockFreeSetImpl<Integer> set = new LockFreeSetImpl();
 
@@ -26,14 +32,24 @@ public class LockFreeSetImplTest {
         return set.remove(key);
     }
 
-    @Operation
+     @Operation
     public Boolean contains(@Param(name = "key") int key) {
         return set.contains(key);
     }
 
-    @Operation
+   @Operation
     public Boolean isEmpty() {
         return set.isEmpty();
+    }
+
+    @Operation
+    public Set<Integer> iterator() {
+        Set<Integer> result = new HashSet();
+        Iterator<Integer> it = set.iterator();
+        while ( it.hasNext() ) {
+            result.add(it.next());
+        }
+        return result;
     }
 
     @Test
@@ -41,11 +57,27 @@ public class LockFreeSetImplTest {
          LinChecker.check(LockFreeSetImplTest.class);
 
     }
+    // it test for my checking of inner realization
+    @Test
+    public void testManualMode() {
+    //manual mode
+        LockFreeSetImpl<Integer> lfsInt = new LockFreeSetImpl();
+        lfsInt.add(1);
+        lfsInt.add(2);
+        LockFreeSetImpl.SnapCollector snapCollector = lfsInt.acquireSnapCollector();
 
+        lfsInt.add(3);
+        lfsInt.add(4);
+        lfsInt.remove(1);
+        lfsInt.collectSnapshot(snapCollector);
+        List<Integer> list = lfsInt.reconstructUsingReports(snapCollector);
+        System.out.println(list.toString());
+    }
     @Test
     public void testMy() {
 
         LockFreeSetImpl<Integer> lfsInt = new LockFreeSetImpl();
+        assertEquals(lfsInt.iterator().hasNext(), false);
         lfsInt.add(1);
         lfsInt.add(2);
         lfsInt.add(3);
