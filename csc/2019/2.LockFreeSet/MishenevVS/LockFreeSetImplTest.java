@@ -17,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 @Param(name = "key", gen = IntGen.class)//, conf = "1:15"
 
-/// Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 121.111 sec
-@StressCTest(iterations = 100, threads = 3)
+//Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 511.656 sec
+@StressCTest(iterations = 300, threads = 3)
 public class LockFreeSetImplTest {
     LockFreeSetImpl<Integer> set = new LockFreeSetImpl();
 

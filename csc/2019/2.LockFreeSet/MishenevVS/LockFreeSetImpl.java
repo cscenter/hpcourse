@@ -402,13 +402,17 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if (!curr.isMarkedAsDeleted())
                 curr = snapCollector.addNode(curr);
 
-
-            if (curr == null || curr.getNext() == null) {// curr is the last
+            if (curr == null ) {// curr is the last
                 snapCollector.BlockFurtherNodes();
                 snapCollector.Deactivate();
                 break;
             }
             curr = curr.getNext();
+            if (curr == null ) {// curr is the last
+                snapCollector.BlockFurtherNodes();
+                snapCollector.Deactivate();
+                break;
+            }
         }
         snapCollector.BlockFurtherReports();
     }
