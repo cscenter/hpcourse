@@ -5,7 +5,6 @@
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
 {
    public Node<T> head = null;
-
     /**
      * Добавить ключ к множеству
      *
@@ -16,11 +15,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
      */
     public boolean add(T value)
     {
-        if(head == null) {
-            head = new Node<T>(value, null);
-            return true;
-        }
-
         while(true)
         {
             Pair pred_curr = find(value);
@@ -28,14 +22,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
             Node curr = pred_curr.R;
             Node pred = pred_curr.L;
 
-            if(curr != null && curr.equalsTo(value))
+            if(pred == null || curr != null && curr.equalsTo(value))
                 return false;
             else
             {
                 Node node = new Node(value, curr);
                 node.markedNext.set(curr, false);
 
-                if(pred.markedNext.compareAndSet(curr, node, false, false))
+            if(pred.markedNext.compareAndSet(curr, node, false, false))
                 return true;
             }
         }
@@ -52,9 +46,6 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
      */
     public boolean remove(T value)
     {
-        if(head == null)
-            return false;
-
         while(true)
         {
             Pair pred_curr = find(value);
@@ -67,7 +58,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
             else
             {
                 Node succ = curr.next();
-                if(!curr.markedNext.compareAndSet(curr.next(), curr.next(), false, true))
+                if(!curr.markedNext.compareAndSet(succ, succ, false, true))
                     continue;
 
                 pred.markedNext.compareAndSet(curr, succ, false, false);
@@ -79,8 +70,12 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
 
     Pair<Node, Node> find(T value)
     {
-        if(head == null)
-            return new Pair<Node, Node>();
+        if(head == null){
+            Pair<Node, Node> result = new Pair<Node, Node>();
+            result.L = null;
+            result.R = null;
+            return result;
+        }
 
         while(true)
         {
@@ -150,7 +145,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
      */
     public boolean isEmpty()
     {
-        return head == null;
+        return (head == null || head.markedNext.isMarked());
     }
 
     /**
