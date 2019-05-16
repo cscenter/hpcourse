@@ -158,7 +158,8 @@ class IterValue<T extends Comparable<T>> {
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof IterValue)) return false;
-        if (value == null && ((IterValue)o).value == null) return true;
+        if (value == null && ((IterValue)o).value == null
+                && version == ((IterValue)o).version) return true;
         return value != null && ((IterValue)o).value != null
                 && value.equals(((IterValue)o).value) && version == ((IterValue)o).version;
     }
