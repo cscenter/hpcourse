@@ -6,9 +6,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector<T> {
 
-    static final int maxNThreads = 1024;
-    static final AtomicInteger counter = new AtomicInteger(-1);
-    static final ThreadLocal<Integer> index = new ThreadLocal<>();
+    final int maxNThreads = 1024;
+    final AtomicInteger counter = new AtomicInteger(-1);
+    final ThreadLocal<Integer> index = new ThreadLocal<>();
 
     final DataNode<Report<T>> reportsListStopToken;
     final DataNode<SkipListNode<T>> nodesListStopToken;
@@ -91,7 +91,7 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
     public void blockAddingNodes() {
         retry:
         while (true) {
-            if (active && tail != nodesListStopToken) {
+            if (tail != nodesListStopToken) {
                 DataNode<SkipListNode<T>> realTail = tail;
                 while (realTail.next.get() != null) {
                     realTail = realTail.next.get();
@@ -155,6 +155,9 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
                 DataNode<Report<T>> realTail = reportsListsTails.get(i);
                 while (realTail.next.get() != null)
                     realTail = realTail.next.get();
+
+                if (realTail == reportsListStopToken)
+                    break retry;
 
                 if (!realTail.next.compareAndSet(null, reportsListStopToken))
                     continue  retry;

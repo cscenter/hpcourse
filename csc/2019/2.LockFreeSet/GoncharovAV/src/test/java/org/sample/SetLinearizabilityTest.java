@@ -7,8 +7,12 @@ import com.devexperts.dxlab.lincheck.paramgen.IntGen;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressCTest;
 import org.junit.Test;
 
-@Param(name = "value", gen = IntGen.class, conf = "1:2")
-@StressCTest(actorsBefore = 0, actorsAfter = 0, actorsPerThread = 3, threads = 3)
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Iterator;
+
+@Param(name = "value", gen = IntGen.class, conf = "1:10")
+@StressCTest(actorsBefore = 2, actorsAfter = 2, actorsPerThread = 4, threads = 2)
 public class SetLinearizabilityTest {
     private LockFreeSetImpl<Integer> set = new LockFreeSetImpl<>();
 
@@ -30,6 +34,16 @@ public class SetLinearizabilityTest {
     @Operation
     public boolean isEmpty() {
         return set.isEmpty();
+    }
+
+    @Operation
+    public ArrayList<Integer> iterate(){
+
+        ArrayList<Integer> list = new ArrayList<>();
+        for (Iterator<Integer> i = set.iterator(); i.hasNext();)
+            list.add(i.next());
+
+        return list;
     }
 
     @Test

@@ -109,8 +109,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public Iterator<T> iterator() {
-
         SnapCollector<T> localSnapCollector = snapCollector.get();
+
         if (!localSnapCollector.isActive()){
             snapCollector.compareAndSet(localSnapCollector, new SnapCollectorImpl<>());
         }
@@ -126,9 +126,9 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             }
 
             localSnapCollector.blockAddingNodes();
-            localSnapCollector.blockReports();
             localSnapCollector.deactivate();
         }
+        localSnapCollector.blockReports();
 
         ArrayList<SkipListNode<T>> nodes = localSnapCollector.readNodes();
         ArrayList<Report<T>> reports = localSnapCollector.readReports();
@@ -150,7 +150,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
         Collections.sort(result);
 
-        return result.iterator();
+        return new IteratorImpl(result.iterator());
     }
 
     private Bounds<T> search(T value) {
@@ -229,6 +229,25 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         }
         return marked_by_current_thread;
     }
+
+    class IteratorImpl implements Iterator<T>{
+        Iterator<T> otherIterator;
+
+        IteratorImpl(Iterator<T> otherIterator){
+            this.otherIterator = otherIterator;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return otherIterator.hasNext();
+        }
+
+        @Override
+        public T next() {
+            return otherIterator.next();
+        }
+    }
+
 }
 
 
