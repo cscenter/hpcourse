@@ -2,8 +2,10 @@ package org.sample;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicMarkableReference;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
@@ -12,6 +14,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     private final SkipListNode<T> head;
     private final SkipListNode<T> tail;
 
+    private AtomicReference<SnapCollector<T>> snapCollector;
+
     public LockFreeSetImpl() {
         head = new SkipListNode<>(null, maxHeight);
         tail = new SkipListNode<>(null, maxHeight);
@@ -19,6 +23,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         for (int i = 0; i < maxHeight; ++i) {
             head.next.get(i).compareAndSet(null, tail, false, false);
         }
+
+        snapCollector = new AtomicReference<>(new SnapCollectorDummyImpl<>());
     }
 
     @Override
@@ -32,8 +38,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 int height = closest_node.next.size();
                 if (closest_node.next.get(0).isMarked()) {
                     continue retry;
-                } else
+                } else {
+                    snapCollector.get().report(new Report<>(closest_node, Operation.INSERT));
                     return false;
+                }
             }
 
             SkipListNode<T> new_node = SkipListNode.make(value);
@@ -42,6 +50,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
             if (!search_result.lefts.get(0).next.get(0).compareAndSet(search_result.rights.get(0), new_node, false, false))
                 continue retry;
+
+            snapCollector.get().report(new Report<>(new_node, Operation.INSERT));
 
             for (int i = 1; i < new_node.next.size(); ++i) {
                 while (true) {
@@ -79,8 +89,10 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         Bounds<T> search_result = search(value);
 
         SkipListNode<T> closest_node = search_result.rights.get(0);
-        if (closest_node != tail && closest_node.value.compareTo(value) == 0)
+        if (closest_node != tail && closest_node.value.compareTo(value) == 0) {
+            snapCollector.get().report(new Report<>(closest_node, Operation.INSERT));
             return true;
+        }
         else
             return false;
     }
@@ -88,16 +100,57 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     @Override
     public boolean isEmpty() {
 
-        SkipListNode<T> second = head.next.get(0).getReference();
-        while (second != tail && second.next.get(0).isMarked())
-            second = second.next.get(0).getReference();
+        int nNodes = 0;
+        for(Iterator<T> i = iterator(); i.hasNext(); i.next())
+            nNodes++;
 
-        return second == tail;
+        return nNodes == 0;
     }
 
     @Override
     public Iterator<T> iterator() {
-        return null;
+
+        SnapCollector<T> localSnapCollector = snapCollector.get();
+        if (!localSnapCollector.isActive()){
+            snapCollector.compareAndSet(localSnapCollector, new SnapCollectorImpl<>());
+        }
+
+        localSnapCollector = snapCollector.get();
+
+        if (localSnapCollector.isActive()) {
+            SkipListNode<T> currentNode = head.next.get(0).getReference();
+            while(currentNode != tail && localSnapCollector.isActive()){
+                if (!currentNode.next.get(0).isMarked())
+                    localSnapCollector.addNode(currentNode);
+                currentNode = currentNode.next.get(0).getReference();
+            }
+
+            localSnapCollector.blockAddingNodes();
+            localSnapCollector.blockReports();
+            localSnapCollector.deactivate();
+        }
+
+        ArrayList<SkipListNode<T>> nodes = localSnapCollector.readNodes();
+        ArrayList<Report<T>> reports = localSnapCollector.readReports();
+
+        HashSet<SkipListNode<T>> deletedNodes = new HashSet<>();
+        for (Report<T> report: reports){
+            if (report.op == Operation.DELETE)
+                deletedNodes.add(report.node);
+            else
+                nodes.add(report.node);
+        }
+        HashSet<SkipListNode<T>> uniqueNodes = new HashSet<>(nodes);
+
+        ArrayList<T> result = new ArrayList<>();
+        for (SkipListNode<T> node : uniqueNodes){
+            if (!deletedNodes.contains(node))
+                result.add(node.value);
+        }
+
+        Collections.sort(result);
+
+        return result.iterator();
     }
 
     private Bounds<T> search(T value) {
@@ -133,6 +186,15 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                 }
 
                 if (left_next != right) {
+
+                    if (i == 0){
+                        SkipListNode<T> currentMarkedNode = left_next;
+                        while (currentMarkedNode != right) {
+                            snapCollector.get().report(new Report<>(currentMarkedNode, Operation.DELETE));
+                            currentMarkedNode = currentMarkedNode.next.get(0).getReference();
+                        }
+                    }
+
                     boolean remove_marked_success = left.next.get(i).compareAndSet(left_next, right, false, false);
                     if (!remove_marked_success)
                         continue retry;

@@ -27,8 +27,8 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
 
         for (int i = 0; i < maxNThreads; i++) {
             DataNode<Report<T>> fakeReportNode = new DataNode<>(null, null);
-            reportsLists.set(i, fakeReportNode);
-            reportsListsTails.set(i, fakeReportNode);
+            reportsLists.add(fakeReportNode);
+            reportsListsTails.add(fakeReportNode);
         }
 
         DataNode<SkipListNode<T>> fakeNode = new DataNode<>(null, null);
@@ -45,7 +45,7 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
     }
 
     @Override
-    public void Deactivate() {
+    public void deactivate() {
         active = false;
     }
 
@@ -117,12 +117,13 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
             do {
                 newIndex = counter.get() + 1;
             } while(!counter.compareAndSet(newIndex-1, newIndex));
+            index.set(newIndex);
         }
 
         int threadIndex = index.get();
         DataNode<Report<T>> threadReportsListTail = reportsListsTails.get(threadIndex);
 
-        if (threadReportsListTail == reportsListStopToken || threadReportsListTail.next.get() != null)
+        if (threadReportsListTail == reportsListStopToken || threadReportsListTail.next.get() != null || !active)
             return;
 
         DataNode<Report<T>> newReportNode = new DataNode<>(report, null);
@@ -172,7 +173,7 @@ class SnapCollectorDummyImpl<T extends Comparable<T>> implements SnapCollector<T
     }
 
     @Override
-    public void Deactivate() {
+    public void deactivate() {
 
     }
 

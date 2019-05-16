@@ -7,8 +7,8 @@ import com.devexperts.dxlab.lincheck.paramgen.IntGen;
 import com.devexperts.dxlab.lincheck.strategy.stress.StressCTest;
 import org.junit.Test;
 
-@Param(name = "value", gen = IntGen.class, conf = "1:10")
-@StressCTest(actorsBefore = 5, actorsAfter = 5, actorsPerThread = 5)
+@Param(name = "value", gen = IntGen.class, conf = "1:2")
+@StressCTest(actorsBefore = 0, actorsAfter = 0, actorsPerThread = 3, threads = 3)
 public class SetLinearizabilityTest {
     private LockFreeSetImpl<Integer> set = new LockFreeSetImpl<>();
 

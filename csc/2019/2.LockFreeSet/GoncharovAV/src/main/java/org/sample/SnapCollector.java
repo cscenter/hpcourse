@@ -20,7 +20,7 @@ class Report<T extends Comparable<T>> {
 interface SnapCollector<T extends Comparable<T>> {
     boolean isActive();
 
-    void Deactivate();
+    void deactivate();
 
     void addNode(SkipListNode<T> node);
 
