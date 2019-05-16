@@ -1,5 +1,6 @@
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicStampedReference;
 
@@ -91,7 +92,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         while(cur != null) {
             int version = cur.next.getStamp();
             if (version != 0)
-                nodes.add(new IterValue<>(cur.value, version, cur));
+                nodes.add(new IterValue<>(cur.value, version));
             cur = cur.next.getReference();
         }
         return nodes;
@@ -143,27 +144,22 @@ class Pair<T extends Comparable<T>> {
 class IterValue<T extends Comparable<T>> {
     final T value;
     private final int version;
-    private final Node<T> node;
 
-    IterValue(T val, int ver, Node<T> node) {
+    IterValue(T val, int ver) {
         this.value = val;
         this.version = ver;
-        this.node = node;
     }
 
     @Override
     public int hashCode() {
-        return cantor(cantor(value == null ? 0 : value.hashCode(), version), node.hashCode());
+        return Objects.hash(value, version);
     }
 
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof IterValue)) return false;
-        return (value == null && ((IterValue)o).value == null || value.equals(((IterValue)o).value)) &&
-                version == ((IterValue)o).version && node.hashCode() == ((IterValue)o).node.hashCode();
-    }
-
-    private int cantor(int a, int b) {
-        return (a + b) * (a + b + 1) / 2 + b;
+        if (value == null && ((IterValue)o).value == null) return true;
+        return value != null && ((IterValue)o).value != null
+                && value.equals(((IterValue)o).value) && version == ((IterValue)o).version;
     }
 }
