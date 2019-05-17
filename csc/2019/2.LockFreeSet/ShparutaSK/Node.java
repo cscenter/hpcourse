@@ -10,7 +10,7 @@ class Node<T extends Comparable<T>>
         this.markedNext = new AtomicMarkableReference<Node<T>>(next, false);
     }
 
-    boolean isNextMarkedDeleted() {
+    boolean isMarkedDeleted() {
         return markedNext.isMarked();
     }
 

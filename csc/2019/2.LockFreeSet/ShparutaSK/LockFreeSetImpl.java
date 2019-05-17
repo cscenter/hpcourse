@@ -92,7 +92,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
 
             while(true)
             {
-                if(curr.isNextMarkedDeleted()) {
+                if(curr.isMarkedDeleted()) {
                     if (!pred.markedNext.compareAndSet(curr, curr.next(), false, false))
                         continue;
 
@@ -132,7 +132,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
         Node curr = head;
         while(curr.compareWith(value) == -1)
             curr = curr.next();
-        return curr.equalsTo(value) && !curr.isNextMarkedDeleted();
+        return curr.equalsTo(value) && !curr.isMarkedDeleted();
     }
 
 
@@ -145,7 +145,16 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T>
      */
     public boolean isEmpty()
     {
-        return (head == null || head.markedNext.isMarked());
+        if(head == null)
+            return true;
+
+        Node curr = head;
+        while(curr != null || curr.isMarkedDeleted())
+        {
+            curr = curr.next();
+        }
+
+        return curr == null;
     }
 
     /**
