@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 #include <unistd.h>
 
 #define NOERROR 0
@@ -28,20 +29,26 @@ struct Result {
     const int error_code;
 };
 
+std::random_device rd;
+std::mt19937 gen(rd());
+
 int random_number(int from, int to) {
     if (to == 0) {
         return 0;
     }
-    return from + std::rand() % to;
+    std::uniform_int_distribution<> dist(from, to);
+    return dist(gen);
 }
 
 int add_with_overflow_check(int *result, int a, int b) {
-    if (a > INT_MAX - b) {
+    *result = a + b;
+    if(a > 0 && b > 0 && *result < 0) {
         return -1;
-    } else {
-        *result = a + b;
-        return 0;
     }
+    if(a < 0 && b < 0 && *result > 0) {
+        return -1;
+    }
+    return 0;
 }
 
 void wait_for_consumer() {
@@ -169,16 +176,17 @@ int run_threads() {
         Result *result;
         pthread_join(consumers[i], (void **) &result);
         if (result->error_code == OVERFLOW) {
-            std::cout << overflow_message;
-            delete result;
-            return 1;
+            set_last_error(OVERFLOW);
         }
-        if (add_with_overflow_check(&sum, sum, result->sum)) {
-            std::cout << overflow_message;
-            delete result;
-            return 1;
+        if (get_last_error() != OVERFLOW && add_with_overflow_check(&sum, sum, result->sum)) {
+            set_last_error(OVERFLOW);
         }
         delete result;
+    }
+
+    if (get_last_error() == OVERFLOW) {
+        std::cout << overflow_message;
+        return 1;
     }
 
     std::cout << sum << std::endl;
