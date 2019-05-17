@@ -81,9 +81,10 @@ public final class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeS
                 if (curr == tail) {
                     return new NodePair<>(prev, curr);
                 }
-                Node<T> next = curr.next.getReference();
+                boolean[] marked = {false};
+                Node<T> next = curr.next.get(marked);
                 // if current is logically deleted
-                if (curr.next.isMarked()) {
+                if (marked[0]) {
                     // try to delete it physically
                     if (!prev.next.compareAndSet(curr, next, false, false)) {
                         break;
