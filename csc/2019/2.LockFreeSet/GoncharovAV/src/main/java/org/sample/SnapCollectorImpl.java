@@ -112,13 +112,8 @@ public class SnapCollectorImpl<T extends Comparable<T>> implements SnapCollector
 
     @Override
     public void report(Report<T> report) {
-        if (index.get() == null){
-            int newIndex;
-            do {
-                newIndex = counter.get() + 1;
-            } while(!counter.compareAndSet(newIndex-1, newIndex));
-            index.set(newIndex);
-        }
+        if (index.get() == null)
+            index.set(counter.incrementAndGet());
 
         int threadIndex = index.get();
         DataNode<Report<T>> threadReportsListTail = reportsListsTails.get(threadIndex);

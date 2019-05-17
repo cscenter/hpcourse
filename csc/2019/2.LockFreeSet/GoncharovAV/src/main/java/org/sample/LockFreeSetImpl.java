@@ -31,7 +31,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
     public boolean add(T value) {
         retry:
         while (true) {
-            Bounds<T> search_result = search(value);
+            Bounds<T> search_result = search(value, false);
             SkipListNode<T> closest_node = search_result.rights.get(0);
 
             if (closest_node != tail && closest_node.value.compareTo(value) == 0) {
@@ -61,32 +61,32 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                     if (search_result.lefts.get(i).next.get(i).compareAndSet(search_result.rights.get(i), new_node, false, false))
                         break;
 
-                    search_result = search(value);
+                    search_result = search(value, false);
                 }
             }
 
-            search(value);
+            search(value, false);
             return true;
         }
     }
 
     @Override
     public boolean remove(T value) {
-        Bounds<T> search_result = search(value);
+        Bounds<T> search_result = search(value, false);
         SkipListNode<T> closest_node = search_result.rights.get(0);
 
         if (closest_node == tail || closest_node.value.compareTo(value) != 0)
             return false;
 
         boolean marked_by_current_thread = mark(closest_node);
-        search(value);
+        search(value, false);
 
         return marked_by_current_thread;
     }
 
     @Override
     public boolean contains(T value) {
-        Bounds<T> search_result = search(value);
+        Bounds<T> search_result = search(value, true);
 
         SkipListNode<T> closest_node = search_result.rights.get(0);
         if (closest_node != tail && closest_node.value.compareTo(value) == 0) {
@@ -153,7 +153,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         return new IteratorImpl(result.iterator());
     }
 
-    private Bounds<T> search(T value) {
+    private Bounds<T> search(T value, boolean ignoreFailedRemovals) {
         retry:
         while (true) {
             SkipListNode<T> left = head;
@@ -162,7 +162,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             ArrayList<SkipListNode<T>> rights = new ArrayList<>();
 
             for (int i = maxHeight - 1; i >= 0; i--) {
-                if (left.next.get(i).isMarked())
+                if (left.next.get(i).isMarked() && !ignoreFailedRemovals)
                     continue retry;
 
                 SkipListNode<T> left_next = left.next.get(i).getReference();
@@ -195,8 +195,8 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                         }
                     }
 
-                    boolean remove_marked_success = left.next.get(i).compareAndSet(left_next, right, false, false);
-                    if (!remove_marked_success)
+                    boolean removeMarkedSuccess = left.next.get(i).compareAndSet(left_next, right, false, false);
+                    if (!removeMarkedSuccess && !ignoreFailedRemovals)
                         continue retry;
                 }
 
