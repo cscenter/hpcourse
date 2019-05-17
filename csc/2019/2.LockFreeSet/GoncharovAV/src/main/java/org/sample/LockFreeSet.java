@@ -1,3 +1,5 @@
+package org.sample;
+
 /**
  * Lock-Free множество.
  * @param <T> Тип ключей
