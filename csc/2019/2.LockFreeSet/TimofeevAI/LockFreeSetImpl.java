@@ -1,7 +1,6 @@
 package da;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicMarkableReference;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -11,6 +10,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     final boolean INSERTED = false;
     final boolean DELETED = true;
+    final int MAX_THREADS = 1024;
 
     private Node head;
     private AtomicReference<SnapCollector> PSC;
@@ -70,21 +70,37 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
     }
 
     private class SnapCollector {
-        boolean isActive, blockFurtherPointers, blockFurtherReports, complete, flag;
-        Set<Node> insertReports, deleteReports, pointers;
-        AtomicBoolean oneThreadCollecting;
-        Set<Node> snapshot = new HashSet<Node>();
+
+        private class NodeNode<Node> {
+            Node node;
+            AtomicReference<NodeNode> next;
+
+            public NodeNode(Node node_, NodeNode next_) {
+                node = node_;
+                next = new AtomicReference<NodeNode>(next_);
+            }
+        }
+        
+        boolean isActive;
+        NodeNode<Node>[] insertReports, deleteReports, pointers;
 
         SnapCollector() {
-            oneThreadCollecting = new AtomicBoolean(false);
-            flag = false;
             isActive = true;
-            complete = false;
-            blockFurtherPointers = false;
-            blockFurtherReports = false;
-            insertReports = new HashSet<Node>();
-            deleteReports = new HashSet<Node>();
-            pointers = new HashSet<Node>();
+            insertReports = new NodeNode[MAX_THREADS];
+            for (int i = 0; i < insertReports.length; i++) {
+                insertReports[i] = new NodeNode(null, null);
+            }
+
+            deleteReports = new NodeNode[MAX_THREADS];
+            for (int i = 0; i < deleteReports.length; i++) {
+                deleteReports[i] = new NodeNode(null, null);
+            }
+
+            pointers = new NodeNode[MAX_THREADS];
+            for (int i = 0; i < pointers.length; i++) {
+                pointers[i] = new NodeNode(null, null);
+            }
+
         }
 
         boolean isActive() {
@@ -95,36 +111,103 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
             isActive = false;
         }
 
-        void report(Node n, boolean action) {
-            if (!blockFurtherReports) {
-                if (action == INSERTED) {
-                    insertReports.add(n);
-                } else if (action == DELETED) {
-                    deleteReports.add(n);
+        boolean report(Node node, boolean action) {
+
+            int id = (int) Thread.currentThread().getId();
+            NodeNode<Node> tail = insertReports[id];
+            if (action == INSERTED) {
+                tail = insertReports[id];
+            } else if (action == DELETED) {
+                tail = deleteReports[id];
+            }
+            while (true) {
+                NodeNode<Node> next = tail.next.get();
+                if (next != null && next.node == null) {
+                    return false;
+                }
+                NodeNode<Node> newNode = new NodeNode(node, next);
+                if (tail.next.compareAndSet(next, newNode)) {
+                    return true;
+                }
+
+            }
+    }
+
+        boolean addNode(Node node) {
+
+            int id = (int) Thread.currentThread().getId();
+            NodeNode<Node> tail = pointers[id];
+            while (true) {
+                NodeNode<Node> next = tail.next.get();
+                if (next != null && next.node == null) {
+                    return false;
+                }
+                NodeNode<Node> newNode = new NodeNode(node, next);
+                if (tail.next.compareAndSet(next, newNode)) {
+                    return true;
+                }
+
+            }
+
+        }
+
+        void blockFurtherPointers() {
+            for (int i = 0; i < pointers.length; i++) {
+                NodeNode<Node> tail = pointers[i];
+                NodeNode<Node> next = tail.next.get();
+                if (tail.next.compareAndSet(next, new NodeNode<Node>(null, next))) {
                 }
             }
         }
 
-        void addNode(Node node) {
-            if (!blockFurtherPointers) {
-                pointers.add(node);
+        void blockFurtherReports() {
+            for (int i = 0; i < insertReports.length; i++) {
+                NodeNode<Node> tail = insertReports[i];
+                NodeNode<Node> next = tail.next.get();
+                tail.next.compareAndSet(next, new NodeNode<Node>(null, next));
+            }
+            for (int i = 0; i < deleteReports.length; i++) {
+                NodeNode<Node> tail = deleteReports[i];
+                NodeNode<Node> next = tail.next.get();
+                tail.next.compareAndSet(next, new NodeNode<Node>(null, next));
             }
         }
 
-        void blockFurtherPointers() {
-            blockFurtherPointers = true;
+        HashSet<Node> readReports() {
+            HashSet<Node> result = new HashSet<>();
+            for (int i = 0; i < insertReports.length; i++) {
+                NodeNode tail = insertReports[i];
+                NodeNode curr = tail;
+                while (curr != null) {
+                    Node node = (Node) curr.node;
+                    if (node != null) result.add(node);
+                    curr = (NodeNode) curr.next.get();
+                }
+            }
+            for (int i = 0; i < deleteReports.length; i++) {
+                NodeNode tail = deleteReports[i];
+                NodeNode curr = tail;
+                while (curr != null) {
+                    Node node = (Node) curr.node;
+                    if (node != null) result.remove(node);
+                    curr = (NodeNode) curr.next.get();
+                }
+            }
+            return result;
         }
 
-        void blockFurtherReports() {
-            blockFurtherReports = true;
-        }
-
-        void readReports() {
-            return;
-        }
-
-        void readPointers() {
-            return;
+        HashSet<Node> readPointers() {
+            HashSet<Node> result = new HashSet<>();
+            for (int i = 0; i < pointers.length; i++) {
+                NodeNode tail = pointers[i];
+                NodeNode curr = tail;
+                while (curr != null) {
+                    Node node = (Node) curr.node;
+                    if (node != null) result.add(node);
+                    curr = (NodeNode) curr.next.get();
+                }
+            }
+            return result;
         }
     }
 
@@ -136,12 +219,13 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     @Override
     public boolean add(T value) {
+        checkThreadId();
         while (true) {
             Window w = find(head, value);
             Node pred = w.pred;
             Node curr = w.curr;
             if (curr != null && curr.value.compareTo(value) == 0) {
-                // reportInsert(curr);
+                reportInsert(curr);
                 return false;
             }
             // assert curr.value.compareTo(value) > 0;
@@ -156,7 +240,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     @Override
     public boolean remove(T value) {
-
+        checkThreadId();
         boolean snip;
         while (true) {
             Window w = find(head, value);
@@ -179,6 +263,8 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     @Override
     public boolean contains(T value) {
+        checkThreadId();
+
         boolean[] marked = { false };
         Node curr = head.next.getReference();
         while (curr != null && curr.value.compareTo(value) < 0) {
@@ -198,23 +284,25 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
     @Override
     public boolean isEmpty() {
-        // return !iterator().hasNext();
-        while (true) {
-            AtomicMarkableReference<Node> next = head.next;
-            if (next.getReference() != null && !next.isMarked()) {
-                return false;
-            }
-            else if (next.getReference() == null) {
-                return true;
-            }
-            Node nextnext = next.getReference().next.getReference();
-            head.next.compareAndSet(next.getReference(), nextnext, false, false);
+        checkThreadId();
+        return !iterator().hasNext();
+        // while (true) {
+        //     AtomicMarkableReference<Node> next = head.next;
+        //     if (next.getReference() != null && !next.isMarked()) {
+        //         return false;
+        //     }
+        //     else if (next.getReference() == null) {
+        //         return true;
+        //     }
+        //     Node nextnext = next.getReference().next.getReference();
+        //     head.next.compareAndSet(next.getReference(), nextnext, false, false);
 
-        }
+        // }
     }
 
     @Override
     public Iterator<T> iterator() {
+        checkThreadId();
         return takeSnapshot().iterator();
     }
 
@@ -248,44 +336,43 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         }
         SnapCollector newSC = new SnapCollector();
         PSC.compareAndSet(SC, newSC);
-        // newSC = PSC.get();
+        newSC = PSC.get();
         return newSC;
 
     }
 
     public void collectSnapshot(Node head_, SnapCollector SC) {
-        boolean first = SC.oneThreadCollecting.compareAndSet(false, true);
-        if (first) {
-            boolean[] marked = { false };
-            Node curr = head_;
-            while (SC.isActive()) {
-                Node next = curr.next.get(marked);
-                if (!marked[0] && curr.value != null) {
-                    SC.addNode(curr);
-                }
-                if (next == null) {
-                    SC.blockFurtherPointers();
-                    SC.deactivate();
-                }
-                curr = next;
+
+        // boolean[] marked = { false };
+        Node curr = head_;
+        while (SC.isActive()) {
+            // Node next = curr.next.get(marked);
+            // if (curr.value != null && !marked[0]) {
+            AtomicMarkableReference<Node> next = curr.next;
+            if (curr.value != null && !next.isMarked()) {
+                SC.addNode(curr);
             }
-            SC.blockFurtherReports();
-        } else {
-            while (!SC.complete) {
-                // System.out.println();
-                continue;
+            if (next.getReference() == null) {
+                SC.deactivate();
+                SC.blockFurtherPointers();
             }
+            curr = next.getReference();
         }
+        SC.blockFurtherReports();
     }
 
     public List<T> reconstructUsingReports(SnapCollector SC) {
-        if (!SC.complete) {
-            SC.snapshot.addAll(SC.insertReports);
-            SC.snapshot.addAll(SC.pointers);
-            SC.snapshot.removeAll(SC.deleteReports);
-            SC.complete = true;
-        }
-        List<T> iterable = SC.snapshot.stream().map((x) -> x.value).sorted().collect(toList());
+        Set<Node> snapshot = new HashSet<Node>();
+        snapshot.addAll(SC.readPointers());
+        snapshot.addAll(SC.readReports());
+        List<T> iterable = snapshot.stream().map((x) -> x.value).sorted().collect(toList());
         return iterable;
+    }
+
+    public boolean checkThreadId() {
+        if ((int) Thread.currentThread().getId() >= MAX_THREADS) {
+            throw new RuntimeException("max threads " + Integer.toString(MAX_THREADS));
+        }
+        return true;
     }
 }
