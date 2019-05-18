@@ -58,7 +58,11 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean isEmpty() {
-        return head.next.getReference() == null;
+        Node current = head.next.getReference();
+        while (current != null && current.next.isMarked()) {
+            current = current.next.getReference();
+        }
+        return current == null;
     }
 
     @Override
@@ -84,7 +88,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
                     current = successor;
 
                 } else {
-                    if (current.value.compareTo(value) > 0) {
+                    if (current.value.compareTo(value) >= 0) {
                         return new Window(previous, current);
                     }
                     previous = current;
