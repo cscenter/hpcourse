@@ -73,27 +73,31 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
         private class NodeNode<Node> {
             Node node;
+            boolean report_type;
             AtomicReference<NodeNode> next;
 
             public NodeNode(Node node_, NodeNode next_) {
+                report_type = INSERTED;
+                node = node_;
+                next = new AtomicReference<NodeNode>(next_);
+            }
+
+            public NodeNode(Node node_, NodeNode next_, boolean type) {
+                report_type = type;
                 node = node_;
                 next = new AtomicReference<NodeNode>(next_);
             }
         }
         
         boolean isActive;
-        NodeNode<Node>[] insertReports, deleteReports, pointers;
+        NodeNode<Node>[] reports, pointers;
 
         SnapCollector() {
             isActive = true;
-            insertReports = new NodeNode[MAX_THREADS];
-            for (int i = 0; i < insertReports.length; i++) {
-                insertReports[i] = new NodeNode(null, null);
-            }
 
-            deleteReports = new NodeNode[MAX_THREADS];
-            for (int i = 0; i < deleteReports.length; i++) {
-                deleteReports[i] = new NodeNode(null, null);
+            reports = new NodeNode[MAX_THREADS];
+            for (int i = 0; i < reports.length; i++) {
+                reports[i] = new NodeNode(null, null);
             }
 
             pointers = new NodeNode[MAX_THREADS];
@@ -114,18 +118,13 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         boolean report(Node node, boolean action) {
 
             int id = (int) Thread.currentThread().getId();
-            NodeNode<Node> tail = insertReports[id];
-            if (action == INSERTED) {
-                tail = insertReports[id];
-            } else if (action == DELETED) {
-                tail = deleteReports[id];
-            }
+            NodeNode<Node> tail = reports[id];
             while (true) {
                 NodeNode<Node> next = tail.next.get();
                 if (next != null && next.node == null) {
                     return false;
                 }
-                NodeNode<Node> newNode = new NodeNode(node, next);
+                NodeNode<Node> newNode = new NodeNode(node, next, action);
                 if (tail.next.compareAndSet(next, newNode)) {
                     return true;
                 }
@@ -161,13 +160,8 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         }
 
         void blockFurtherReports() {
-            for (int i = 0; i < insertReports.length; i++) {
-                NodeNode<Node> tail = insertReports[i];
-                NodeNode<Node> next = tail.next.get();
-                tail.next.compareAndSet(next, new NodeNode<Node>(null, next));
-            }
-            for (int i = 0; i < deleteReports.length; i++) {
-                NodeNode<Node> tail = deleteReports[i];
+            for (int i = 0; i < reports.length; i++) {
+                NodeNode<Node> tail = reports[i];
                 NodeNode<Node> next = tail.next.get();
                 tail.next.compareAndSet(next, new NodeNode<Node>(null, next));
             }
@@ -175,21 +169,20 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
         HashSet<Node> readReports() {
             HashSet<Node> result = new HashSet<>();
-            for (int i = 0; i < insertReports.length; i++) {
-                NodeNode tail = insertReports[i];
+
+            for (int i = 0; i < reports.length; i++) {
+                NodeNode tail = reports[i];
                 NodeNode curr = tail;
                 while (curr != null) {
                     Node node = (Node) curr.node;
-                    if (node != null) result.add(node);
-                    curr = (NodeNode) curr.next.get();
-                }
-            }
-            for (int i = 0; i < deleteReports.length; i++) {
-                NodeNode tail = deleteReports[i];
-                NodeNode curr = tail;
-                while (curr != null) {
-                    Node node = (Node) curr.node;
-                    if (node != null) result.remove(node);
+                    boolean action = curr.report_type;
+                    if (node != null) {
+                        if (action == INSERTED) {
+                            result.add(node);
+                        } else {
+                            result.remove(node);
+                        }
+                    }
                     curr = (NodeNode) curr.next.get();
                 }
             }
@@ -272,6 +265,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         }
         if (curr != null && curr.value.compareTo(value) == 0) {
             if (curr.next.isMarked()) {
+            // if (marked[0]) {
                 reportDelete(curr);
                 return false;
             } else {
@@ -355,6 +349,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
             if (next.getReference() == null) {
                 SC.deactivate();
                 SC.blockFurtherPointers();
+
             }
             curr = next.getReference();
         }
