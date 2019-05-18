@@ -90,6 +90,7 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         }
         
         boolean isActive;
+        // NodeNode<Node>[] insertReports, deleteReports, pointers;
         NodeNode<Node>[] reports, pointers;
 
         SnapCollector() {
@@ -118,14 +119,21 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
         boolean report(Node node, boolean action) {
 
             int id = (int) Thread.currentThread().getId();
-            NodeNode<Node> tail = reports[id];
+            NodeNode<Node> head = reports[id];
             while (true) {
-                NodeNode<Node> next = tail.next.get();
-                if (next != null && next.node == null) {
+
+                NodeNode<Node> curr = head;
+                NodeNode<Node> next = curr.next.get();
+                while (next != null) {
+                    curr = next;
+                    next = curr.next.get();
+                }
+                if (curr != null && curr.node == null) {
                     return false;
                 }
-                NodeNode<Node> newNode = new NodeNode(node, next, action);
-                if (tail.next.compareAndSet(next, newNode)) {
+                // NodeNode<Node> newNode = new NodeNode(node, next);
+                NodeNode<Node> newNode = new NodeNode(node, null, action);
+                if (curr.next.compareAndSet(null, newNode)) {
                     return true;
                 }
 
@@ -169,7 +177,6 @@ class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> {
 
         HashSet<Node> readReports() {
             HashSet<Node> result = new HashSet<>();
-
             for (int i = 0; i < reports.length; i++) {
                 NodeNode tail = reports[i];
                 NodeNode curr = tail;
