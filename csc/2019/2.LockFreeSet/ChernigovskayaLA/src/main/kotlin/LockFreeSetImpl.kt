@@ -32,18 +32,19 @@ class LockFreeSetImpl<T: Comparable<T>> : LockFreeSet<T> {
         while (true) {
             val (pred, current) = find(value)
             if (current == null || current.value != value) return false
-            if (!current.nextNode.compareAndSet(current.nextNode.reference, current.nextNode.reference, false, true))  {
+            val next = current.nextNode.reference
+            if (!current.nextNode.compareAndSet(next, next, false, true))  {
                 continue
             }
             reportDelete(current)
-            pred.nextNode.compareAndSet(current, current.nextNode.reference, false, false)
+            pred.nextNode.compareAndSet(current, next, false, false)
             return true
         }
     }
 
     override fun contains(value: T): Boolean {
-        val (current, _) = find(value)
-        if (current.value != value) return false
+        val (_, current) = find(value)
+        if (current == null || current.value != value) return false
         if (current.nextNode.isMarked) {
             reportDelete(current)
             return false
@@ -53,11 +54,15 @@ class LockFreeSetImpl<T: Comparable<T>> : LockFreeSet<T> {
     }
 
     override fun isEmpty(): Boolean {
-        return head.nextNode.reference == null
+        var current = head.nextNode.reference
+        while (current != null && current.nextNode.isMarked) {
+            current = current.nextNode.reference
+        }
+        return current == null
     }
 
     class Node<T: Comparable<T>>(val value: T?, next: Node<T>?) {
-        var nextNode: AtomicMarkableReference<Node<T>?> = AtomicMarkableReference(next, false)
+        val nextNode: AtomicMarkableReference<Node<T>?> = AtomicMarkableReference(next, false)
     }
 
     data class Window<T: Comparable<T>>(val pred: Node<T>, val next: Node<T>?)
