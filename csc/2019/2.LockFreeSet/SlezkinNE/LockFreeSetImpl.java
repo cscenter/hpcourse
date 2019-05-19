@@ -26,7 +26,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
         Node next() { return next.getReference(); }
         int cmp(T val) { return value.compareTo(val); }
         int version() { return next.getStamp(); }
-        boolean cas(Node ref, int ver) { return next.compareAndSet(ref, ref, ver, 0); }
+        boolean cas2(Node ref, int ver) { return next.compareAndSet(ref, ref, ver, 0); }
         boolean cas(Node expR, Node newR, int ver) { return next.compareAndSet(expR, newR, ver, ver + 1); }
         public int hashCode() { return Objects.hash(value, next.getStamp()); }
 
@@ -80,7 +80,7 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
             if (curr == null || curr.cmp(value) != 0) return false;
             Node succ = curr.next();
             if ((ver = curr.version()) == 0) return false;
-            if (!curr.cas(succ, ver)) continue;
+            if (!curr.cas2(succ, ver)) continue;
             if ((ver = prev.version()) != 0) prev.cas(curr, succ, ver);
             return true;
         }
@@ -98,24 +98,26 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public Iterator<T> iterator() {
-        Set<Node> att1 = new HashSet<>();
-        Set<Node> att2 = new HashSet<>();
+        Set<Node>[] att = new HashSet[2];
+        att[0] = new HashSet<>();
+        att[1] = new HashSet<>();
+        int i = 0;
         while(true) {
-            att2.clear();
+            att[i].clear();
             Node now = head;
             while(now != null) {
                 if (now.version() != 0)
-                    att2.add(new Node(now));
+                    att[i].add(new Node(now));
                 now = now.next();
             }
-            if (att1.equals(att2)) {
-                final Set<Node> att = att1;
+            if (att[1-i].equals(att[i])) {
+                final Set<Node> attf = att[i];
                 return new Iterator<T>() {
-                    private final Iterator<Node> baseIterator = att.iterator();
+                    private final Iterator<Node> baseIterator = attf.iterator();
                     public boolean hasNext() { return baseIterator.hasNext(); }
                     public T next() { return baseIterator.next().value; }};
             }
-            att1 = new HashSet<>(att2);
+            i = 1 - i;
         }
     }
 }
