@@ -20,9 +20,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
 
         fun markRemovedAttempt(forRemove: Node?) = state.compareAndSet(forRemove, forRemove, false, true)
 
-        fun removeAttempt(forRemove: Node) = state.compareAndSet(forRemove, forRemove.next, false, false)
-
-        fun addAttempt(oldChild: Node?, newChild: Node?) = state.compareAndSet(oldChild, newChild, false, false)
+        fun upgradeAttempt(oldChild: Node?, newChild: Node?) = state.compareAndSet(oldChild, newChild, false, false)
     }
 
     init {
@@ -54,7 +52,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                     if (sc.isActive()) {
                         sc.report()
                     }
-                    snip = prev.addAttempt(curr, succ)
+                    snip = prev.upgradeAttempt(curr, succ)
                     if (!snip) continue@retry
                     curr = succ
                     succ = curr.state.get(marked)!!
@@ -87,7 +85,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                 return false
             } else {
                 node = Node(data, curr)
-                if (prev.addAttempt(curr, node)) {
+                if (prev.upgradeAttempt(curr, node)) {
                     val sc = snapPointer.get()
                     if (sc.isActive()) {
                         // report only if you are not going to be deleted
@@ -118,7 +116,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                     sc.report()
                 }
                 // physically removing curr
-                if (!prev.removeAttempt(curr)) find(head, data)
+                prev.upgradeAttempt(curr, succ)
                 return true
             }
         }
