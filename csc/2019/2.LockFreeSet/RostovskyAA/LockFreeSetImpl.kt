@@ -36,7 +36,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
 
     inner class Window(val prev: Node, val curr: Node)
 
-    private fun find(head: Node, data: T): Window {
+    private fun find(data: T): Window {
         var prev: Node
         var curr: Node
         var succ: Node
@@ -71,7 +71,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         var curr: Node
         var node: Node
         while (true) {
-            window = find(head, data)
+            window = find(data)
             prev = window.prev
             curr = window.curr
             if (curr.data == data) {
@@ -94,7 +94,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     override fun remove(data: T): Boolean {
         var snip: Boolean
         while (true) {
-            val window = find(head, data)
+            val window = find(data)
             val prev = window.prev
             val curr = window.curr
             if (curr.data != data) {
@@ -114,12 +114,21 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
     }
 
-    override fun contains(value: T): Boolean {
-        return iterList().contains(value)
+    override fun contains(data: T): Boolean {
+        val current: Node
+        find(data).apply {
+            current = curr
+        }
+        if ( current.data != data || current.isRemoved()) return false
+        return true
     }
 
     override fun isEmpty(): Boolean {
-        return iterList().isEmpty()
+        var current = head.next
+        while (current != null && current.isRemoved()) {
+            current = current.next
+        }
+        return current == null
     }
 
     override fun iterator(): Iterator<T> {
