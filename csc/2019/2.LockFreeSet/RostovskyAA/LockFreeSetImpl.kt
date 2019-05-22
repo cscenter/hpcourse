@@ -49,9 +49,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                 succ = curr.state.get(marked)!!
                 while (marked[0]) {
                     val sc = snapPointer.get()
-                    if (sc.isActive()) {
-                        sc.report()
-                    }
+                    sc.report()
                     snip = prev.upgradeAttempt(curr, succ)
                     if (!snip) continue@retry
                     curr = succ
@@ -78,19 +76,15 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             curr = window.curr
             if (curr.data == data) {
                 val sc = snapPointer.get()
-                if (sc.isActive()) {
-                    // report only if you are not going to be deleted
-                    if (!curr.isRemoved()) sc.report()
-                }
+                // report only if you are not going to be deleted
+                if (!curr.isRemoved()) sc.report()
                 return false
             } else {
                 node = Node(data, curr)
                 if (prev.upgradeAttempt(curr, node)) {
                     val sc = snapPointer.get()
-                    if (sc.isActive()) {
-                        // report only if you are not going to be deleted
-                        if (!node.isRemoved()) sc.report()
-                    }
+                    // report only if you are not going to be deleted
+                    if (!node.isRemoved()) sc.report()
                     return true
                 }
             }
@@ -112,9 +106,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
                 if (!snip)
                     continue
                 val sc = snapPointer.get()
-                if (sc.isActive()) {
-                    sc.report()
-                }
+                sc.report()
                 // physically removing curr
                 prev.upgradeAttempt(curr, succ)
                 return true
@@ -180,6 +172,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
 
         fun report() {
+            if (!isActive()) return
             val threadId = 0
             val tail = reports[threadId]
             val newItem = ReportItem()
