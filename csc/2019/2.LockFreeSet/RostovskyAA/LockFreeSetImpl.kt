@@ -7,6 +7,11 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     private val head: Node
     private val snapPointer: AtomicReference<SnapCollector>
 
+    enum class ReportType {
+        INSERT,
+        DELETE
+    }
+
     inner class Node(val data: T?, next: Node?) {
         var state = AtomicMarkableReference(next, false)
         val next: Node?
@@ -48,8 +53,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             while (true) {
                 succ = curr.state.get(marked)!!
                 while (marked[0]) {
-                    val sc = snapPointer.get()
-                    sc.report()
+                    reportDelete(curr)
                     snip = prev.upgradeAttempt(curr, succ)
                     if (!snip) continue@retry
                     curr = succ
@@ -66,49 +70,61 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
     }
 
     override fun add(data: T): Boolean {
-        var window: Window
-        var prev: Node
-        var curr: Node
+        var previous: Node
+        var current: Node
         var node: Node
         while (true) {
-            window = find(data)
-            prev = window.prev
-            curr = window.curr
-            if (curr.data == data) {
-                val sc = snapPointer.get()
-                // report only if you are not going to be deleted
-                if (!curr.isRemoved()) sc.report()
+            find(data).apply {
+                previous = prev
+                current = curr
+            }
+            if (current.data == data) {
+                reportInsert(current)
                 return false
-            } else {
-                node = Node(data, curr)
-                if (prev.upgradeAttempt(curr, node)) {
-                    val sc = snapPointer.get()
-                    // report only if you are not going to be deleted
-                    if (!node.isRemoved()) sc.report()
+            }
+            else {
+                node = Node(data, current)
+                if (previous.upgradeAttempt(current, node)) {
+                    reportInsert(node)
                     return true
                 }
             }
         }
     }
 
+    fun reportInsert(node: Node){
+        // addReport INSERT only if you are not going to be deleted
+        if (node.isRemoved()) return
+
+        val sc = snapPointer.get()
+        sc.addReport(node, ReportType.INSERT)
+    }
+
+    fun reportDelete(node: Node) {
+        val sc = snapPointer.get()
+        sc.addReport(node, ReportType.DELETE)
+    }
+
     override fun remove(data: T): Boolean {
         var snip: Boolean
         while (true) {
-            val window = find(data)
-            val prev = window.prev
-            val curr = window.curr
-            if (curr.data != data) {
+            val previous: Node
+            val current: Node
+            find(data).apply {
+                previous = prev
+                current = curr
+            }
+
+            if (current.data != data) {
                 return false
             } else {
-                val succ = curr.next
+                val next = current.next
                 // just marking the state pointer
-                snip = curr.markRemovedAttempt(succ)
-                if (!snip)
-                    continue
-                val sc = snapPointer.get()
-                sc.report()
+                snip = current.markRemovedAttempt(next)
+                if (!snip) continue
+                reportDelete(current)
                 // physically removing curr
-                prev.upgradeAttempt(curr, succ)
+                previous.upgradeAttempt(current, next)
                 return true
             }
         }
@@ -131,47 +147,35 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         return current == null
     }
 
-    override fun iterator(): Iterator<T> {
-        return iterList().iterator()
-    }
+    override fun iterator(): Iterator<T> = getSnapshot().iterator()
 
     inner class SnapCollector {
-        private val reports: Array<ReportItem?>
-        private val tail: AtomicReference<NodeWrapper>
-        private val blocker = ReportItem()
+        private val reports = mutableMapOf<Int, NodeWrapper>()
+        private val head = NodeWrapper()
+        private val tail = AtomicReference(head)
+        private val blocker = NodeWrapper()
         @Volatile
-        private var active = false
+        private var active = true
 
-        private val allReports = AtomicReference<Array<ReportItem>>(null)
-
-        inner class NodeWrapper(var node: Node? = null, var data: T? = null) {
+        inner class NodeWrapper(var node: Node? = null,
+                                val type: ReportType? = null) {
             val next = AtomicReference<NodeWrapper>(null)
         }
 
-        init {
-            val head = NodeWrapper(data = null)
-            tail = AtomicReference(head)
-            active = true
-
-            reports = arrayOfNulls(NUM_THREADS)
-            for (i in 0 until NUM_THREADS) {
-                reports[i] = ReportItem()
-            }
-        }
-
-        fun addNode(node: Node, data: T?): Node? {
+        fun addNode(node: Node): Node? {
             val last = tail.get()
-            if (last.data == null || last.data!! >= data!!) {
-                return last.node
+
+            val lastNode = last.node
+            if (lastNode == null || (lastNode.data != null && node.data != null && lastNode.data >= node.data)) {
+                return lastNode
             }
 
             if (last.next.get() != null) {
-                if (last === tail.get())
-                    tail.compareAndSet(last, last.next.get())
+                if (last === tail.get()) tail.compareAndSet(last, last.next.get())
                 return tail.get().node
             }
 
-            val newNode = NodeWrapper(node, data)
+            val newNode = NodeWrapper(node)
             return if (last.next.compareAndSet(null, newNode)) {
                 tail.compareAndSet(last, newNode)
                 node
@@ -180,13 +184,17 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             }
         }
 
-        fun report() {
+        fun addReport(victim: Node, action: ReportType) {
             if (!isActive()) return
-            val threadId = 0
-            val tail = reports[threadId]
-            val newItem = ReportItem()
-            if (tail!!.next.compareAndSet(null, newItem))
+
+            val threadId = Thread.currentThread().id.toInt()
+            val tail = reports.getOrPut(threadId) { NodeWrapper() }
+            val newItem = NodeWrapper(victim, action)
+
+            if (tail == blocker) return
+            if (tail.next.compareAndSet(null, newItem)) {
                 reports[threadId] = newItem
+            }
         }
 
         fun isActive(): Boolean {
@@ -194,7 +202,6 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
 
         fun blockFurtherPointers() {
-            val blocker = NodeWrapper(null, null)
             tail.set(blocker)
         }
 
@@ -203,22 +210,59 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
 
         fun blockFurtherReports() {
-            for (i in 0 until NUM_THREADS) {
-                val tail = reports[i]
-                if (tail!!.next.get() == null)
+            reports.values.forEach { tail ->
+                if (tail.next.get() == null) {
                     tail.next.compareAndSet(null, blocker)
+                }
             }
         }
 
-        fun getReports(): List<ReportItem> {
-            return allReports.get()?.filter { it.data != null } ?: return emptyList()
+        fun getNodes() : List<Node> {
+            val result = arrayListOf<Node>()
+            var current: NodeWrapper? = head
+            while (true) {
+                current = current?.next?.get()
+                if (current == null) break
+                if (current.node == null) break
+                result.add(current.node!!)
+            }
+            return result
+        }
+
+        fun getReports(reportType: ReportType) : List<Node> {
+            val result = arrayListOf<Node>()
+            var current: NodeWrapper?
+            for (report in reports.values) {
+                current = report
+                while (current != null) {
+                    val node = current.node
+                    if (node != null && current.type == reportType) result.add(node)
+                    current = current.next.get()
+                }
+            }
+            return result
         }
     }
 
-    private fun getSnapshot(): SnapCollector {
+    private fun reconstructUsingReports(sc: SnapCollector) : ArrayList<T> {
+        val snapshot = mutableListOf<Node>()
+        val inserted = sc.getReports(ReportType.INSERT)
+        val deleted = sc.getReports(ReportType.DELETE)
+        val nodes = sc.getNodes()
+        snapshot.addAll(inserted)
+        snapshot.addAll(nodes)
+        snapshot.removeAll(deleted)
+        val result = arrayListOf<T>()
+        for (node in snapshot) {
+            if (node.data != null) result.add(node.data)
+        }
+        return result
+    }
+
+    private fun getSnapshot(): List<T> {
         val sc = acquireSnapCollector()
         collectSnapshot(sc)
-        return sc
+        return reconstructUsingReports(sc)
     }
 
     private fun acquireSnapCollector(): SnapCollector {
@@ -238,7 +282,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         var curr: Node? = head.next
         while (sc.isActive()) {
             if (!curr!!.isRemoved())
-                curr = sc.addNode(curr, curr.data)
+                curr = sc.addNode(curr)
             if (curr == null) {
                 sc.blockFurtherPointers()
                 sc.deactivate()
@@ -251,14 +295,5 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             curr = curr.next
         }
         sc.blockFurtherReports()
-    }
-
-    private fun iterList(): List<T> {
-        val snap = getSnapshot()
-        return snap.getReports().map { it.data!! }
-    }
-
-    inner class ReportItem(val data: T? = null) {
-        val next: AtomicReference<ReportItem> = AtomicReference<ReportItem>(null)
     }
 }
