@@ -81,8 +81,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             if (current.data == data) {
                 reportInsert(current)
                 return false
-            }
-            else {
+            } else {
                 node = Node(data, current)
                 if (previous.upgradeAttempt(current, node)) {
                     reportInsert(node)
@@ -92,7 +91,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
     }
 
-    fun reportInsert(node: Node){
+    fun reportInsert(node: Node) {
         // addReport INSERT only if you are not going to be deleted
         if (node.isRemoved()) return
 
@@ -135,7 +134,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         find(data).apply {
             current = curr
         }
-        if ( current.data != data || current.isRemoved()) return false
+        if (current.data != data || current.isRemoved()) return false
         return true
     }
 
@@ -157,8 +156,10 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         @Volatile
         private var active = true
 
-        inner class NodeWrapper(var node: Node? = null,
-                                val type: ReportType? = null) {
+        inner class NodeWrapper(
+                var node: Node? = null,
+                val type: ReportType? = null
+        ) {
             val next = AtomicReference<NodeWrapper>(null)
         }
 
@@ -217,7 +218,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             }
         }
 
-        fun getNodes() : List<Node> {
+        fun getNodes(): List<Node> {
             val result = arrayListOf<Node>()
             var current: NodeWrapper? = head
             while (true) {
@@ -229,7 +230,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
             return result
         }
 
-        fun getReports(reportType: ReportType) : List<Node> {
+        fun getReports(reportType: ReportType): List<Node> {
             val result = arrayListOf<Node>()
             var current: NodeWrapper?
             for (report in reports.values) {
@@ -244,7 +245,7 @@ class LockFreeSetImpl<T : Comparable<T>> : LockFreeSet<T> {
         }
     }
 
-    private fun reconstructUsingReports(sc: SnapCollector) : ArrayList<T> {
+    private fun reconstructUsingReports(sc: SnapCollector): List<T> {
         val snapshot = mutableListOf<Node>()
         val inserted = sc.getReports(ReportType.INSERT)
         val deleted = sc.getReports(ReportType.DELETE)
