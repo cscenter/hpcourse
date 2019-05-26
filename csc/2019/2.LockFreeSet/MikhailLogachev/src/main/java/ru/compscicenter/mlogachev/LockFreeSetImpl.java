@@ -79,7 +79,33 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
     @Override
     public boolean isEmpty() {
-        return created.longValue() <= marked_for_deletion.longValue();
+        // first check that head.next == tail
+        if (checkDummy(head.next.getReference())) return true;
+
+
+        // then go and cleanup all marked nodes
+        Node curr = head.next.getReference();
+        Node next = curr.next.getReference();
+
+        boolean[] marked = {curr.next.isMarked()};
+
+        while (!checkDummy(next) && marked[0]) {
+            boolean success = head.next.compareAndSet(curr, next, false, false);
+            if (!success) {
+                // something changed, so either insert or delete was called
+                return false;
+            }
+            curr = next;
+            next = curr.next.getReference();
+        }
+
+        // if didn't get to tail, some unmarked node must exist
+        if (!checkDummy(next)) return false;
+
+        // got to tail
+        // so if head.next != tail, then some additions happened, while we were away
+        return checkDummy(head.next.getReference());
+
     }
 
     @Override
