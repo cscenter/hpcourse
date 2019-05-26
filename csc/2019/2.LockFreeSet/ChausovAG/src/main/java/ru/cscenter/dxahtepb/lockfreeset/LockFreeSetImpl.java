@@ -46,11 +46,13 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
 
   @Override
   public boolean contains(final T value) {
-    Node curr = head.next.getReference();
+    final boolean[] holder = new boolean[1];
+    Node curr = head.next.get(holder);
     while (curr != null && curr.value.compareTo(value) < 0) {
-      curr = curr.next.getReference();
+      curr = curr.next.get(holder);
     }
-    return curr != null && curr.value.compareTo(value) == 0 && !curr.next.isMarked();
+    final boolean isCurrMarked = holder[0];
+    return curr != null && curr.value.compareTo(value) == 0 && !isCurrMarked;
   }
 
   private Pair find(final T value) {
@@ -64,12 +66,14 @@ public class LockFreeSetImpl<T extends Comparable<T>> implements LockFreeSet<T> 
           return new Pair(prev, null);
         }
 
-        final Node succ = curr.next.getReference();
+        final boolean[] holder = new boolean[1];
+        final Node succ = curr.next.get(holder);
+        final boolean isCurrMarked = holder[0];
 
-        if (curr.next.isMarked() && !prev.next.compareAndSet(curr, succ, false, false)) {
+        if (isCurrMarked && !prev.next.compareAndSet(curr, succ, false, false)) {
           continue retry;
         } else {
-          if (!curr.next.isMarked() && value.compareTo(curr.value) <= 0) {
+          if (!isCurrMarked && value.compareTo(curr.value) <= 0) {
             return new Pair(prev, curr);
           }
           prev = curr;
